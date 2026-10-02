@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "skills": {
+    "cloudflare": {
+      "source": "cloudflare/skills",
+      "sourceType": "github",
+      "skillPath": "skills/cloudflare/SKILL.md",
+      "computedHash": "6f0a70840cad114f020e5950874f255b22e669f07036cf4f81d8f733ae0233a0"
+    },
+    "wrangler": {
+      "source": "cloudflare/skills",
+      "sourceType": "github",
+      "skillPath": "skills/wrangler/SKILL.md",
+      "computedHash": "6d2bade1438d89034a750b1ddf30d0e5b62823306eccf85a5b25ccc4352ff8a9"
+    }
+  }
+}
