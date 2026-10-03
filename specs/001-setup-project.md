@@ -2,7 +2,7 @@
 
 ## Status
 
-Draft
+Done
 
 ## Goal
 
@@ -65,7 +65,7 @@ Initialize the repository as a small npm monorepo. The frontend and API are sepa
 - The web app calls the API over HTTP. Local development runs both applications and configures the Vite development server to proxy `/api` requests to the local Worker, so browser code can use same-origin API paths without production credentials. Production API origin is non-secret deployment configuration, not a credential embedded in source.
 - Root npm scripts coordinate workspace install, local development, type checking, tests, and production builds. The API and frontend retain their own package scripts for application-specific commands.
 - D1 schema migrations live in `apps/api/migrations/`; only the minimal migration or binding setup needed to demonstrate the local migration workflow is part of this project foundation.
-- Deploy the frontend and API as separate Cloudflare applications. Document the Pages build output and the Worker deployment command, and identify required D1 and environment bindings without supplying real IDs or secret values.
+- Deploy the frontend and API as separate Cloudflare applications. Document the Pages build output and the Worker deployment command, and identify required D1 bindings, non-sensitive environment variables, and Worker Secrets without supplying real IDs or secret values.
 
 ## Out of Scope
 

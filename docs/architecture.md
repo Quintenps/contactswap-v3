@@ -47,7 +47,7 @@ Cloudflare R2 should only be introduced if optional picture uploads require obje
 
 ## Secrets and integrations
 
-The owner secret, signed-URL signing configuration, and webhook configuration are server-side environment bindings. Owner-secret rotation is performed by updating the Cloudflare Pages environment variable. Webhook messages contain only a submission summary unless the product requirements explicitly change.
+The owner secret, signed-URL signing key, and webhook credentials are Cloudflare Worker Secrets configured on the API Worker, not plaintext Wrangler `vars` or Cloudflare Pages variables. The Worker accesses them through its server-side bindings; they must never be included in frontend assets or logs. Use non-sensitive environment variables only for non-secret configuration. For local development, put secret values in an ignored `.dev.vars` file beside the Wrangler configuration and do not commit it. Owner-secret rotation is performed by updating the API Worker's Worker Secret through Wrangler or the Cloudflare dashboard. Webhook messages contain only a submission summary unless the product requirements explicitly change.
 
 ## API
 

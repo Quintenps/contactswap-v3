@@ -42,7 +42,7 @@ Quinten maintains a persisted contact profile and shares one-time links so frien
 - Guest submissions and associated stored files are retained for 30 days, then deleted.
 - Guest links do not expire with age. The owner can delete them, and a link is removed after its first successful submission.
 - A successful submission stores the guest record, sends a summary webhook notification, and shows a thank-you page.
-- The owner secret is configured server-side as a Cloudflare Pages environment variable and can be rotated there; no full account system is required.
+- The owner secret is configured as a Cloudflare Worker Secret on the API Worker and can be rotated there; no full account system is required.
 
 ## Agent workflow
 
