@@ -57,8 +57,9 @@ The system is web-based, mobile-first, and deployed on Cloudflare Pages. vCard 4
 - A single owner, Quinten, can maintain the contact details shared with guests.
 - Quinten's editable contact details are persisted in D1 so they do not need to be re-entered or extracted from a downloaded vCard when he updates them.
 - Quinten can edit his profile or create a shareable link from the same owner-only page protected by a secret token; a full account system is not required.
-- Quinten can rotate the owner secret by updating the API Worker's Cloudflare Worker Secret; the secret must never be exposed in client-side code.
+- Quinten can rotate the admin token by updating the API Worker's Cloudflare Worker Secret; the token must never be exposed in client-side code.
 - On every successful owner-profile save, Quinten's contact information is rendered as vCard 4.0 and the current rendered vCard is stored ready for use.
+- Quinten can download his current profile vCard through an owner-authorized endpoint.
 - Quinten can generate a unique guest link for form submission.
 - Every guest link has a distinct signed URL for accessing Quinten's current vCard 4.0; the card must not be available through a public profile URL.
 - A guest can open the link, access Quinten's vCard through its signed URL, and submit their own contact details through a form.
@@ -114,7 +115,7 @@ The system is web-based, mobile-first, and deployed on Cloudflare Pages. vCard 4
 - The product is mobile-first, with desktop and tablet support as secondary goals.
 - The product targets current mobile browsers, especially Safari on iPhone and Chrome on Android.
 - Quinten accesses the owner-only profile-management page using a secret token; no full account system is included.
-- The owner secret is stored as a Cloudflare Worker Secret on the API Worker and never exposed to the browser.
+- The admin token is stored as a Cloudflare Worker Secret on the API Worker and never exposed to the browser.
 - Signed vCard URLs are generated and validated server-side and are scoped to their associated guest link.
 - Guest submissions are stored in a database compatible with Cloudflare Pages; Cloudflare D1 is the default choice.
 - Webhook credentials are configured as Cloudflare Worker Secrets on the API Worker, with Discord as the initial example destination.
@@ -141,6 +142,7 @@ The system is web-based, mobile-first, and deployed on Cloudflare Pages. vCard 4
 - Quinten can either edit his own details or create a shareable guest link from the same page.
 - Quinten's profile persists between visits so he does not need to re-enter it every time.
 - Quinten can edit his persisted D1 profile, and each successful save leaves its current vCard 4.0 ready for use.
+- Quinten can download his own current vCard without using a guest link.
 - A guest can complete the form successfully and sees a thank-you page.
 - Quinten receives a notification when a guest submits the form.
 - Quinten can open the authorized owner page and generate/download a vCard 4.0 from the stored guest data.

@@ -11,6 +11,9 @@
       "migrations_dir": "migrations"
     }
   ],
+  "secrets": {
+    "required": ["ADMIN_TOKEN"]
+  },
   "dev": {
     "ip": "127.0.0.1",
     "port": 8787,
