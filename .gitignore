@@ -1,0 +1,12 @@
+node_modules/
+dist/
+coverage/
+.wrangler/
+**/.wrangler/
+.dev.vars*
+.env*
+!.env.example
+*.sqlite
+*.sqlite3
+*.db
+worker-configuration.d.ts
