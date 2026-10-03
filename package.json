@@ -1,0 +1,23 @@
+{
+  "name": "contactswap",
+  "private": true,
+  "workspaces": [
+    "apps/api",
+    "apps/web"
+  ],
+  "scripts": {
+    "dev": "concurrently --kill-others --names API,web --prefix-colors magenta,cyan \"npm run dev --workspace @contactswap/api\" \"npm run dev --workspace @contactswap/web\"",
+    "typecheck": "npm run typecheck --workspace @contactswap/api && npm run typecheck --workspace @contactswap/web",
+    "test": "npm test --workspace @contactswap/api",
+    "build": "npm run build --workspace @contactswap/web && npm run build --workspace @contactswap/api",
+    "migrate:local": "npm run migrate:local --workspace @contactswap/api",
+    "verify": "npm run typecheck && npm test && npm run build"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.5"
+  },
+  "engines": {
+    "node": ">=22.12.0",
+    "npm": ">=10.0.0"
+  }
+}
