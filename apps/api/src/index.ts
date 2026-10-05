@@ -218,6 +218,64 @@ app.get("/api/owner/profile/vcard", async (context) => {
   return context.body(profile.vcard);
 });
 
+app.get("/api/owner/submissions", async (context) => {
+  const now = new Date().toISOString();
+  const submissions = await context.env.DB.prepare(
+    `SELECT id, name, created_at AS createdAt, expires_at AS expiresAt
+     FROM guest_submissions
+     WHERE expires_at > ?
+     ORDER BY created_at DESC, id DESC`
+  )
+    .bind(now)
+    .all<{ id: string; name: string; createdAt: string; expiresAt: string }>();
+
+  return context.json({ submissions: submissions.results });
+});
+
+app.get("/api/owner/submissions/:id", async (context) => {
+  const now = new Date().toISOString();
+  const submission = await context.env.DB.prepare(
+    `SELECT id, name, email, address, birthday,
+            created_at AS createdAt, expires_at AS expiresAt
+     FROM guest_submissions
+     WHERE id = ? AND expires_at > ?`
+  )
+    .bind(context.req.param("id"), now)
+    .first<GuestSubmission & { id: string; createdAt: string; expiresAt: string }>();
+
+  if (!submission) {
+    return context.json(
+      { error: { code: "submission_not_found", message: "The submission was not found." } },
+      404
+    );
+  }
+
+  return context.json(submission);
+});
+
+app.get("/api/owner/submissions/:id/vcard", async (context) => {
+  const now = new Date().toISOString();
+  const submission = await context.env.DB.prepare(
+    `SELECT name, email, address, birthday
+     FROM guest_submissions
+     WHERE id = ? AND expires_at > ?`
+  )
+    .bind(context.req.param("id"), now)
+    .first<GuestSubmission>();
+
+  if (!submission) {
+    return context.json(
+      { error: { code: "submission_not_found", message: "The submission was not found." } },
+      404
+    );
+  }
+
+  context.header("Content-Type", "text/vcard; version=4.0; charset=utf-8");
+  context.header("Content-Disposition", 'attachment; filename="contactswap-submission.vcf"');
+  context.header("Referrer-Policy", "no-referrer");
+  return context.body(renderVCard(submission));
+});
+
 app.post("/api/owner/links", async (context) => {
   const profile = await context.env.DB.prepare(
     "SELECT id FROM owner_profile WHERE id = 1"
@@ -424,7 +482,10 @@ export async function runScheduledTasks(environment: Env): Promise<void> {
       const response = await fetch(environment.WEBHOOK_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: "A guest completed the ContactSwap contact form." })
+        body: JSON.stringify({
+          content: "@everyone A new contact was submitted through ContactSwap.",
+          allowed_mentions: { parse: ["everyone"] }
+        })
       });
       if (!response.ok) {
         throw new Error("Webhook delivery failed.");
