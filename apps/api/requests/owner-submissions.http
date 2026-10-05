@@ -1,6 +1,6 @@
 @baseUrl = http://127.0.0.1:8787
 @adminToken = {{$dotenv ADMIN_TOKEN}}
-@submissionId = c03bcaad-842a-4802-b833-cf779f7b7f3c
+@submissionId = {{$dotenv SUBMISSION_ID}}
 
 ### List retained guest submissions
 GET {{baseUrl}}/api/owner/submissions

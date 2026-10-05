@@ -276,6 +276,27 @@ app.get("/api/owner/submissions/:id/vcard", async (context) => {
   return context.body(renderVCard(submission));
 });
 
+app.get("/api/owner/links", async (context) => {
+  const links = await context.env.DB.prepare(
+    `SELECT id, created_at AS createdAt, consumed_at AS consumedAt, revoked_at AS revokedAt
+     FROM guest_links
+     ORDER BY created_at DESC, id DESC`
+  ).all<{
+    id: string;
+    createdAt: string;
+    consumedAt: string | null;
+    revokedAt: string | null;
+  }>();
+
+  return context.json({
+    links: links.results.map((link) => ({
+      id: link.id,
+      createdAt: link.createdAt,
+      status: link.revokedAt ? "revoked" : link.consumedAt ? "consumed" : "active"
+    }))
+  });
+});
+
 app.post("/api/owner/links", async (context) => {
   const profile = await context.env.DB.prepare(
     "SELECT id FROM owner_profile WHERE id = 1"
@@ -304,6 +325,38 @@ app.post("/api/owner/links", async (context) => {
 
   const guestUrl = new URL(`/guest/${guestToken}`, publicAppOrigin).toString();
   return context.json({ guestUrl }, 201);
+});
+
+app.delete("/api/owner/links/:id", async (context) => {
+  const linkId = context.req.param("id");
+  if (!/^[\da-f]{8}-(?:[\da-f]{4}-){3}[\da-f]{12}$/i.test(linkId)) {
+    return context.json(
+      { error: { code: "invalid_link_id", message: "The link ID is invalid." } },
+      400
+    );
+  }
+
+  const result = await context.env.DB.prepare(
+    `UPDATE guest_links SET revoked_at = ?
+     WHERE id = ? AND revoked_at IS NULL AND consumed_at IS NULL`
+  )
+    .bind(new Date().toISOString(), linkId)
+    .run();
+
+  if (result.meta.changes === 0) {
+    const link = await context.env.DB.prepare("SELECT id FROM guest_links WHERE id = ?")
+      .bind(linkId)
+      .first<{ id: string }>();
+
+    if (!link) {
+      return context.json(
+        { error: { code: "guest_link_not_found", message: "The guest link was not found." } },
+        404
+      );
+    }
+  }
+
+  return context.body(null, 204);
 });
 
 app.get("/api/guest/links/:token", async (context) => {
