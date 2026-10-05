@@ -1,5 +1,6 @@
 @baseUrl = http://127.0.0.1:8787
 @adminToken = {{$dotenv ADMIN_TOKEN}}
+@linkId = {{$dotenv LINK_ID}}
 
 ### Read owner profile
 GET {{baseUrl}}/api/owner/profile
@@ -24,6 +25,18 @@ Authorization: Bearer {{adminToken}}
 Accept: text/vcard
 
 ### Create a guest link (requires a saved owner profile)
+# @name createGuestLink
 POST {{baseUrl}}/api/owner/links
 Authorization: Bearer {{adminToken}}
 Accept: application/json
+
+### List created guest links
+# @name listGuestLinks
+GET {{baseUrl}}/api/owner/links
+Authorization: Bearer {{adminToken}}
+Accept: application/json
+
+### Revoke a guest link
+# Set LINK_ID in apps/api/.env to the ID of the link you want to revoke.
+DELETE {{baseUrl}}/api/owner/links/{{linkId}}
+Authorization: Bearer {{adminToken}}
