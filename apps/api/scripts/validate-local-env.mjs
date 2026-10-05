@@ -28,6 +28,21 @@ if (
   );
 }
 
+const webhookUrl = process.env.WEBHOOK_URL?.trim() ?? "";
+try {
+  const parsedWebhookUrl = new URL(webhookUrl);
+  if (
+    parsedWebhookUrl.protocol !== "https:" ||
+    parsedWebhookUrl.username ||
+    parsedWebhookUrl.password ||
+    webhookUrl.startsWith("replace-with-")
+  ) {
+    failures.push("WEBHOOK_URL must be a configured HTTPS webhook URL.");
+  }
+} catch {
+  failures.push("WEBHOOK_URL must be a configured HTTPS webhook URL.");
+}
+
 try {
   const origin = new URL(process.env.PUBLIC_APP_ORIGIN ?? "");
   if (

@@ -1,0 +1,22 @@
+@baseUrl = http://127.0.0.1:8787
+@guestToken = hbMjNd2u3lIkDmfs2UCO1p5hQzCBh9BhGx0QF7yyiIE
+
+### Resolve guest link
+# @name resolveGuestLink
+GET {{baseUrl}}/api/guest/links/{{guestToken}}
+Accept: application/json
+
+### Download Quinten's current vCard through the link-scoped URL
+GET {{baseUrl}}{{resolveGuestLink.response.body.$.vcardUrl}}
+Accept: text/vcard
+
+### Submit guest contact details
+POST {{baseUrl}}/api/guest/links/{{guestToken}}/submissions
+Content-Type: application/json
+
+{
+  "name": "Morgan Rivera",
+  "email": "morgan.rivera@example.invalid",
+  "address": "42 Example Avenue, Sampleville, ZZ 00000",
+  "birthday": "1992-07-14"
+}
