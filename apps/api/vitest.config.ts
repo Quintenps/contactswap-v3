@@ -16,6 +16,7 @@ export default defineConfig({
           bindings: {
             ADMIN_TOKEN: "test-only-admin-token",
             LINK_SIGNING_KEY: "test-only-link-signing-key-with-32-bytes",
+            WEBHOOK_URL: "https://hooks.example.invalid/test-only-secret",
             PUBLIC_APP_ORIGIN: "https://contactswap.pages.dev",
             TEST_MIGRATIONS: migrations
           }

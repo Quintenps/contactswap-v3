@@ -11,11 +11,14 @@
       "migrations_dir": "migrations"
     }
   ],
+  "triggers": {
+    "crons": ["*/5 * * * *"]
+  },
   "vars": {
     "PUBLIC_APP_ORIGIN": "https://contactswap.pages.dev"
   },
   "secrets": {
-    "required": ["ADMIN_TOKEN", "LINK_SIGNING_KEY"]
+    "required": ["ADMIN_TOKEN", "LINK_SIGNING_KEY", "WEBHOOK_URL"]
   },
   "dev": {
     "ip": "127.0.0.1",

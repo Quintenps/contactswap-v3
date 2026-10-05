@@ -49,6 +49,8 @@ describe("owner guest-link API", () => {
   });
 
   beforeEach(async () => {
+    await env.DB.prepare("DELETE FROM notification_outbox").run();
+    await env.DB.prepare("DELETE FROM guest_submissions").run();
     await env.DB.prepare("DELETE FROM guest_links").run();
     await env.DB.prepare("DELETE FROM owner_profile").run();
   });
