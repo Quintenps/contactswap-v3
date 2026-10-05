@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { routePath } from "hono/route";
 import { renderVCard } from "./vcard";
 
 const app = new Hono<{ Bindings: Env }>();
@@ -11,6 +12,54 @@ type OwnerProfile = {
 };
 
 type StoredOwnerProfile = OwnerProfile & { vcard: string };
+
+const encoder = new TextEncoder();
+
+function encodeBase64Url(bytes: Uint8Array): string {
+  let binary = "";
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+
+  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
+}
+
+async function hashGuestToken(token: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", encoder.encode(token));
+  return encodeBase64Url(new Uint8Array(digest));
+}
+
+async function signVCardLink(linkId: string, signingKey: string): Promise<string> {
+  if (encoder.encode(signingKey).byteLength < 32) {
+    throw new Error("LINK_SIGNING_KEY must contain at least 32 bytes.");
+  }
+
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(signingKey),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(`vcard:${linkId}`));
+  return encodeBase64Url(new Uint8Array(signature));
+}
+
+function getPublicAppOrigin(value: string): URL {
+  const origin = new URL(value);
+  if (
+    !["https:", "http:"].includes(origin.protocol) ||
+    origin.username ||
+    origin.password ||
+    origin.pathname !== "/" ||
+    origin.search ||
+    origin.hash
+  ) {
+    throw new Error("PUBLIC_APP_ORIGIN must be an HTTP(S) origin.");
+  }
+
+  return origin;
+}
 
 function isValidBirthday(value: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || Number(value.slice(0, 4)) < 1) {
@@ -147,8 +196,58 @@ app.get("/api/owner/profile/vcard", async (context) => {
   return context.body(profile.vcard);
 });
 
-app.onError((_error, context) => {
+app.post("/api/owner/links", async (context) => {
+  const profile = await context.env.DB.prepare(
+    "SELECT id FROM owner_profile WHERE id = 1"
+  ).first<{ id: number }>();
+
+  if (!profile) {
+    return context.json(
+      { error: { code: "profile_not_found", message: "No owner profile has been saved." } },
+      404
+    );
+  }
+
+  const publicAppOrigin = getPublicAppOrigin(context.env.PUBLIC_APP_ORIGIN);
+  const linkId = crypto.randomUUID();
+  const tokenBytes = crypto.getRandomValues(new Uint8Array(32));
+  const guestToken = encodeBase64Url(tokenBytes);
+  const tokenHash = await hashGuestToken(guestToken);
+  const vcardSignature = await signVCardLink(linkId, context.env.LINK_SIGNING_KEY);
+
+  await context.env.DB.prepare(
+    `INSERT INTO guest_links (id, token_hash, vcard_signature, created_at)
+     VALUES (?, ?, ?, ?)`
+  )
+    .bind(linkId, tokenHash, vcardSignature, new Date().toISOString())
+    .run();
+
+  const guestUrl = new URL(`/guest/${guestToken}`, publicAppOrigin).toString();
+  return context.json({ guestUrl }, 201);
+});
+
+app.onError((error, context) => {
+  const requestId = crypto.randomUUID();
+  const stackFrames =
+    error instanceof Error && error.stack
+      ? error.stack
+          .split("\n")
+          .slice(1, 6)
+          .map((frame) => frame.trim())
+          .filter((frame) => frame.startsWith("at "))
+      : [];
+
+  console.error("Unhandled API exception", {
+    event: "api.unhandled_exception",
+    requestId,
+    method: context.req.method,
+    route: routePath(context) || "<unmatched>",
+    errorName: error instanceof Error ? error.name : typeof error,
+    stackFrames
+  });
+
   context.header("Cache-Control", "no-store");
+  context.header("X-Request-ID", requestId);
   return context.json(
     { error: { code: "internal_error", message: "An unexpected error occurred." } },
     500

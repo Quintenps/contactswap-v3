@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "predev": "node scripts/validate-local-env.mjs",
     "dev": "wrangler dev",
     "typecheck": "wrangler types && tsc --noEmit && tsc --noEmit -p test/tsconfig.json",
     "test": "vitest run",

@@ -22,3 +22,8 @@ Content-Type: application/json
 GET {{baseUrl}}/api/owner/profile/vcard
 Authorization: Bearer {{adminToken}}
 Accept: text/vcard
+
+### Create a guest link (requires a saved owner profile)
+POST {{baseUrl}}/api/owner/links
+Authorization: Bearer {{adminToken}}
+Accept: application/json
