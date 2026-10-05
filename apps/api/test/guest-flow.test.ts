@@ -210,7 +210,7 @@ describe("guest URL API flow", () => {
     await env.DB.prepare("DROP TRIGGER fail_notification_insert").run();
   });
 
-  it("sends only a generic summary and retries webhook failures", async () => {
+  it("sends the fixed Discord mention and retries webhook failures", async () => {
     const { token } = await createGuestLink();
     await submit(token);
     const failedDelivery = vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new Error("offline"));
@@ -220,8 +220,12 @@ describe("guest URL API flow", () => {
     expect(failedDelivery).toHaveBeenCalledTimes(1);
     const failedBody = JSON.parse(String(failedDelivery.mock.calls[0][1]?.body)) as {
       content: string;
+      allowed_mentions: { parse: string[] };
     };
-    expect(failedBody.content).toBe("A guest completed the ContactSwap contact form.");
+    expect(failedBody).toEqual({
+      content: "@everyone A new contact was submitted through ContactSwap.",
+      allowed_mentions: { parse: ["everyone"] }
+    });
     expect(JSON.stringify(failedBody)).not.toContain(submission.email);
     const retryJob = await env.DB.prepare(
       "SELECT attempts, next_attempt_at FROM notification_outbox"
