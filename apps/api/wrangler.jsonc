@@ -11,8 +11,11 @@
       "migrations_dir": "migrations"
     }
   ],
+  "vars": {
+    "PUBLIC_APP_ORIGIN": "https://contactswap.pages.dev"
+  },
   "secrets": {
-    "required": ["ADMIN_TOKEN"]
+    "required": ["ADMIN_TOKEN", "LINK_SIGNING_KEY"]
   },
   "dev": {
     "ip": "127.0.0.1",
