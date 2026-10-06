@@ -1,5 +1,5 @@
 @baseUrl = http://127.0.0.1:8787
-@guestToken = {{$dotenv GUEST_TOKEN}}
+@guestToken = {{$dotenv LINK_GUEST_TOKEN}}
 
 ### Resolve guest link
 # @name resolveGuestLink
