@@ -9,9 +9,12 @@ type ProfileFields = {
 
 type Profile = ProfileFields & { hasPhoto: boolean };
 type FieldName = keyof ProfileFields;
-type View = "checking" | "login" | "loading" | "profile";
+type LinkStatus = "active" | "consumed" | "revoked";
+type GuestLink = { id: string; createdAt: string; status: LinkStatus };
+type View = "checking" | "login" | "loading" | "profile" | "links";
 
 const tokenStorageKey = "contactswap-owner-token";
+const linksPath = "/owner/links";
 const fields: { name: FieldName; label: string; type: string; autoComplete: string }[] = [
   { name: "name", label: "Full name", type: "text", autoComplete: "name" },
   { name: "email", label: "Email address", type: "email", autoComplete: "email" },
@@ -23,6 +26,65 @@ const emptyFields: ProfileFields = { name: "", email: "", address: "", birthday:
 
 function ownerAuthorization(token: string): string {
   return `Bearer ${token}`;
+}
+
+class OwnerApiError extends Error {
+  constructor(
+    readonly status: number,
+    readonly code?: string
+  ) {
+    super("Owner API request failed.");
+  }
+}
+
+function isGuestLinkList(value: unknown): value is { links: GuestLink[] } {
+  if (typeof value !== "object" || value === null || !("links" in value) || !Array.isArray(value.links)) {
+    return false;
+  }
+  return value.links.every((link: unknown) => {
+    if (typeof link !== "object" || link === null) return false;
+    const candidate = link as Record<string, unknown>;
+    return (
+      typeof candidate.id === "string" &&
+      typeof candidate.createdAt === "string" &&
+      (candidate.status === "active" || candidate.status === "consumed" || candidate.status === "revoked")
+    );
+  });
+}
+
+function isGuestUrl(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  try {
+    const url = new URL(value);
+    return (
+      (url.protocol === "http:" || url.protocol === "https:") &&
+      /^\/guest\/[^/]+$/.test(url.pathname) &&
+      !url.username &&
+      !url.password &&
+      !url.search &&
+      !url.hash
+    );
+  } catch {
+    return false;
+  }
+}
+
+async function fetchOwnerLinks(token: string, signal?: AbortSignal): Promise<GuestLink[]> {
+  const response = await fetch("/api/owner/links", {
+    headers: { Authorization: ownerAuthorization(token) },
+    cache: "no-store",
+    signal
+  });
+  if (!response.ok) throw new OwnerApiError(response.status, await errorCode(response));
+  const payload: unknown = await response.json();
+  if (!isGuestLinkList(payload)) throw new Error("Invalid link list response.");
+  return payload.links;
+}
+
+function formatCreatedAt(value: string): string {
+  const date = new Date(value);
+  if (!Number.isFinite(date.valueOf())) return "Date unavailable";
+  return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(date);
 }
 
 function isProfile(value: unknown): value is Profile {
@@ -115,6 +177,11 @@ export default function App() {
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [photoRevision, setPhotoRevision] = useState(0);
   const [message, setMessage] = useState("");
+  const [guestLinks, setGuestLinks] = useState<GuestLink[]>([]);
+  const [linksLoading, setLinksLoading] = useState(false);
+  const [linkActionBusy, setLinkActionBusy] = useState<"create" | string | null>(null);
+  const [linkMessage, setLinkMessage] = useState("");
+  const [generatedGuestUrl, setGeneratedGuestUrl] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<FieldName, string>>>({});
   const [busy, setBusy] = useState<"save" | "upload" | "remove" | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -132,6 +199,10 @@ export default function App() {
     setValues(emptyFields);
     setHasPhoto(false);
     setPhotoUrl(null);
+    setGuestLinks([]);
+    setLinkActionBusy(null);
+    setLinkMessage("");
+    setGeneratedGuestUrl(null);
     setView("login");
     setFieldErrors({});
     setBusy(null);
@@ -157,7 +228,7 @@ export default function App() {
       birthday: data.birthday
     } : emptyFields);
     setHasPhoto(data?.hasPhoto ?? false);
-    setView("profile");
+    setView(window.location.pathname === linksPath ? "links" : "profile");
     setMessage(tokenRemembered
       ? data ? "" : "No profile yet."
       : "Signed in. Token not remembered.");
@@ -211,7 +282,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!activeToken || !hasPhoto) {
+    if (!activeToken || !hasPhoto || view !== "profile") {
       setPhotoUrl(null);
       return;
     }
@@ -253,7 +324,32 @@ export default function App() {
       cancelled = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [activeToken, hasPhoto, photoRevision]);
+  }, [activeToken, hasPhoto, photoRevision, view]);
+
+  useEffect(() => {
+    if (!activeToken || view !== "links") return;
+
+    const token = activeToken;
+    const controller = new AbortController();
+    setLinksLoading(true);
+    setLinkMessage("");
+    async function loadLinks() {
+      try {
+        setGuestLinks(await fetchOwnerLinks(token, controller.signal));
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        if (error instanceof OwnerApiError && error.status === 401) {
+          setUnauthorized();
+          return;
+        }
+        setLinkMessage("Links could not be loaded. Try again.");
+      } finally {
+        if (!controller.signal.aborted) setLinksLoading(false);
+      }
+    }
+    void loadLinks();
+    return () => controller.abort();
+  }, [activeToken, view]);
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -406,6 +502,110 @@ export default function App() {
     }
   }
 
+  async function handleCreateGuestLink() {
+    if (!activeToken || linkActionBusy) return;
+    if (!profile) {
+      setLinkMessage("Save your owner profile before creating a link.");
+      return;
+    }
+
+    setLinkActionBusy("create");
+    setLinkMessage("");
+    try {
+      const response = await fetch("/api/owner/links", {
+        method: "POST",
+        headers: { Authorization: ownerAuthorization(activeToken) },
+        cache: "no-store"
+      });
+      if (response.status === 401) {
+        setUnauthorized();
+        return;
+      }
+      if (response.status === 404 && (await errorCode(response)) === "profile_not_found") {
+        setProfile(null);
+        setLinkMessage("Save your owner profile before creating a link.");
+        return;
+      }
+      if (!response.ok) {
+        setLinkMessage("Link creation failed. Try again.");
+        return;
+      }
+
+      const payload: unknown = await response.json();
+      if (typeof payload !== "object" || payload === null || !("guestUrl" in payload) || !isGuestUrl(payload.guestUrl)) {
+        setLinkMessage("The link was created, but its URL could not be displayed. Check the overview before retrying.");
+        return;
+      }
+
+      setGeneratedGuestUrl(payload.guestUrl);
+      try {
+        setGuestLinks(await fetchOwnerLinks(activeToken));
+        setLinkMessage("Link created. Copy the URL now; it cannot be retrieved from this overview later.");
+      } catch (error) {
+        if (error instanceof OwnerApiError && error.status === 401) {
+          setUnauthorized();
+          return;
+        }
+        setLinkMessage("Link created, but the overview could not be refreshed. Your URL is still available to copy.");
+      }
+    } catch {
+      setLinkMessage("Link creation failed. Try again.");
+    } finally {
+      setLinkActionBusy(null);
+    }
+  }
+
+  async function handleCopyGuestUrl() {
+    if (!generatedGuestUrl) return;
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable.");
+      await navigator.clipboard.writeText(generatedGuestUrl);
+      setLinkMessage("Guest link copied.");
+    } catch {
+      const input = document.querySelector<HTMLInputElement>("#generated-guest-url");
+      input?.focus();
+      input?.select();
+      setLinkMessage("Copy is unavailable. Select and copy the link below.");
+    }
+  }
+
+  async function handleRevokeGuestLink(linkId: string) {
+    if (!activeToken || linkActionBusy) return;
+    if (!window.confirm("Revoke this link? It will stop working for guests, including its vCard link.")) return;
+
+    setLinkActionBusy(linkId);
+    setLinkMessage("");
+    try {
+      const response = await fetch(`/api/owner/links/${encodeURIComponent(linkId)}`, {
+        method: "DELETE",
+        headers: { Authorization: ownerAuthorization(activeToken) },
+        cache: "no-store"
+      });
+      if (response.status === 401) {
+        setUnauthorized();
+        return;
+      }
+      if (!response.ok) {
+        setLinkMessage("Link revocation failed. Try again.");
+        return;
+      }
+      try {
+        setGuestLinks(await fetchOwnerLinks(activeToken));
+        setLinkMessage("Link status updated.");
+      } catch (error) {
+        if (error instanceof OwnerApiError && error.status === 401) {
+          setUnauthorized();
+          return;
+        }
+        setLinkMessage("Revocation request succeeded, but the link status could not be refreshed.");
+      }
+    } catch {
+      setLinkMessage("Link revocation could not be confirmed. Refresh the overview before trying again.");
+    } finally {
+      setLinkActionBusy(null);
+    }
+  }
+
   function logout() {
     let storageCleared = true;
     try {
@@ -419,6 +619,10 @@ export default function App() {
     setValues(emptyFields);
     setHasPhoto(false);
     setPhotoUrl(null);
+    setGuestLinks([]);
+    setLinkActionBusy(null);
+    setLinkMessage("");
+    setGeneratedGuestUrl(null);
     setFieldErrors({});
     setView("login");
     setMessage(storageCleared
@@ -465,6 +669,88 @@ export default function App() {
     );
   }
 
+  if (view === "links") {
+    return (
+      <main className="shell profile-shell">
+        <header className="page-header">
+          <div>
+            <p className="eyebrow">ContactSwap</p>
+            <h1>Guest links</h1>
+          </div>
+          <div className="page-actions">
+            <a className="quiet-button nav-button" href="/">Profile</a>
+            <button className="quiet-button logout-button" type="button" onClick={logout}>Log out</button>
+          </div>
+        </header>
+
+        {linkMessage && <p className="notice page-notice" role="status" aria-live="polite">{linkMessage}</p>}
+
+        <section className="panel links-panel" aria-labelledby="links-heading">
+          <div className="section-heading">
+            <div>
+              <h2 id="links-heading">Your links</h2>
+              <p className="section-description">Active links do not expire by age. Each link can be used for one successful submission.</p>
+            </div>
+          </div>
+          {!profile && (
+            <p className="notice" role="status">
+              Save your owner profile before creating a guest link. <a href="/">Go to your profile</a>
+            </p>
+          )}
+          <button
+            className="primary-button create-link-button"
+            type="button"
+            onClick={() => void handleCreateGuestLink()}
+            disabled={!profile || linkActionBusy !== null}
+          >
+            {linkActionBusy === "create" ? "Creating…" : "Generate new link"}
+          </button>
+
+          {generatedGuestUrl && (
+            <div className="generated-link" aria-labelledby="generated-link-heading">
+              <h3 id="generated-link-heading">Your new guest link</h3>
+              <p>Copy and share this URL now. It will not be available from the overview later.</p>
+              <label className="visually-hidden" htmlFor="generated-guest-url">New guest link URL</label>
+              <input id="generated-guest-url" type="text" value={generatedGuestUrl} readOnly />
+              <button className="secondary-button" type="button" onClick={() => void handleCopyGuestUrl()}>
+                Copy link
+              </button>
+            </div>
+          )}
+
+          <h3 className="links-subheading">Overview</h3>
+          {linksLoading ? (
+            <p aria-live="polite">Loading links…</p>
+          ) : guestLinks.length === 0 ? (
+            <p>No guest links yet. Generate one when you are ready to share your contact card.</p>
+          ) : (
+            <ul className="link-list">
+              {guestLinks.map((link) => (
+                <li className="link-card" key={link.id}>
+                  <div className="link-card-content">
+                    <p><span className="link-label">Created</span> {formatCreatedAt(link.createdAt)}</p>
+                    <p><span className="link-label">Link ID</span> <code>{link.id}</code></p>
+                    <span className={`state-pill link-status status-${link.status}`}>{link.status}</span>
+                  </div>
+                  {link.status === "active" && (
+                    <button
+                      className="danger-button"
+                      type="button"
+                      onClick={() => void handleRevokeGuestLink(link.id)}
+                      disabled={linkActionBusy !== null}
+                    >
+                      {linkActionBusy === link.id ? "Revoking…" : "Revoke"}
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main className="shell profile-shell">
       <header className="page-header">
@@ -472,7 +758,10 @@ export default function App() {
           <p className="eyebrow">ContactSwap</p>
           <h1>Profile</h1>
         </div>
-        <button className="quiet-button logout-button" type="button" onClick={logout}>Log out</button>
+        <div className="page-actions">
+          <a className="quiet-button nav-button" href={linksPath}>Guest links</a>
+          <button className="quiet-button logout-button" type="button" onClick={logout}>Log out</button>
+        </div>
       </header>
 
       {message && <p className="notice page-notice" role="status" aria-live="polite">{message}</p>}
