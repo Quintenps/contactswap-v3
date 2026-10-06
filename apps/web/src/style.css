@@ -167,17 +167,49 @@ input[aria-invalid="true"] {
 
 .page-actions {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 8px;
+  align-items: center;
+  gap: 12px;
+}
+
+.owner-navigation {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #f7f8f4;
 }
 
 .nav-button {
   display: inline-flex;
+  flex: 1;
   align-items: center;
   justify-content: center;
-  min-height: 46px;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 6px;
+  color: var(--muted);
+  font-weight: 700;
   text-decoration: none;
+}
+
+.owner-nav-logout {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+}
+
+.nav-button:hover {
+  background: #edf1e9;
+  color: var(--ink);
+}
+
+.nav-button-active,
+.nav-button-active:hover {
+  background: var(--ink);
+  color: #fff;
 }
 
 .quiet-button {
@@ -459,22 +491,31 @@ input[type="file"]::file-selector-button {
   }
 
   .page-header {
-    align-items: flex-start;
+    flex-direction: column;
+    gap: 14px;
   }
 
   .page-actions {
-    align-items: flex-end;
-    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+
+  .owner-navigation {
+    width: 100%;
+  }
+
+  .nav-button {
+    flex: 1;
+    min-height: 48px;
+    padding: 0 6px;
+  }
+
+  .owner-nav-logout {
+    font-size: 0.82rem;
   }
 
   .page-header h1 {
     font-size: clamp(1.9rem, 10vw, 2.6rem);
-  }
-
-  .logout-button {
-    min-height: 40px;
-    padding: 0 10px;
-    font-size: 0.82rem;
   }
 
   .profile-form {
