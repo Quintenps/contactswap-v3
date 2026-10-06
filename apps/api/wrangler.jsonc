@@ -11,6 +11,15 @@
       "migrations_dir": "migrations"
     }
   ],
+  "r2_buckets": [
+    {
+      "binding": "PHOTOS",
+      "bucket_name": "contactswap-photos"
+    }
+  ],
+  "images": {
+    "binding": "IMAGES"
+  },
   "triggers": {
     "crons": ["*/5 * * * *"]
   },

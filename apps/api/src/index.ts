@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { routePath } from "hono/route";
+import { optimizeProfilePhoto, PhotoRequestError, photoLimits, readPhotoBody } from "./photo";
 import { renderVCard } from "./vcard";
 
 const app = new Hono<{ Bindings: Env }>();
@@ -11,12 +12,24 @@ type OwnerProfile = {
   birthday: string;
 };
 
-type StoredOwnerProfile = OwnerProfile & { vcard: string };
+type StoredOwnerProfile = OwnerProfile & { photo_key: string | null };
 type GuestSubmission = OwnerProfile;
 type NotificationJob = { id: string; attempts: number };
 
 const encoder = new TextEncoder();
 const retentionMilliseconds = 30 * 24 * 60 * 60 * 1000;
+
+async function getOwnerPhoto(environment: Env, photoKey: string | null): Promise<Uint8Array | undefined> {
+  if (!photoKey) {
+    return undefined;
+  }
+
+  const photo = await environment.PHOTOS.get(photoKey);
+  if (!photo) {
+    throw new Error("The owner photo object is missing.");
+  }
+  return new Uint8Array(await photo.arrayBuffer());
+}
 
 function encodeBase64Url(bytes: Uint8Array): string {
   let binary = "";
@@ -144,8 +157,8 @@ app.get("/api/health", (context) =>
 
 app.get("/api/owner/profile", async (context) => {
   const profile = await context.env.DB.prepare(
-    "SELECT name, email, address, birthday FROM owner_profile WHERE id = 1"
-  ).first<OwnerProfile>();
+    "SELECT name, email, address, birthday, photo_key FROM owner_profile WHERE id = 1"
+  ).first<StoredOwnerProfile>();
 
   if (!profile) {
     return context.json(
@@ -154,7 +167,8 @@ app.get("/api/owner/profile", async (context) => {
     );
   }
 
-  return context.json(profile);
+  const { photo_key: photoKey, ...fields } = profile;
+  return context.json({ ...fields, hasPhoto: Boolean(photoKey) });
 });
 
 app.put("/api/owner/profile", async (context) => {
@@ -176,16 +190,14 @@ app.put("/api/owner/profile", async (context) => {
     );
   }
 
-  const vcard = renderVCard(profile);
   await context.env.DB.prepare(
-    `INSERT INTO owner_profile (id, name, email, address, birthday, vcard, updated_at)
-     VALUES (1, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO owner_profile (id, name, email, address, birthday, updated_at)
+     VALUES (1, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        name = excluded.name,
        email = excluded.email,
        address = excluded.address,
        birthday = excluded.birthday,
-       vcard = excluded.vcard,
        updated_at = excluded.updated_at`
   )
     .bind(
@@ -193,18 +205,20 @@ app.put("/api/owner/profile", async (context) => {
       profile.email,
       profile.address,
       profile.birthday,
-      vcard,
       new Date().toISOString()
     )
     .run();
 
-  return context.json(profile);
+  const savedProfile = await context.env.DB.prepare(
+    "SELECT photo_key FROM owner_profile WHERE id = 1"
+  ).first<{ photo_key: string | null }>();
+  return context.json({ ...profile, hasPhoto: Boolean(savedProfile?.photo_key) });
 });
 
 app.get("/api/owner/profile/vcard", async (context) => {
   const profile = await context.env.DB.prepare(
-    "SELECT vcard FROM owner_profile WHERE id = 1"
-  ).first<Pick<StoredOwnerProfile, "vcard">>();
+    "SELECT name, email, address, birthday, photo_key FROM owner_profile WHERE id = 1"
+  ).first<StoredOwnerProfile>();
 
   if (!profile) {
     return context.json(
@@ -213,9 +227,190 @@ app.get("/api/owner/profile/vcard", async (context) => {
     );
   }
 
+  const photo = await getOwnerPhoto(context.env, profile.photo_key);
   context.header("Content-Type", "text/vcard; version=4.0; charset=utf-8");
   context.header("Content-Disposition", 'attachment; filename="contactswap-profile.vcf"');
-  return context.body(profile.vcard);
+  return context.body(renderVCard(profile, photo));
+});
+
+app.put("/api/owner/profile/photo", async (context) => {
+  const profile = await context.env.DB.prepare(
+    "SELECT name, email, address, birthday, photo_key FROM owner_profile WHERE id = 1"
+  ).first<StoredOwnerProfile>();
+  if (!profile) {
+    return context.json(
+      { error: { code: "profile_not_found", message: "No owner profile has been saved." } },
+      404
+    );
+  }
+
+  const contentType = context.req.header("Content-Type")?.split(";")[0].trim().toLowerCase();
+  if (!contentType || !["image/jpeg", "image/png", "image/webp"].includes(contentType)) {
+    return context.json(
+      { error: { code: "unsupported_photo_type", message: "The photo type is not supported." } },
+      415
+    );
+  }
+
+  const contentLength = context.req.header("Content-Length");
+  if (contentLength && Number(contentLength) > photoLimits.maxSourceBytes) {
+    return context.json(
+      { error: { code: "photo_too_large", message: "The uploaded photo is too large." } },
+      413
+    );
+  }
+
+  let optimized: Uint8Array;
+  try {
+    const source = await readPhotoBody(context.req.raw.body);
+    optimized = await optimizeProfilePhoto(context.env.IMAGES, source, contentType);
+  } catch (error) {
+    if (error instanceof PhotoRequestError) {
+      return context.json(
+        {
+          error: {
+            code: error.code,
+            message:
+              error.code === "photo_too_large"
+                ? "The photo could not be reduced to the supported size."
+                : "The uploaded photo is invalid."
+          }
+        },
+        error.status
+      );
+    }
+    if (typeof error === "object" && error !== null && "code" in error && error.code === 9412) {
+      return context.json(
+        { error: { code: "invalid_photo", message: "The uploaded photo is invalid." } },
+        400
+      );
+    }
+    throw error;
+  }
+
+  const photoKey = `owner-profile/${crypto.randomUUID()}.jpg`;
+  await context.env.PHOTOS.put(photoKey, optimized, {
+    httpMetadata: { contentType: "image/jpeg" }
+  });
+
+  let profileReferenceUpdated = false;
+  try {
+    const storedPhoto = await context.env.PHOTOS.get(photoKey);
+    if (!storedPhoto) {
+      throw new Error("The owner photo could not be read after upload.");
+    }
+    const storedBytes = new Uint8Array(await storedPhoto.arrayBuffer());
+    if (
+      storedBytes.byteLength !== optimized.byteLength ||
+      storedBytes.some((byte, index) => byte !== optimized[index])
+    ) {
+      throw new Error("The owner photo could not be verified after upload.");
+    }
+    renderVCard(profile, storedBytes);
+
+    const updated = await context.env.DB.prepare(
+      "UPDATE owner_profile SET photo_key = ?, updated_at = ? WHERE id = 1 AND photo_key IS ?"
+    )
+      .bind(photoKey, new Date().toISOString(), profile.photo_key)
+      .run();
+    if (updated.meta.changes !== 1) {
+      await context.env.PHOTOS.delete(photoKey);
+      return context.json(
+        { error: { code: "photo_changed", message: "The profile photo changed during upload." } },
+        409
+      );
+    }
+    profileReferenceUpdated = true;
+    if (profile.photo_key) {
+      await context.env.PHOTOS.delete(profile.photo_key);
+    }
+  } catch (error) {
+    let canDeleteNewObject = !profileReferenceUpdated;
+    try {
+      const currentProfile = await context.env.DB.prepare(
+        "SELECT photo_key FROM owner_profile WHERE id = 1"
+      ).first<{ photo_key: string | null }>();
+      if (currentProfile?.photo_key === photoKey) {
+        const restored = await context.env.DB.prepare(
+          "UPDATE owner_profile SET photo_key = ? WHERE id = 1 AND photo_key = ?"
+        )
+          .bind(profile.photo_key, photoKey)
+          .run();
+        canDeleteNewObject = restored.meta.changes === 1;
+      }
+    } catch {
+      canDeleteNewObject = false;
+    }
+    if (canDeleteNewObject) {
+      await context.env.PHOTOS.delete(photoKey);
+    }
+    throw error;
+  }
+
+  return context.json({ hasPhoto: true });
+});
+
+app.get("/api/owner/profile/photo", async (context) => {
+  const profile = await context.env.DB.prepare(
+    "SELECT photo_key FROM owner_profile WHERE id = 1"
+  ).first<{ photo_key: string | null }>();
+  if (!profile?.photo_key) {
+    return context.json(
+      { error: { code: "photo_not_found", message: "The owner photo was not found." } },
+      404
+    );
+  }
+
+  const photo = await context.env.PHOTOS.get(profile.photo_key);
+  if (!photo) {
+    return context.json(
+      { error: { code: "photo_not_found", message: "The owner photo was not found." } },
+      404
+    );
+  }
+  context.header("Content-Type", "image/jpeg");
+  context.header("Content-Disposition", "inline");
+  context.header("X-Content-Type-Options", "nosniff");
+  return context.body(photo.body);
+});
+
+app.delete("/api/owner/profile/photo", async (context) => {
+  const profile = await context.env.DB.prepare(
+    "SELECT photo_key FROM owner_profile WHERE id = 1"
+  ).first<{ photo_key: string | null }>();
+  if (!profile) {
+    return context.json(
+      { error: { code: "profile_not_found", message: "No owner profile has been saved." } },
+      404
+    );
+  }
+  if (!profile.photo_key) {
+    return context.body(null, 204);
+  }
+
+  const updated = await context.env.DB.prepare(
+    "UPDATE owner_profile SET photo_key = NULL, updated_at = ? WHERE id = 1 AND photo_key = ?"
+  )
+    .bind(new Date().toISOString(), profile.photo_key)
+    .run();
+  if (updated.meta.changes !== 1) {
+    return context.json(
+      { error: { code: "photo_changed", message: "The profile photo changed during removal." } },
+      409
+    );
+  }
+
+  try {
+    await context.env.PHOTOS.delete(profile.photo_key);
+  } catch (error) {
+    await context.env.DB.prepare(
+      "UPDATE owner_profile SET photo_key = ? WHERE id = 1 AND photo_key IS NULL"
+    )
+      .bind(profile.photo_key)
+      .run();
+    throw error;
+  }
+  return context.body(null, 204);
 });
 
 app.get("/api/owner/submissions", async (context) => {
@@ -390,7 +585,8 @@ app.get("/api/guest/links/:token", async (context) => {
 
 app.get("/api/guest/vcard/:linkId/:signature", async (context) => {
   const profile = await context.env.DB.prepare(
-    `SELECT owner_profile.vcard
+    `SELECT owner_profile.name, owner_profile.email, owner_profile.address,
+            owner_profile.birthday, owner_profile.photo_key
      FROM guest_links
      JOIN owner_profile ON owner_profile.id = 1
      WHERE guest_links.id = ?
@@ -399,7 +595,7 @@ app.get("/api/guest/vcard/:linkId/:signature", async (context) => {
        AND guest_links.revoked_at IS NULL`
   )
     .bind(context.req.param("linkId"), context.req.param("signature"))
-    .first<Pick<StoredOwnerProfile, "vcard">>();
+    .first<StoredOwnerProfile>();
 
   if (!profile) {
     return context.json(
@@ -408,10 +604,11 @@ app.get("/api/guest/vcard/:linkId/:signature", async (context) => {
     );
   }
 
+  const photo = await getOwnerPhoto(context.env, profile.photo_key);
   context.header("Content-Type", "text/vcard; version=4.0; charset=utf-8");
   context.header("Content-Disposition", 'attachment; filename="contactswap-profile.vcf"');
   context.header("Referrer-Policy", "no-referrer");
-  return context.body(profile.vcard);
+  return context.body(renderVCard(profile, photo));
 });
 
 app.post("/api/guest/links/:token/submissions", async (context) => {

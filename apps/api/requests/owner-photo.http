@@ -1,0 +1,18 @@
+@baseUrl = http://127.0.0.1:8787
+@adminToken = {{$dotenv ADMIN_TOKEN}}
+
+### Upload the sample profile photo
+PUT {{baseUrl}}/api/owner/profile/photo
+Authorization: Bearer {{adminToken}}
+Content-Type: image/jpeg
+
+< ./fixtures/sample-profile.jpg
+
+### Preview the optimized JPEG
+GET {{baseUrl}}/api/owner/profile/photo
+Authorization: Bearer {{adminToken}}
+Accept: image/jpeg
+
+### Remove the profile photo
+DELETE {{baseUrl}}/api/owner/profile/photo
+Authorization: Bearer {{adminToken}}

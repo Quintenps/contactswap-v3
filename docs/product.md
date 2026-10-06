@@ -25,14 +25,14 @@ The following decisions are resolved for this version:
 - After a guest submits the form, Quinten receives a notification that a form was completed.
 - Quinten then opens the authorized owner page, where he can click Download to generate and download a vCard from the database record.
 - Quinten is the only profile owner.
-- Quinten's editable profile fields are persisted in D1. Whenever he successfully saves profile changes, Contactswap renders and stores the current vCard 4.0 so it is ready to use without extracting data from a previous download.
+- Quinten's editable profile fields are persisted in D1. Generate his current vCard 4.0 when requested from those fields and his optional optimized photo in private R2; do not store the rendered vCard or image data in D1.
 - Name, email, address, and birthday are required for both profiles; picture is optional.
 - Guest submissions are retained for 30 days and then deleted automatically.
 - Links do not expire by age; they can be manually deleted and are removed after the first successful form submission.
 
 ## 5. Proposed solution
 
-Quinten maintains his editable profile in D1 through an owner-only interface authorized by a secret token. When he saves profile changes, Contactswap renders and stores the corresponding vCard 4.0. For each unique guest link, Contactswap also creates a signed URL that grants access to Quinten's current vCard 4.0 specifically through that link. The guest can use the link to access Quinten's card and submit their own contact information through a form.
+Quinten maintains his editable profile in D1 through an owner-only interface authorized by a secret token. His optional optimized photo is stored in private R2. Contactswap generates his current vCard 4.0 when requested, assembling it from the profile fields in D1 and the photo in R2; the vCard is not stored in D1. For each unique guest link, Contactswap creates a signed URL that grants access to Quinten's current vCard specifically through that link. The guest can use the link to access Quinten's card and submit their own contact information through a form.
 
 After a successful submission, Contactswap stores the guest data in a database, sends a webhook notification to Quinten saying that a form was completed, and shows the guest a thank-you page. Quinten then opens the authorized owner page, where he can click Download to generate a vCard 4.0 from the stored guest record and download it.
 
@@ -42,7 +42,7 @@ The system is web-based, mobile-first, and deployed on Cloudflare Pages. vCard 4
 
 1. Quinten opens the owner-only page and sees his saved, editable contact details from D1.
 2. Quinten can either edit his details or create a shareable guest link from the same page.
-3. Quinten saves contact information; the editable fields persist in D1 and the corresponding vCard 4.0 is rendered and stored ready for use.
+3. Quinten saves contact information; the editable fields persist in D1. If he uploads a photo, Contactswap resizes and compresses it and stores the optimized image in private R2.
 4. Quinten creates a unique guest link, with its own signed URL for his current vCard, and sends it to a friend or family member.
 5. The guest opens the link, can access Quinten's vCard through its signed URL, and can submit their own contact details.
 6. Contactswap stores the guest record and sends Quinten a notification that someone completed the form.
@@ -58,8 +58,8 @@ The system is web-based, mobile-first, and deployed on Cloudflare Pages. vCard 4
 - Quinten's editable contact details are persisted in D1 so they do not need to be re-entered or extracted from a downloaded vCard when he updates them.
 - Quinten can edit his profile or create a shareable link from the same owner-only page protected by a secret token; a full account system is not required.
 - Quinten can rotate the admin token by updating the API Worker's Cloudflare Worker Secret; the token must never be exposed in client-side code.
-- On every successful owner-profile save, Quinten's contact information is rendered as vCard 4.0 and the current rendered vCard is stored ready for use.
-- Quinten can download his current profile vCard through an owner-authorized endpoint.
+- Quinten can download his current profile vCard through an owner-authorized endpoint. Generate it on request from the current D1 profile fields and optional photo in R2; do not store vCard text or image data in D1.
+- When a profile photo is present, include it in vCard 4.0 as a base64-encoded `PHOTO` data URI. Resize and compress uploads before storing them in private R2.
 - Quinten can generate a unique guest link for form submission.
 - Every guest link has a distinct signed URL for accessing Quinten's current vCard 4.0; the card must not be available through a public profile URL.
 - A guest can open the link, access Quinten's vCard through its signed URL, and submit their own contact details through a form.
@@ -86,9 +86,9 @@ The system is web-based, mobile-first, and deployed on Cloudflare Pages. vCard 4
 ## 8. Information and content
 
 - Quinten's profile contains name, email, address, birthday, and an optional picture.
-- Quinten's editable profile fields are persisted in D1 and reused without re-entering or extracting details from a downloaded vCard.
+- Quinten's editable profile fields are persisted in D1 and reused without re-entering or extracting details from a downloaded vCard. The optional photo is stored in private R2, not D1.
 - A guest may submit the same data types: name, email, address, birthday, and an optional picture.
-- Quinten's profile fields are stored in D1; a vCard 4.0 is rendered and refreshed on each successful profile save and stored ready for use as a vCard file.
+- Quinten's profile fields are stored in D1; the optional optimized photo is stored in private R2. Generate the vCard 4.0 on request and embed the photo as base64 when present. Do not store image bytes, base64 image data, or the rendered vCard in D1.
 - Guest-submitted fields are stored in a database and used to generate a vCard 4.0 for Quinten when needed.
 - Name, email, address, and birthday are required for both owner and guest forms.
 - Guest submissions and associated stored files are retained for 30 days, then automatically deleted.
@@ -103,7 +103,7 @@ The system is web-based, mobile-first, and deployed on Cloudflare Pages. vCard 4
 - The same link is single-use; the first successful form submission consumes it.
 - Each active guest link's signed URL grants access only to Quinten's vCard for that link; deleting or consuming the guest link revokes its signed URL.
 - Incomplete profiles, invalid submissions, failed downloads, duplicate submissions, and service errors should show clear user-facing feedback and safe fallback behavior.
-- A successful owner-profile save updates the D1 fields and the rendered vCard together; failed saves must not leave the current vCard out of sync with the saved profile.
+- A successful owner-profile save updates the canonical D1 fields. Owner and guest-link vCard downloads are generated from the current D1 fields and optional R2 photo, so they always reflect the saved profile; do not persist rendered vCards in D1.
 - The thank-you page appears after a successful guest submission.
 - Guest submissions are deleted automatically after 30 days.
 - Quinten receives a webhook notification after a successful form submission. The notification should be a simple summary and should not include guest contact details unless explicitly approved.
@@ -141,7 +141,7 @@ The system is web-based, mobile-first, and deployed on Cloudflare Pages. vCard 4
 - Quinten can open the owner page and see his saved contact details.
 - Quinten can either edit his own details or create a shareable guest link from the same page.
 - Quinten's profile persists between visits so he does not need to re-enter it every time.
-- Quinten can edit his persisted D1 profile, and each successful save leaves its current vCard 4.0 ready for use.
+- Quinten can edit his persisted D1 profile and download a current vCard 4.0 generated from the saved profile and optional photo.
 - Quinten can download his own current vCard without using a guest link.
 - A guest can complete the form successfully and sees a thank-you page.
 - Quinten receives a notification when a guest submits the form.

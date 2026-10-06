@@ -83,12 +83,12 @@ describe("owner profile API", () => {
       profileRequest(baseProfile)
     );
     expect(createResponse.status).toBe(200);
-    expect(await createResponse.json()).toEqual(baseProfile);
+    expect(await createResponse.json()).toEqual({ ...baseProfile, hasPhoto: false });
 
     const readResponse = await call("/api/owner/profile");
     expect(readResponse.status).toBe(200);
     expect(readResponse.headers.get("Cache-Control")).toBe("no-store");
-    expect(await readResponse.json()).toEqual(baseProfile);
+    expect(await readResponse.json()).toEqual({ ...baseProfile, hasPhoto: false });
 
     const downloadResponse = await call("/api/owner/profile/vcard");
     const initialVCard = await downloadResponse.text();
@@ -112,7 +112,7 @@ describe("owner profile API", () => {
       profileRequest(updatedProfile)
     );
     expect(updateResponse.status).toBe(200);
-    expect(await updateResponse.json()).toEqual(updatedProfile);
+    expect(await updateResponse.json()).toEqual({ ...updatedProfile, hasPhoto: false });
 
     const updatedCardResponse = await call("/api/owner/profile/vcard");
     const updatedVCard = await updatedCardResponse.text();
@@ -148,11 +148,11 @@ describe("owner profile API", () => {
     }
 
     const profileResponse = await call("/api/owner/profile");
-    expect(await profileResponse.json()).toEqual(baseProfile);
+    expect(await profileResponse.json()).toEqual({ ...baseProfile, hasPhoto: false });
 
-    const stored = await env.DB.prepare("SELECT vcard FROM owner_profile WHERE id = 1")
-      .first<{ vcard: string }>();
-    expect(stored?.vcard).toContain("ADR;TYPE=home:;;12 Main St\\, Apt 3\\; East;;;;");
+    const stored = await env.DB.prepare("SELECT photo_key FROM owner_profile WHERE id = 1")
+      .first<{ photo_key: string | null }>();
+    expect(stored?.photo_key).toBeNull();
   });
 
   it("folds long UTF-8 vCard lines without exceeding 75 octets", async () => {
