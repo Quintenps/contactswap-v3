@@ -2,16 +2,27 @@
 @guestToken = {{$dotenv GUEST_TOKEN}}
 
 # Each successful submission consumes its link; use a different unused token for each example.
-### Submit synthetic guest contact details (JSON, without a photo)
+### Submit synthetic guest contact details (multipart, without a photo)
 POST {{baseUrl}}/api/guest/links/{{guestToken}}/submissions
-Content-Type: application/json
+Content-Type: multipart/form-data; boundary=ContactSwapGuestBoundary
 
-{
-  "name": "Morgan Rivera",
-  "email": "morgan.rivera@example.invalid",
-  "address": "42 Example Avenue, Sampleville, ZZ 00000",
-  "birthday": "1992-07-14"
-}
+--ContactSwapGuestBoundary
+Content-Disposition: form-data; name="name"
+
+Morgan Rivera
+--ContactSwapGuestBoundary
+Content-Disposition: form-data; name="email"
+
+morgan.rivera@example.invalid
+--ContactSwapGuestBoundary
+Content-Disposition: form-data; name="address"
+
+42 Example Avenue, Sampleville, ZZ 00000
+--ContactSwapGuestBoundary
+Content-Disposition: form-data; name="birthday"
+
+1992-07-14
+--ContactSwapGuestBoundary--
 
 ### Submit synthetic guest contact details with a photo
 POST {{baseUrl}}/api/guest/links/{{guestToken}}/submissions

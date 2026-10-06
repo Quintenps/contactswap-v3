@@ -11,7 +11,7 @@ Allow a guest to include an optional photo in the same request as their contact 
 ## Scope
 
 - Extend the guest submission API from spec 004 to accept an optional uploaded photo.
-- Keep existing JSON submissions without a photo working; accept multipart form submissions when a photo is supplied.
+- Require multipart form submissions whether or not a photo is supplied; do not accept JSON submissions.
 - Reuse the owner-photo image validation, optimization, output limits, private R2 bucket, and Cloudflare Images binding established by spec 007.
 - Persist only the guest photo's R2 object key in D1.
 - Include the optimized photo as a base64 `PHOTO` data URI in the owner-authorized vCard generated for that guest submission.
@@ -30,8 +30,8 @@ Allow a guest to include an optional photo in the same request as their contact 
 
 ### `POST /api/guest/links/{token}/submissions`
 
-- Continue accepting the existing `application/json` request with required `name`, `email`, `address`, and `birthday` string fields. JSON requests do not accept `picture` or any other additional field; arbitrary picture URLs and object keys are not accepted.
-- Also accept `multipart/form-data` with the same four required text fields and at most one optional file field named `picture`.
+- Accept `multipart/form-data` with required `name`, `email`, `address`, and `birthday` text fields and at most one optional file field named `picture`. Arbitrary picture URLs and object keys are not accepted.
+- Reject JSON submissions and other unsupported request media types with the stable `400 invalid_submission` error.
 - The photo is part of the submission: store the guest record, consume the link, and enqueue its notification only when the complete submission succeeds. An omitted photo remains valid.
 - Reject malformed multipart bodies, missing or duplicate required fields, duplicate or non-file `picture` values, multiple files, and unsupported extra fields with the stable `400 invalid_submission` error. Preserve existing required-field, email, birthday, and whitespace validation.
 - For an included file, accept only `image/jpeg`, `image/png`, or `image/webp`. Verify the declared media type against the file signature; reject empty, malformed, mismatched, SVG, and animated images. Do not trust a filename or extension.
@@ -76,8 +76,7 @@ Allow a guest to include an optional photo in the same request as their contact 
 
 ## Acceptance Criteria
 
-- Existing JSON guest submissions without a photo continue to succeed with the existing validation, single-use behavior, notification, and response contract.
-- A valid multipart submission with all required fields and one supported photo succeeds once, stores the guest record and optimized JPEG, consumes the link, and creates the existing privacy-safe notification.
+- A valid multipart submission without a photo succeeds once with a null photo key. A valid multipart submission with one supported photo succeeds once, stores the guest record and optimized JPEG, consumes the link, and creates the existing privacy-safe notification.
 - The guest's uploaded file is normalized to a metadata-free JPEG within the specified dimension and 75 KiB output limits. Invalid, animated, oversized, unsupported, mismatched, and uncompressible files are rejected with the documented stable errors and do not consume the link or leave a stored guest record.
 - Submissions without a photo have a null photo key and generate the same vCard content as before. Submissions with a photo generate an owner-downloadable vCard 4.0 whose decoded `PHOTO` bytes exactly match the optimized R2 object and whose folded line unfolds correctly.
 - Unauthorized owner requests cannot retrieve contact data or photo content. The photo key is not exposed by owner list/detail responses or any guest response, and no guest or public route returns photo bytes or a URL.
@@ -85,7 +84,7 @@ Allow a guest to include an optional photo in the same request as their contact 
 - Failed R2 or D1 persistence does not consume the link or enqueue a notification, and does not return success. Any uploaded but unreferenced object is automatically expired by the same R2 lifecycle rule; no staging journal or manual object deletion is required.
 - Expired submissions are unavailable at the 30-day D1 boundary. Scheduled cleanup removes expired D1 records, and the R2 lifecycle rule asynchronously expires guest-photo objects within the documented lifecycle processing window.
 - Webhook notifications contain no contact values, photo content, filename, object key, or other guest-provided content.
-- Automated tests cover JSON compatibility, multipart success, optional photos, field and file validation, image limits and normalization, link single-use and concurrency, R2 and D1 failures, vCard photo embedding, owner authorization, missing R2 objects, and expiry using local Workers bindings only. Verify the deployed R2 lifecycle rule targets only the guest-photo prefix and expires objects after 30 days.
+- Automated tests cover JSON rejection, multipart success, optional photos, field and file validation, image limits and normalization, link single-use and concurrency, R2 and D1 failures, vCard photo embedding, owner authorization, missing R2 objects, and expiry using local Workers bindings only. Verify the deployed R2 lifecycle rule targets only the guest-photo prefix and expires objects after 30 days.
 - A local `.http` example demonstrates a multipart guest submission using synthetic data and no committed credentials or personal contact data.
 - Type checking, the API test suite, and production builds pass.
 

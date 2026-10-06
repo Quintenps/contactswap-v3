@@ -10,18 +10,7 @@ routes.post("/links/:token/submissions", async (context) => {
   let submission: GuestSubmission | null = null;
   let uploadedPhoto: File | undefined;
 
-  if (contentType === "application/json") {
-    let input: unknown;
-    try {
-      input = await context.req.json();
-    } catch {
-      return context.json(
-        { error: { code: "invalid_submission", message: "The submission request is invalid." } },
-        400
-      );
-    }
-    submission = parseGuestSubmission(input);
-  } else if (contentType === "multipart/form-data") {
+  if (contentType === "multipart/form-data") {
     let form: FormData;
     try {
       form = await context.req.formData();

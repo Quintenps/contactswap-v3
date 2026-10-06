@@ -66,6 +66,15 @@ async function revokeGuestLink(
   );
 }
 
+function guestSubmissionForm(): FormData {
+  const form = new FormData();
+  form.append("name", "Guest Example");
+  form.append("email", "guest@example.invalid");
+  form.append("address", "456 Guest Street");
+  form.append("birthday", "1988-06-12");
+  return form;
+}
+
 describe("owner guest-link API", () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -198,13 +207,7 @@ describe("owner guest-link API", () => {
 
     await call(`/api/guest/links/${consumedLink.guestToken}/submissions`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: "Guest Example",
-        email: "guest@example.invalid",
-        address: "456 Guest Street",
-        birthday: "1988-06-12"
-      })
+      body: guestSubmissionForm()
     });
     await revokeGuestLink(revokedLink.id);
 
@@ -266,13 +269,7 @@ describe("owner guest-link API", () => {
       (
         await call(`/api/guest/links/${guestToken}/submissions`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: "Guest Example",
-            email: "guest@example.invalid",
-            address: "456 Guest Street",
-            birthday: "1988-06-12"
-          })
+          body: guestSubmissionForm()
         })
       ).status
     ).toBe(410);
@@ -298,13 +295,7 @@ describe("owner guest-link API", () => {
     const { guestToken, id } = await createGuestLink();
     const submissionResponse = await call(`/api/guest/links/${guestToken}/submissions`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: "Guest Example",
-        email: "guest@example.invalid",
-        address: "456 Guest Street",
-        birthday: "1988-06-12"
-      })
+      body: guestSubmissionForm()
     });
     const before = await env.DB.prepare(
       "SELECT consumed_at, revoked_at FROM guest_links"
@@ -328,13 +319,7 @@ describe("owner guest-link API", () => {
       revokeGuestLink(id),
       call(`/api/guest/links/${guestToken}/submissions`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: "Guest Example",
-          email: "guest@example.invalid",
-          address: "456 Guest Street",
-          birthday: "1988-06-12"
-        })
+        body: guestSubmissionForm()
       })
     ]);
     const link = await env.DB.prepare(
