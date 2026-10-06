@@ -2,28 +2,6 @@
 @adminToken = {{$dotenv ADMIN_TOKEN}}
 @linkId = {{$dotenv LINK_ID}}
 
-### Read owner profile
-GET {{baseUrl}}/api/owner/profile
-Authorization: Bearer {{adminToken}}
-Accept: application/json
-
-### Save owner profile
-PUT {{baseUrl}}/api/owner/profile
-Authorization: Bearer {{adminToken}}
-Content-Type: application/json
-
-{
-  "name": "Quinten Example",
-  "email": "quinten@example.invalid",
-  "address": "123 Example Street",
-  "birthday": "1990-02-28"
-}
-
-### Download current owner vCard
-GET {{baseUrl}}/api/owner/profile/vcard
-Authorization: Bearer {{adminToken}}
-Accept: text/vcard
-
 ### Create a guest link (requires a saved owner profile)
 # @name createGuestLink
 POST {{baseUrl}}/api/owner/links

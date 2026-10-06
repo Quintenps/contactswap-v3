@@ -9,14 +9,3 @@ Accept: application/json
 ### Download Quinten's current vCard through the link-scoped URL
 GET {{baseUrl}}{{resolveGuestLink.response.body.$.vcardUrl}}
 Accept: text/vcard
-
-### Submit guest contact details (JSON, without a photo)
-POST {{baseUrl}}/api/guest/links/{{guestToken}}/submissions
-Content-Type: application/json
-
-{
-  "name": "Morgan Rivera",
-  "email": "morgan.rivera@example.invalid",
-  "address": "42 Example Avenue, Sampleville, ZZ 00000",
-  "birthday": "1992-07-14"
-}

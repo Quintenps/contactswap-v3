@@ -76,9 +76,9 @@ Provide authorized API endpoints for Quinten to read and save his contact profil
 - A successful save persists a vCard 4.0 generated from the saved fields. A failed save cannot leave the profile and vCard inconsistent.
 - All endpoint responses include `Cache-Control: no-store`; error responses do not expose secrets, contact values, or internal exception details.
 - Automated tests cover authorization, initial profile absence, create/read/update, vCard download headers and body, invalid input, and profile-vCard consistency using the Workers test environment without live Cloudflare services or real personal data.
-- `apps/api/requests/owner-profile.http` provides runnable local requests for profile read, save, and vCard download; its admin token is loaded from the ignored local `.env` file and is not committed.
+- `apps/api/requests/owner/profile.http` provides runnable local requests for profile read, save, and vCard download; its admin token is loaded from the ignored local `.env` file and is not committed.
 - Type checking, the API test suite, and the production build pass.
 
 ## Verification
 
-Run the focused API tests, then the repository type-check, test, and build commands. Verify the endpoints against the local D1 binding and confirm that admin credentials are supplied only at request time and are absent from built frontend assets and logs. Start the local API and execute each request in `apps/api/requests/owner-profile.http` with the VS Code REST Client extension.
+Run the focused API tests, then the repository type-check, test, and build commands. Verify the endpoints against the local D1 binding and confirm that admin credentials are supplied only at request time and are absent from built frontend assets and logs. Start the local API and execute each request in `apps/api/requests/owner/profile.http` with the VS Code REST Client extension.

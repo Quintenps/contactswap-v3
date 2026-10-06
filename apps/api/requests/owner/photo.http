@@ -6,7 +6,7 @@ PUT {{baseUrl}}/api/owner/profile/photo
 Authorization: Bearer {{adminToken}}
 Content-Type: image/jpeg
 
-< ./fixtures/sample-profile.jpg
+< ../fixtures/sample-profile.jpg
 
 ### Preview the optimized JPEG
 GET {{baseUrl}}/api/owner/profile/photo

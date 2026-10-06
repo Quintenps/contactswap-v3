@@ -1,0 +1,24 @@
+@baseUrl = http://127.0.0.1:8787
+@adminToken = {{$dotenv ADMIN_TOKEN}}
+
+### Read owner profile
+GET {{baseUrl}}/api/owner/profile
+Authorization: Bearer {{adminToken}}
+Accept: application/json
+
+### Save owner profile
+PUT {{baseUrl}}/api/owner/profile
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Quinten Example",
+  "email": "quinten@example.invalid",
+  "address": "123 Example Street",
+  "birthday": "1990-02-28"
+}
+
+### Download current owner vCard
+GET {{baseUrl}}/api/owner/profile/vcard
+Authorization: Bearer {{adminToken}}
+Accept: text/vcard
