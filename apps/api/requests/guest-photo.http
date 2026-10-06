@@ -1,0 +1,29 @@
+@baseUrl = http://127.0.0.1:8787
+@guestToken = {{$dotenv GUEST_TOKEN}}
+
+### Submit synthetic guest contact details with a photo
+POST {{baseUrl}}/api/guest/links/{{guestToken}}/submissions
+Content-Type: multipart/form-data; boundary=ContactSwapGuestPhotoBoundary
+
+--ContactSwapGuestPhotoBoundary
+Content-Disposition: form-data; name="name"
+
+Morgan Rivera
+--ContactSwapGuestPhotoBoundary
+Content-Disposition: form-data; name="email"
+
+morgan.rivera@example.invalid
+--ContactSwapGuestPhotoBoundary
+Content-Disposition: form-data; name="address"
+
+42 Example Avenue, Sampleville, ZZ 00000
+--ContactSwapGuestPhotoBoundary
+Content-Disposition: form-data; name="birthday"
+
+1992-07-14
+--ContactSwapGuestPhotoBoundary
+Content-Disposition: form-data; name="picture"; filename="sample-guest-profile.jpg"
+Content-Type: image/jpeg
+
+< ./fixtures/sample-guest-profile.jpg
+--ContactSwapGuestPhotoBoundary--

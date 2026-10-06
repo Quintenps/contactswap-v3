@@ -237,7 +237,7 @@ describe("owner profile photo API", () => {
     expect(new Uint8Array(await preview.arrayBuffer())).toEqual(optimizedPhoto);
 
     const ownerCard = await (await call("/api/owner/profile/vcard")).text();
-    const photoLine = `PHOTO;VALUE=uri:data:image/jpeg;base64,${toBase64(optimizedPhoto)}`;
+    const photoLine = `PHOTO:data:image/jpeg;base64,${toBase64(optimizedPhoto)}`;
     const unfoldedOwnerCard = ownerCard.replaceAll("\r\n ", "");
     expect(unfoldedOwnerCard).toContain(`${photoLine}\r\n`);
     expect(ownerCard.split("\r\n").filter(Boolean).every((line) => new TextEncoder().encode(line).length <= 75))

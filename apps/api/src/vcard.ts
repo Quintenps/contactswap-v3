@@ -46,7 +46,7 @@ export function renderVCard(profile: VCardProfile, photo?: Uint8Array): string {
   ];
 
   if (photo) {
-    lines.push(`PHOTO;VALUE=uri:data:image/jpeg;base64,${encodePhotoBase64(photo)}`);
+    lines.push(`PHOTO:data:image/jpeg;base64,${encodePhotoBase64(photo)}`);
   }
   lines.push("END:VCARD");
 

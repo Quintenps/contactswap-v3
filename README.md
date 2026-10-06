@@ -57,7 +57,7 @@ CI=1 npm run migrate:local
 
 ## API Requests
 
-The local request examples are in [requests/health.http](apps/api/requests/health.http) and [requests/owner-profile.http](apps/api/requests/owner-profile.http). Install the [REST Client extension](https://marketplace.visualstudio.com/items?itemName=humao.rest-client), open either file, and select **Send Request** above a request. They target the local Worker at `http://127.0.0.1:8787`; start it with `npm run dev` first. Owner requests read `ADMIN_TOKEN` from `apps/api/.env`. The link-creation request requires a saved owner profile. Keep the request files pointed at local development and do not use production credentials in them.
+The local request examples are in [requests/health.http](apps/api/requests/health.http), [requests/owner-profile.http](apps/api/requests/owner-profile.http), and [requests/guest-photo.http](apps/api/requests/guest-photo.http). Install the [REST Client extension](https://marketplace.visualstudio.com/items?itemName=humao.rest-client), open a file, and select **Send Request** above a request. They target the local Worker at `http://127.0.0.1:8787`; start it with `npm run dev` first. Owner requests read `ADMIN_TOKEN` from `apps/api/.env`; guest examples use a local guest token configured in that file. The link-creation request requires a saved owner profile. Keep the request files pointed at local development and do not use production credentials in them.
 
 ## Checks
 
@@ -74,24 +74,32 @@ npm run build
 The frontend and Worker API deploy independently. No Cloudflare resources are created by setup or CI.
 
 1. Create a D1 database in your Cloudflare account and replace the placeholder `database_id` in `apps/api/wrangler.jsonc` with its ID before deploying the API. Apply production migrations only when intentionally targeting that remote database.
-2. From `apps/api`, authenticate Wrangler and set the production admin token on the API Worker:
+2. Create a private R2 bucket named `contactswap-photos` (or update the bucket name in `apps/api/wrangler.jsonc`) and add the guest-photo expiration rule from `apps/api`:
+
+	```sh
+	npx wrangler r2 bucket lifecycle add contactswap-photos expire-guest-photos-after-30-days guest-submissions/ --expire-days 30
+	npx wrangler r2 bucket lifecycle list contactswap-photos
+	```
+
+	Confirm the enabled rule matches only the `guest-submissions/` prefix and expires objects after 30 days. Do not use a bucket-wide expiration rule: owner photos are stored outside this prefix. Lifecycle processing is asynchronous; R2 typically removes expired objects within 24 hours. The lifecycle commands modify the selected Cloudflare account and require the R2 storage write permission.
+3. From `apps/api`, authenticate Wrangler and set the production admin token on the API Worker:
 
 	```sh
 	npx wrangler secret put ADMIN_TOKEN
 	```
 
 	Enter the token at Wrangler's interactive prompt. Do not put it in a command argument, Wrangler `vars`, or source code. You can also set it in the Cloudflare dashboard under **Workers & Pages > contactswap-api > Settings > Variables and Secrets**, choosing **Secret**. To rotate the token, repeat the same `secret put` command with the new value.
-3. Set the link-signing key on the API Worker as a Worker Secret:
+4. Set the link-signing key on the API Worker as a Worker Secret:
 
 	```sh
 	npx wrangler secret put LINK_SIGNING_KEY
 	```
 
 	Use a randomly generated value of at least 32 bytes. Do not put it in Wrangler `vars`, source code, or command arguments.
-4. Set `PUBLIC_APP_ORIGIN` in `apps/api/wrangler.jsonc` to the deployed Pages origin before deploying the API. It is non-secret configuration; the default matches the `contactswap` Pages project's `https://contactswap.pages.dev` origin.
-5. After configuring both Worker Secrets and the public origin, return to the repository root and deploy the API with `npm run deploy --workspace @contactswap/api`.
-6. Create a Pages project named `contactswap` once with `npm exec --workspace @contactswap/api -- wrangler pages project create contactswap`.
-7. Build the frontend with `npm run build --workspace @contactswap/web`, then deploy `apps/web/dist` using `npm exec --workspace @contactswap/api -- wrangler pages deploy ../web/dist --project-name contactswap` from the repository root.
+5. Set `PUBLIC_APP_ORIGIN` in `apps/api/wrangler.jsonc` to the deployed Pages origin before deploying the API. It is non-secret configuration; the default matches the `contactswap` Pages project's `https://contactswap.pages.dev` origin.
+6. After configuring both Worker Secrets and the public origin, return to the repository root and deploy the API with `npm run deploy --workspace @contactswap/api`.
+7. Create a Pages project named `contactswap` once with `npm exec --workspace @contactswap/api -- wrangler pages project create contactswap`.
+8. Build the frontend with `npm run build --workspace @contactswap/web`, then deploy `apps/web/dist` using `npm exec --workspace @contactswap/api -- wrangler pages deploy ../web/dist --project-name contactswap` from the repository root.
 Configure the Pages build output as `apps/web/dist` when using an external build pipeline. Add only non-secret public API origin configuration to the Pages build environment when the frontend needs to call the separately deployed API. The admin token belongs in the API Worker's Cloudflare Worker Secrets, never in Pages variables, frontend code, or committed files. Local secret files such as `.env` and `.dev.vars` are ignored by Git.
 
 ## Project Docs
