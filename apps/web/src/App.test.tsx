@@ -110,6 +110,9 @@ describe("owner profile frontend", () => {
     await renderLinksPage();
 
     expect(document.body.textContent).toContain("Guest links");
+    expect(document.querySelector('nav[aria-label="Owner navigation"] a[aria-current="page"]')?.textContent).toBe("Guest links");
+    expect([...document.querySelectorAll('nav[aria-label="Owner navigation"] a')].map((link) => link.textContent)).toEqual(["Profile", "Guest links"]);
+    expect(document.querySelector('nav[aria-label="Owner navigation"] button')?.textContent).toBe("Log out");
     expect(document.body.textContent).toContain("active");
     expect(document.body.textContent).toContain("consumed");
     expect(document.body.textContent).toContain("revoked");
@@ -463,6 +466,7 @@ describe("owner profile frontend", () => {
     installFetch(async () => response(profile));
     await renderApp();
 
+    expect(document.querySelector('nav[aria-label="Owner navigation"] a[aria-current="page"]')?.textContent).toBe("Profile");
     await click(button("Log out"));
     expect(window.localStorage.getItem(tokenStorageKey)).toBeNull();
     expect(document.querySelector("#owner-token")).not.toBeNull();

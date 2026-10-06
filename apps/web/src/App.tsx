@@ -678,8 +678,11 @@ export default function App() {
             <h1>Guest links</h1>
           </div>
           <div className="page-actions">
-            <a className="quiet-button nav-button" href="/">Profile</a>
-            <button className="quiet-button logout-button" type="button" onClick={logout}>Log out</button>
+            <nav className="owner-navigation" aria-label="Owner navigation">
+              <a className="nav-button" href="/">Profile</a>
+              <a className="nav-button nav-button-active" href={linksPath} aria-current="page">Guest links</a>
+              <button className="nav-button owner-nav-logout" type="button" onClick={logout}>Log out</button>
+            </nav>
           </div>
         </header>
 
@@ -759,8 +762,11 @@ export default function App() {
           <h1>Profile</h1>
         </div>
         <div className="page-actions">
-          <a className="quiet-button nav-button" href={linksPath}>Guest links</a>
-          <button className="quiet-button logout-button" type="button" onClick={logout}>Log out</button>
+          <nav className="owner-navigation" aria-label="Owner navigation">
+            <a className="nav-button nav-button-active" href="/" aria-current="page">Profile</a>
+            <a className="nav-button" href={linksPath}>Guest links</a>
+            <button className="nav-button owner-nav-logout" type="button" onClick={logout}>Log out</button>
+          </nav>
         </div>
       </header>
 
