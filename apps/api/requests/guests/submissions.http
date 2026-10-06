@@ -1,6 +1,18 @@
 @baseUrl = http://127.0.0.1:8787
 @guestToken = {{$dotenv GUEST_TOKEN}}
 
+# Each successful submission consumes its link; use a different unused token for each example.
+### Submit synthetic guest contact details (JSON, without a photo)
+POST {{baseUrl}}/api/guest/links/{{guestToken}}/submissions
+Content-Type: application/json
+
+{
+  "name": "Morgan Rivera",
+  "email": "morgan.rivera@example.invalid",
+  "address": "42 Example Avenue, Sampleville, ZZ 00000",
+  "birthday": "1992-07-14"
+}
+
 ### Submit synthetic guest contact details with a photo
 POST {{baseUrl}}/api/guest/links/{{guestToken}}/submissions
 Content-Type: multipart/form-data; boundary=ContactSwapGuestPhotoBoundary
@@ -25,5 +37,5 @@ Content-Disposition: form-data; name="birthday"
 Content-Disposition: form-data; name="picture"; filename="sample-guest-profile.jpg"
 Content-Type: image/jpeg
 
-< ./fixtures/sample-guest-profile.jpg
+< ../fixtures/sample-guest-profile.jpg
 --ContactSwapGuestPhotoBoundary--

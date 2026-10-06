@@ -57,7 +57,7 @@ CI=1 npm run migrate:local
 
 ## API Requests
 
-The local request examples are in [requests/health.http](apps/api/requests/health.http), [requests/owner-profile.http](apps/api/requests/owner-profile.http), and [requests/guest-photo.http](apps/api/requests/guest-photo.http). Install the [REST Client extension](https://marketplace.visualstudio.com/items?itemName=humao.rest-client), open a file, and select **Send Request** above a request. They target the local Worker at `http://127.0.0.1:8787`; start it with `npm run dev` first. Owner requests read `ADMIN_TOKEN` from `apps/api/.env`; guest examples use a local guest token configured in that file. The link-creation request requires a saved owner profile. Keep the request files pointed at local development and do not use production credentials in them.
+The local request examples are grouped into [owner requests](apps/api/requests/owner/), [guest requests](apps/api/requests/guests/), and a [health check](apps/api/requests/health.http); image fixtures are in `apps/api/requests/fixtures/`. Install the [REST Client extension](https://marketplace.visualstudio.com/items?itemName=humao.rest-client), open a `.http` file, and select **Send Request** above a request. They target the local Worker at `http://127.0.0.1:8787`; start it with `npm run dev` first. Owner requests read `ADMIN_TOKEN` from `apps/api/.env`; guest examples use a local guest token configured in that file. The link-creation request requires a saved owner profile. Keep the request files pointed at local development and do not use production credentials in them.
 
 ## Checks
 
