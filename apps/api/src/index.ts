@@ -14,19 +14,20 @@ type OwnerProfile = {
 
 type StoredOwnerProfile = OwnerProfile & { photo_key: string | null };
 type GuestSubmission = OwnerProfile;
+type StoredGuestSubmission = GuestSubmission & { photo_key: string | null };
 type NotificationJob = { id: string; attempts: number };
 
 const encoder = new TextEncoder();
 const retentionMilliseconds = 30 * 24 * 60 * 60 * 1000;
 
-async function getOwnerPhoto(environment: Env, photoKey: string | null): Promise<Uint8Array | undefined> {
+async function getPhoto(environment: Env, photoKey: string | null): Promise<Uint8Array | undefined> {
   if (!photoKey) {
     return undefined;
   }
 
   const photo = await environment.PHOTOS.get(photoKey);
   if (!photo) {
-    throw new Error("The owner photo object is missing.");
+    throw new Error("The photo object is missing.");
   }
   return new Uint8Array(await photo.arrayBuffer());
 }
@@ -227,7 +228,7 @@ app.get("/api/owner/profile/vcard", async (context) => {
     );
   }
 
-  const photo = await getOwnerPhoto(context.env, profile.photo_key);
+  const photo = await getPhoto(context.env, profile.photo_key);
   context.header("Content-Type", "text/vcard; version=4.0; charset=utf-8");
   context.header("Content-Disposition", 'attachment; filename="contactswap-profile.vcf"');
   return context.body(renderVCard(profile, photo));
@@ -451,12 +452,12 @@ app.get("/api/owner/submissions/:id", async (context) => {
 app.get("/api/owner/submissions/:id/vcard", async (context) => {
   const now = new Date().toISOString();
   const submission = await context.env.DB.prepare(
-    `SELECT name, email, address, birthday
+    `SELECT name, email, address, birthday, photo_key
      FROM guest_submissions
      WHERE id = ? AND expires_at > ?`
   )
     .bind(context.req.param("id"), now)
-    .first<GuestSubmission>();
+    .first<StoredGuestSubmission>();
 
   if (!submission) {
     return context.json(
@@ -465,10 +466,11 @@ app.get("/api/owner/submissions/:id/vcard", async (context) => {
     );
   }
 
+  const photo = await getPhoto(context.env, submission.photo_key);
   context.header("Content-Type", "text/vcard; version=4.0; charset=utf-8");
   context.header("Content-Disposition", 'attachment; filename="contactswap-submission.vcf"');
   context.header("Referrer-Policy", "no-referrer");
-  return context.body(renderVCard(submission));
+  return context.body(renderVCard(submission, photo));
 });
 
 app.get("/api/owner/links", async (context) => {
@@ -604,7 +606,7 @@ app.get("/api/guest/vcard/:linkId/:signature", async (context) => {
     );
   }
 
-  const photo = await getOwnerPhoto(context.env, profile.photo_key);
+  const photo = await getPhoto(context.env, profile.photo_key);
   context.header("Content-Type", "text/vcard; version=4.0; charset=utf-8");
   context.header("Content-Disposition", 'attachment; filename="contactswap-profile.vcf"');
   context.header("Referrer-Policy", "no-referrer");
@@ -612,24 +614,63 @@ app.get("/api/guest/vcard/:linkId/:signature", async (context) => {
 });
 
 app.post("/api/guest/links/:token/submissions", async (context) => {
-  if (!context.req.header("Content-Type")?.toLowerCase().startsWith("application/json")) {
-    return context.json(
-      { error: { code: "invalid_submission", message: "The submission request is invalid." } },
-      400
-    );
+  const contentType = context.req.header("Content-Type")?.split(";")[0].trim().toLowerCase();
+  let submission: GuestSubmission | null = null;
+  let uploadedPhoto: File | undefined;
+
+  if (contentType === "application/json") {
+    let input: unknown;
+    try {
+      input = await context.req.json();
+    } catch {
+      return context.json(
+        { error: { code: "invalid_submission", message: "The submission request is invalid." } },
+        400
+      );
+    }
+    submission = parseGuestSubmission(input);
+  } else if (contentType === "multipart/form-data") {
+    let form: FormData;
+    try {
+      form = await context.req.formData();
+    } catch {
+      return context.json(
+        { error: { code: "invalid_submission", message: "The submission request is invalid." } },
+        400
+      );
+    }
+
+    const allowedFields = new Set(["name", "email", "address", "birthday", "picture"]);
+    let invalid = false;
+    form.forEach((_value, field) => {
+      if (!allowedFields.has(field)) {
+        invalid = true;
+      }
+    });
+
+    const values: Record<string, string> = {};
+    for (const field of ["name", "email", "address", "birthday"]) {
+      const entries = form.getAll(field);
+      if (entries.length !== 1 || typeof entries[0] !== "string") {
+        invalid = true;
+      } else {
+        values[field] = entries[0];
+      }
+    }
+
+    const photoEntries = form.getAll("picture");
+    const photoEntry = photoEntries[0];
+    if (photoEntries.length > 1 || (photoEntry !== undefined && typeof photoEntry === "string")) {
+      invalid = true;
+    } else if (photoEntry !== undefined) {
+      uploadedPhoto = photoEntry;
+    }
+
+    if (!invalid) {
+      submission = parseGuestSubmission(values);
+    }
   }
 
-  let input: unknown;
-  try {
-    input = await context.req.json();
-  } catch {
-    return context.json(
-      { error: { code: "invalid_submission", message: "The submission request is invalid." } },
-      400
-    );
-  }
-
-  const submission = parseGuestSubmission(input);
   if (!submission) {
     return context.json(
       { error: { code: "invalid_submission", message: "The submission request is invalid." } },
@@ -638,17 +679,89 @@ app.post("/api/guest/links/:token/submissions", async (context) => {
   }
 
   const tokenHash = await hashGuestToken(context.req.param("token"));
+  const link = await context.env.DB.prepare(
+    "SELECT id, consumed_at, revoked_at FROM guest_links WHERE token_hash = ?"
+  )
+    .bind(tokenHash)
+    .first<{ id: string; consumed_at: string | null; revoked_at: string | null }>();
+  if (!link) {
+    return context.json(
+      { error: { code: "guest_link_not_found", message: "The guest link was not found." } },
+      404
+    );
+  }
+  if (link.consumed_at || link.revoked_at) {
+    return context.json(
+      { error: { code: "guest_link_unavailable", message: "The guest link is no longer available." } },
+      410
+    );
+  }
+
+  let optimizedPhoto: Uint8Array | undefined;
+  if (uploadedPhoto) {
+    const photoContentType = uploadedPhoto.type.trim().toLowerCase();
+    if (!["image/jpeg", "image/png", "image/webp"].includes(photoContentType)) {
+      return context.json(
+        { error: { code: "unsupported_photo_type", message: "The photo type is not supported." } },
+        415
+      );
+    }
+    if (uploadedPhoto.size > photoLimits.maxSourceBytes) {
+      return context.json(
+        { error: { code: "photo_too_large", message: "The uploaded photo is too large." } },
+        413
+      );
+    }
+
+    try {
+      const source = await readPhotoBody(uploadedPhoto.stream());
+      optimizedPhoto = await optimizeProfilePhoto(context.env.IMAGES, source, photoContentType);
+    } catch (error) {
+      if (error instanceof PhotoRequestError) {
+        return context.json(
+          {
+            error: {
+              code: error.code,
+              message:
+                error.status === 413
+                  ? "The uploaded photo is too large."
+                  : error.status === 422
+                    ? "The photo could not be reduced to the supported size."
+                    : "The uploaded photo is invalid."
+            }
+          },
+          error.status
+        );
+      }
+      if (typeof error === "object" && error !== null && "code" in error && error.code === 9412) {
+        return context.json(
+          { error: { code: "invalid_photo", message: "The uploaded photo is invalid." } },
+          400
+        );
+      }
+      throw error;
+    }
+  }
+
   const now = new Date().toISOString();
   const expiresAt = new Date(Date.parse(now) + retentionMilliseconds).toISOString();
   const submissionId = crypto.randomUUID();
   const notificationId = crypto.randomUUID();
+  const photoKey = optimizedPhoto ? `guest-submissions/${crypto.randomUUID()}.jpg` : null;
   let inserted = 0;
 
   try {
+    if (photoKey && optimizedPhoto) {
+      await context.env.PHOTOS.put(photoKey, optimizedPhoto, {
+        httpMetadata: { contentType: "image/jpeg" }
+      });
+    }
+
     const results = await context.env.DB.batch([
       context.env.DB.prepare(
-        `INSERT INTO guest_submissions (id, link_id, name, email, address, birthday, created_at, expires_at)
-         SELECT ?, id, ?, ?, ?, ?, ?, ?
+        `INSERT INTO guest_submissions
+           (id, link_id, name, email, address, birthday, photo_key, created_at, expires_at)
+         SELECT ?, id, ?, ?, ?, ?, ?, ?, ?
          FROM guest_links
          WHERE token_hash = ? AND consumed_at IS NULL AND revoked_at IS NULL`
       ).bind(
@@ -657,6 +770,7 @@ app.post("/api/guest/links/:token/submissions", async (context) => {
         submission.email,
         submission.address,
         submission.birthday,
+        photoKey,
         now,
         expiresAt,
         tokenHash

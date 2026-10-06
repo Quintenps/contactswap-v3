@@ -1,5 +1,5 @@
 @baseUrl = http://127.0.0.1:8787
-@guestToken = {{$dotenv LINK_GUEST_TOKEN}}
+@guestToken = {{$dotenv GUEST_TOKEN}}
 
 ### Resolve guest link
 # @name resolveGuestLink
@@ -10,7 +10,7 @@ Accept: application/json
 GET {{baseUrl}}{{resolveGuestLink.response.body.$.vcardUrl}}
 Accept: text/vcard
 
-### Submit guest contact details
+### Submit guest contact details (JSON, without a photo)
 POST {{baseUrl}}/api/guest/links/{{guestToken}}/submissions
 Content-Type: application/json
 
