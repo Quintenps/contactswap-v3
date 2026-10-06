@@ -51,7 +51,7 @@ The admin token, signed-URL signing key, and webhook credentials are Cloudflare 
 
 ## API
 
-Use JSON for application requests and responses where appropriate. `GET /api/owner/profile/vcard` generates the current vCard 4.0 at request time from D1 profile fields and the optional optimized image in R2, and requires owner authorization. The signed guest-link vCard route generates the same current card only for its active link. Embed the image as a base64 `PHOTO` data URI; do not persist the vCard or image data in D1. Owner downloads of guest records also return generated vCard 4.0 files. Validate required fields on the server for both owner and guest forms: name, email, address, and birthday are required; picture is optional.
+Use JSON for application requests and responses where appropriate. Guest submission requests use `multipart/form-data` whether or not a photo is included; the `picture` file field is optional. `GET /api/owner/profile/vcard` generates the current vCard 4.0 at request time from D1 profile fields and the optional optimized image in R2, and requires owner authorization. The signed guest-link vCard route generates the same current card only for its active link. Embed the image as a base64 `PHOTO` data URI; do not persist the vCard or image data in D1. Owner downloads of guest records also return generated vCard 4.0 files. Validate required fields on the server for both owner and guest forms: name, email, address, and birthday are required; picture is optional.
 
 ## Local API Requests
 

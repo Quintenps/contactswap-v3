@@ -52,11 +52,18 @@ async function createGuestLink(): Promise<{ token: string; linkId: string }> {
   return { token, linkId: link!.id };
 }
 
-async function submit(token: string, body: unknown = submission): Promise<Response> {
+function submissionForm(body: Record<string, string>): FormData {
+  const form = new FormData();
+  for (const [field, value] of Object.entries(body)) {
+    form.append(field, value);
+  }
+  return form;
+}
+
+async function submit(token: string, body: Record<string, string> = submission): Promise<Response> {
   return call(`/api/guest/links/${token}/submissions`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: typeof body === "string" ? body : JSON.stringify(body)
+    body: submissionForm(body)
   });
 }
 
@@ -152,7 +159,19 @@ describe("guest URL API flow", () => {
       expect(JSON.stringify(await response.json())).not.toContain(submission.email);
     }
 
-    expect((await submit(token, "{")).status).toBe(400);
+    const jsonRequest = await call(`/api/guest/links/${token}/submissions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(submission)
+    });
+    expect(jsonRequest.status).toBe(400);
+
+    const malformedMultipart = await call(`/api/guest/links/${token}/submissions`, {
+      method: "POST",
+      headers: { "Content-Type": "multipart/form-data; boundary=broken" },
+      body: "not a multipart body"
+    });
+    expect(malformedMultipart.status).toBe(400);
     expect((await call(`/api/guest/links/${token}`)).status).toBe(200);
     expect(await env.DB.prepare("SELECT id FROM guest_submissions").first()).toBeNull();
   });

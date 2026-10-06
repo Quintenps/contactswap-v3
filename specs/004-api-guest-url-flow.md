@@ -47,8 +47,8 @@ All guest endpoints are unauthenticated in the account sense. The link token or 
 
 ### `POST /api/guest/links/{token}/submissions`
 
-- Accepts JSON with `name`, `email`, `address`, and `birthday`. All four values are required strings; `picture` may be omitted. Arbitrary client-provided picture URLs are not accepted.
-- Trims required text values, rejects blank fields, validates email and a real `YYYY-MM-DD` birthday, and rejects malformed JSON or unsupported fields with `400`.
+- Accepts `multipart/form-data` with `name`, `email`, `address`, and `birthday`. All four values are required strings; the `picture` file field may be omitted. Arbitrary client-provided picture URLs are not accepted.
+- Trims required text values, rejects blank fields, validates email and a real `YYYY-MM-DD` birthday, and rejects malformed multipart bodies or unsupported fields with `400`.
 - Creates one guest submission and consumes the link only when the submission succeeds. A successful response is `201` with a small success body that contains no guest contact values.
 - A repeated or concurrent submission using a consumed link cannot create a second guest record. Link consumption and submission creation must be atomic in D1.
 - Returns a stable `404` for an unknown token and `410` when its known link is already consumed or revoked. Invalid submissions do not consume the link.
@@ -69,7 +69,7 @@ All guest endpoints are unauthenticated in the account sense. The link token or 
 - An active token resolves to one link-scoped signed vCard URL; an unknown token receives the documented unavailable response.
 - A valid signed URL downloads the current owner vCard 4.0 only while its associated link is active. Invalid, cross-link, consumed, or revoked signatures do not return vCard data.
 - vCard responses have the specified media type, attachment disposition, `Cache-Control: no-store`, and `Referrer-Policy: no-referrer` headers.
-- Missing or blank required fields, invalid email, invalid birthday, malformed JSON, and unsupported fields are rejected without storing a submission or consuming the link.
+- Missing or blank required fields, invalid email, invalid birthday, JSON requests, malformed multipart bodies, and unsupported fields are rejected without storing a submission or consuming a link.
 - One successful submission stores exactly one guest record, consumes its link, and sends the privacy-safe webhook summary. Repeated and concurrent submissions cannot store a second record.
 - Guest submission and link consumption are atomic; a failed persistence operation leaves the link active.
 - Guest records and associated stored files are removed after 30 days by the scheduled cleanup process.
@@ -78,10 +78,10 @@ All guest endpoints are unauthenticated in the account sense. The link token or 
 - Local `.http` requests demonstrate guest link resolution, vCard download, and submission without committed tokens or personal contact data.
 - Type checking, the API test suite, and production builds pass.
 
-## Questions Before Implementation
+## Implementation Decisions
 
-1. Should optional picture uploads be included in this feature, requiring an upload/storage contract, or should 004 accept submissions without a picture and specify picture handling separately? The current product brief says picture is optional; spec 002 explicitly leaves picture upload out of scope.
-2. If D1 stores the submission and consumes the link successfully but webhook delivery fails, should the API still report success and retry notification later, or should webhook delivery be part of the success response? The product brief requires notification but does not define failure behavior.
+- Guest submissions use `multipart/form-data` whether or not the optional photo is included; photo validation and storage are specified in spec 008.
+- Webhook delivery is asynchronous and retried after failures; a persisted submission remains successful regardless of notification delivery.
 
 ## Verification
 
