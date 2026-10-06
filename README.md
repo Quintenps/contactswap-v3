@@ -33,7 +33,7 @@ Run the Pages frontend and Worker API together:
 npm run dev
 ```
 
-Open <http://127.0.0.1:5173>. The frontend displays the initial ContactSwap greeting. The Vite server proxies `/api` requests to the local Worker at <http://127.0.0.1:8787>; verify the API with:
+Open <http://127.0.0.1:5173> to manage the owner profile. Enter the local `ADMIN_TOKEN` configured in `apps/api/.env`; the page uses the same-origin `/api` routes proxied by Vite to the local Worker at <http://127.0.0.1:8787>. The token is remembered in browser storage only after the API confirms access. Verify the API with:
 
 ```sh
 curl http://127.0.0.1:5173/api/health
@@ -63,11 +63,12 @@ The local request examples are grouped into [owner requests](apps/api/requests/o
 
 ```sh
 npm run typecheck
+npm run test --workspace @contactswap/web
 npm test
 npm run build
 ```
 
-`npm run verify` runs all three checks. The Worker test runs in Cloudflare's Workers runtime locally and does not contact live Cloudflare services.
+`npm run verify` runs type checking, API tests, and production builds. The focused web tests run with `npm run test --workspace @contactswap/web`. Worker tests run in Cloudflare's Workers runtime locally and do not contact live Cloudflare services.
 
 ## Cloudflare Deployment
 
