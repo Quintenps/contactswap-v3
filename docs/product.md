@@ -41,7 +41,7 @@ The system is web-based, mobile-first, and deployed on Cloudflare Pages. vCard 4
 ## 6. Core user journey
 
 1. Quinten opens the owner-only page and sees his saved, editable contact details from D1.
-2. Quinten can either edit his details or create a shareable guest link from the same page.
+2. Quinten can edit his details on the profile page or open the separate guest-link management page to review and create shareable links.
 3. Quinten saves contact information; the editable fields persist in D1. If he uploads a photo, Contactswap resizes and compresses it and stores the optimized image in private R2.
 4. Quinten creates a unique guest link, with its own signed URL for his current vCard, and sends it to a friend or family member.
 5. The guest opens the link, can access Quinten's vCard through its signed URL, and can submit their own contact details.
@@ -56,7 +56,7 @@ The system is web-based, mobile-first, and deployed on Cloudflare Pages. vCard 4
 
 - A single owner, Quinten, can maintain the contact details shared with guests.
 - Quinten's editable contact details are persisted in D1 so they do not need to be re-entered or extracted from a downloaded vCard when he updates them.
-- Quinten can edit his profile or create a shareable link from the same owner-only page protected by a secret token; a full account system is not required.
+- Quinten can edit his profile on the owner profile page and manage guest links on a separate owner-only page protected by a secret token; a full account system is not required.
 - Quinten can rotate the admin token by updating the API Worker's Cloudflare Worker Secret; the token must never be exposed in client-side code.
 - Quinten can download his current profile vCard through an owner-authorized endpoint. Generate it on request from the current D1 profile fields and optional photo in R2; do not store vCard text or image data in D1.
 - When a profile photo is present, include it in vCard 4.0 as a base64-encoded `PHOTO` data URI. Resize and compress uploads before storing them in private R2.
@@ -139,7 +139,7 @@ The system is web-based, mobile-first, and deployed on Cloudflare Pages. vCard 4
 ## 13. Success criteria
 
 - Quinten can open the owner page and see his saved contact details.
-- Quinten can either edit his own details or create a shareable guest link from the same page.
+- Quinten can edit his own details on the profile page and manage shareable guest links on a separate page.
 - Quinten's profile persists between visits so he does not need to re-enter it every time.
 - Quinten can edit his persisted D1 profile and download a current vCard 4.0 generated from the saved profile and optional photo.
 - Quinten can download his own current vCard without using a guest link.

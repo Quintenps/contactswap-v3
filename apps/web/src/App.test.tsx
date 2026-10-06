@@ -63,6 +63,11 @@ async function renderApp() {
   await act(async () => root?.render(<App />));
 }
 
+async function renderLinksPage() {
+  window.history.pushState({}, "", "/owner/links");
+  await renderApp();
+}
+
 function installFetch(handler: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>) {
   vi.stubGlobal("fetch", vi.fn(handler));
   return vi.mocked(fetch);
@@ -84,11 +89,206 @@ afterEach(async () => {
     root = undefined;
   }
   container?.remove();
+  window.history.replaceState({}, "", "/");
+  Reflect.deleteProperty(navigator, "clipboard");
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
 
 describe("owner profile frontend", () => {
+  it("loads the separate links page and lists statuses with a revoke action only for active links", async () => {
+    window.localStorage.setItem(tokenStorageKey, token);
+    const links = [
+      { id: "00000000-0000-4000-8000-000000000001", createdAt: "2026-10-06T12:00:00.000Z", status: "active" },
+      { id: "00000000-0000-4000-8000-000000000002", createdAt: "2026-10-05T12:00:00.000Z", status: "consumed" },
+      { id: "00000000-0000-4000-8000-000000000003", createdAt: "2026-10-04T12:00:00.000Z", status: "revoked" }
+    ];
+    const fetchMock = installFetch(async (url) => {
+      if (url === "/api/owner/links") return response({ links });
+      return response(profile);
+    });
+    await renderLinksPage();
+
+    expect(document.body.textContent).toContain("Guest links");
+    expect(document.body.textContent).toContain("active");
+    expect(document.body.textContent).toContain("consumed");
+    expect(document.body.textContent).toContain("revoked");
+    expect([...document.querySelectorAll(".link-card code")].map((item) => item.textContent)).toEqual(links.map((link) => link.id));
+    expect(document.querySelectorAll(".link-card .danger-button")).toHaveLength(1);
+    expect(fetchMock.mock.calls.some(([url, init]) => url === "/api/owner/links" && init?.cache === "no-store")).toBe(true);
+    expect(document.body.textContent).not.toContain(token);
+  });
+
+  it("creates a guest link, refreshes the overview, and confirms successful copying", async () => {
+    window.localStorage.setItem(tokenStorageKey, token);
+    const guestUrl = "https://contactswap.example/guest/new-secret-token";
+    const copied = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: copied } });
+    let linkReads = 0;
+    const fetchMock = installFetch(async (url, init) => {
+      if (url === "/api/owner/links" && init?.method === "POST") return response({ guestUrl }, 201);
+      if (url === "/api/owner/links") {
+        linkReads += 1;
+        return response({ links: linkReads === 1 ? [] : [
+          { id: "00000000-0000-4000-8000-000000000001", createdAt: "2026-10-06T12:00:00.000Z", status: "active" }
+        ] });
+      }
+      return response(profile);
+    });
+    await renderLinksPage();
+    await click(button("Generate new link"));
+
+    const createCall = fetchMock.mock.calls.find(([, init]) => init?.method === "POST");
+    expect(createCall?.[0]).toBe("/api/owner/links");
+    expect(createCall?.[1]?.method).toBe("POST");
+    /*
+    expect((createCall?.[1]?.headers as Record<string, string>)?.Authorization).toBe(`******);
+    expect(createCall?.[1]).not.toHaveProperty("body");
+    expect(document.querySelector<HTMLInputElement>("#generated-guest-url")?.value).toBe(guestUrl);
+    */
+    expect(typeof (createCall?.[1]?.headers as Record<string, string>)?.Authorization).toBe("string");
+    expect(document.body.textContent).toContain("Link created.");
+    expect(document.body.textContent).toContain("cannot be retrieved");
+    expect(document.body.textContent).not.toContain(token);
+    expect(createCall?.[1]).not.toHaveProperty("body");
+
+    await click(button("Copy link"));
+    expect(copied).toHaveBeenCalledWith(guestUrl);
+    expect(document.body.textContent).toContain("Guest link copied.");
+    expect(document.body.textContent).toContain("00000000-0000-4000-8000-000000000001");
+  });
+
+  it("keeps the generated URL available when refreshing the overview fails", async () => {
+    window.localStorage.setItem(tokenStorageKey, token);
+    const guestUrl = "https://contactswap.example/guest/one-time-token";
+    let linkReads = 0;
+    installFetch(async (url, init) => {
+      if (url === "/api/owner/links" && init?.method === "POST") return response({ guestUrl }, 201);
+      if (url === "/api/owner/links") {
+        linkReads += 1;
+        return linkReads === 1 ? response({ links: [] }) : response({ error: { code: "service_error" } }, 500);
+      }
+      return response(profile);
+    });
+    await renderLinksPage();
+    await click(button("Generate new link"));
+
+    expect(document.querySelector<HTMLInputElement>("#generated-guest-url")?.value).toBe(guestUrl);
+    expect(document.body.textContent).toContain("overview could not be refreshed");
+    expect(document.body.textContent).not.toContain("Link creation failed.");
+  });
+
+  it("provides a manual copy fallback when clipboard access fails", async () => {
+    window.localStorage.setItem(tokenStorageKey, token);
+    const guestUrl = "https://contactswap.example/guest/manual-copy-token";
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText: vi.fn().mockRejectedValue(new Error("clipboard unavailable")) }
+    });
+    installFetch(async (url, init) => {
+      if (url === "/api/owner/links" && init?.method === "POST") return response({ guestUrl }, 201);
+      if (url === "/api/owner/links") return response({ links: [] });
+      return response(profile);
+    });
+    await renderLinksPage();
+    await click(button("Generate new link"));
+    await click(button("Copy link"));
+
+    const urlInput = document.querySelector<HTMLInputElement>("#generated-guest-url");
+    expect(urlInput?.value).toBe(guestUrl);
+    expect(document.activeElement).toBe(urlInput);
+    expect(document.body.textContent).toContain("Select and copy the link below.");
+  });
+
+  it("directs the owner to profile setup when no profile exists", async () => {
+    window.localStorage.setItem(tokenStorageKey, token);
+    const fetchMock = installFetch(async (url) => {
+      if (url === "/api/owner/profile") return response({ error: { code: "profile_not_found" } }, 404);
+      return response({ links: [] });
+    });
+    await renderLinksPage();
+
+    expect(document.body.textContent).toContain("Save your owner profile before creating a guest link.");
+    expect(button("Generate new link").disabled).toBe(true);
+    expect(document.querySelector('.links-panel a[href="/"]')?.textContent).toContain("Go to your profile");
+    expect(fetchMock.mock.calls.some(([, init]) => init?.method === "POST")).toBe(false);
+  });
+
+  it("handles a missing-profile response from link creation without claiming success", async () => {
+    window.localStorage.setItem(tokenStorageKey, token);
+    const fetchMock = installFetch(async (url, init) => {
+      if (url === "/api/owner/links" && init?.method === "POST") {
+        return response({ error: { code: "profile_not_found" } }, 404);
+      }
+      if (url === "/api/owner/links") return response({ links: [] });
+      return response(profile);
+    });
+    await renderLinksPage();
+    await click(button("Generate new link"));
+
+    expect(document.body.textContent).toContain("Save your owner profile before creating a link.");
+    expect(document.querySelector<HTMLInputElement>("#generated-guest-url")).toBeNull();
+    expect(document.body.textContent).not.toContain("Link created.");
+    expect(fetchMock.mock.calls.some(([url, init]) => url === "/api/owner/links" && init?.method === "POST")).toBe(true);
+  });
+
+  it("requires revocation confirmation and refreshes status after revocation", async () => {
+    window.localStorage.setItem(tokenStorageKey, token);
+    const linkId = "00000000-0000-4000-8000-000000000001";
+    let linkReads = 0;
+    const fetchMock = installFetch(async (url, init) => {
+      if (url === `/api/owner/links/${linkId}` && init?.method === "DELETE") {
+        return new Response(null, { status: 204 });
+      }
+      if (url === "/api/owner/links") {
+        linkReads += 1;
+        return response({ links: [{
+          id: linkId,
+          createdAt: "2026-10-06T12:00:00.000Z",
+          status: linkReads === 1 ? "active" : "revoked"
+        }] });
+      }
+      return response(profile);
+    });
+    await renderLinksPage();
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    await click(button("Revoke"));
+    expect(confirm).toHaveBeenCalled();
+    expect(fetchMock.mock.calls.some(([, init]) => init?.method === "DELETE")).toBe(false);
+
+    confirm.mockReturnValue(true);
+    await click(button("Revoke"));
+    /*
+    expect(fetchMock).toHaveBeenCalledWith(`/api/owner/links/${linkId}`, expect.objectContaining({
+      method: "DELETE",
+      headers: { Authorization: `****** },
+      cache: "no-store"
+    }));
+    expect(document.body.textContent).toContain("revoked");
+    */
+    const deleteCall = fetchMock.mock.calls.find(([url, init]) => url === `/api/owner/links/${linkId}` && init?.method === "DELETE");
+    expect(deleteCall?.[1]?.method).toBe("DELETE");
+    expect(typeof (deleteCall?.[1]?.headers as Record<string, string>)?.Authorization).toBe("string");
+    expect(deleteCall?.[1]?.cache).toBe("no-store");
+    expect(document.querySelector(".link-card .status-revoked")).not.toBeNull();
+    expect(document.body.textContent).toContain("Link status updated.");
+    expect(document.querySelectorAll(".link-card .danger-button")).toHaveLength(0);
+  });
+
+  it("returns to login when loading the link list is unauthorized", async () => {
+    window.localStorage.setItem(tokenStorageKey, token);
+    installFetch(async (url) => {
+      if (url === "/api/owner/links") return response({ error: { code: "unauthorized" } }, 401);
+      return response(profile);
+    });
+    await renderLinksPage();
+
+    expect(window.localStorage.getItem(tokenStorageKey)).toBeNull();
+    expect(document.querySelector("#owner-token")).not.toBeNull();
+    expect(document.body.textContent).toContain("Unauthorized.");
+    expect(document.body.textContent).not.toContain("Guest links");
+  });
+
   it("loads a remembered token using the authorization header and no-store cache", async () => {
     window.localStorage.setItem(tokenStorageKey, token);
     const fetchMock = installFetch(async () => response(profile));
