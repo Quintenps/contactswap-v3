@@ -68,6 +68,11 @@ async function renderLinksPage() {
   await renderApp();
 }
 
+async function renderGuestPage(token = "guest-test-token") {
+  window.history.pushState({}, "", `/guest/${token}`);
+  await renderApp();
+}
+
 function installFetch(handler: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>) {
   vi.stubGlobal("fetch", vi.fn(handler));
   return vi.mocked(fetch);
@@ -472,6 +477,199 @@ describe("owner profile frontend", () => {
     expect(document.querySelector("#owner-token")).not.toBeNull();
     expect(document.querySelector("#name")).toBeNull();
     expect(document.body.textContent).toContain("Logged out.");
+  });
+});
+
+describe("guest frontend", () => {
+  const guestToken = "guest-test-token";
+  const vcardUrl = "/api/guest/vcard/00000000-0000-4000-8000-000000000001/test-signature";
+
+  function vcardResponse() {
+    return new Response("BEGIN:VCARD\nVERSION:4.0\nEND:VCARD\n", {
+      headers: { "Content-Type": "text/vcard; version=4.0; charset=utf-8" }
+    });
+  }
+
+  function installActiveGuestLink(handler?: (url: RequestInfo | URL, init?: RequestInit) => Promise<Response>) {
+    return installFetch(async (url, init) => {
+      if (url === `/api/guest/links/${guestToken}`) return response({ vcardUrl });
+      if (handler) return handler(url, init);
+      if (url === vcardUrl) return vcardResponse();
+      return response({ error: { code: "not_found" } }, 404);
+    });
+  }
+
+  it("loads an active guest link and prioritizes download with sharing", async () => {
+    const fetchMock = installActiveGuestLink();
+    await renderGuestPage(guestToken);
+
+    expect(fetchMock).toHaveBeenCalledWith(`/api/guest/links/${guestToken}`, {
+      cache: "no-store",
+      referrerPolicy: "no-referrer"
+    });
+    expect(document.querySelector("#owner-token")).toBeNull();
+    expect(button("Download and share your details").className).toContain("guest-primary-action");
+    expect(button("Download Quinten's contact card only").className).toContain("guest-secondary-action");
+    expect(document.querySelector("#guest-details-form")).toBeNull();
+    expect(document.body.textContent).toContain("Your details are only sent if you submit it.");
+  });
+
+  it("downloads the contact card and opens the form from the primary action", async () => {
+    const fetchMock = installActiveGuestLink();
+    const anchorClick = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    await renderGuestPage(guestToken);
+
+    await click(button("Download and share your details"));
+
+    expect(fetchMock).toHaveBeenCalledWith(vcardUrl, {
+      cache: "no-store",
+      referrerPolicy: "no-referrer"
+    });
+    expect(URL.createObjectURL).toHaveBeenCalled();
+    expect(anchorClick).toHaveBeenCalled();
+    const formPanel = document.querySelector(".guest-form-panel");
+    const actionsPanel = document.querySelector("#guest-actions-heading")?.closest("section");
+    expect(formPanel).not.toBeNull();
+    expect(
+      (formPanel!.compareDocumentPosition(actionsPanel!) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
+    ).toBe(true);
+    expect(document.activeElement?.id).toBe("guest-form-heading");
+  });
+
+  it("downloads only when the secondary action is selected", async () => {
+    const fetchMock = installActiveGuestLink();
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    await renderGuestPage(guestToken);
+
+    await click(button("Download Quinten's contact card only"));
+
+    expect(fetchMock.mock.calls.some(([url]) => url === vcardUrl)).toBe(true);
+    expect(document.querySelector("#guest-details-form")).toBeNull();
+  });
+
+  it("submits required details without a picture and shows a privacy-safe thank-you state", async () => {
+    const fetchMock = installActiveGuestLink(async (url, init) => {
+      if (url === vcardUrl) return vcardResponse();
+      if (url === `/api/guest/links/${guestToken}/submissions`) return response({ success: true }, 201);
+      return response({ error: { code: "not_found" } }, 404);
+    });
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    await renderGuestPage(guestToken);
+    await click(button("Download and share your details"));
+
+    changeValue(input("guest-name"), "Guest Example");
+    changeValue(input("guest-email"), "guest@example.invalid");
+    changeValue(input("guest-address"), "34 Example Street");
+    changeValue(input("guest-birthday"), "1992-06-17");
+    await submit(document.querySelector<HTMLFormElement>("#guest-details-form")!);
+
+    const submission = fetchMock.mock.calls.find(([url]) => url === `/api/guest/links/${guestToken}/submissions`);
+    expect(submission?.[1]?.method).toBe("POST");
+    expect(submission?.[1]?.cache).toBe("no-store");
+    expect(submission?.[1]?.referrerPolicy).toBe("no-referrer");
+    expect(submission?.[1]?.body).toBeInstanceOf(FormData);
+    expect((submission?.[1]?.body as FormData).get("picture")).toBeNull();
+    expect(document.body.textContent).toContain("Your details have been shared.");
+    expect(document.body.textContent).not.toContain("Guest Example");
+    expect(document.querySelector("#guest-details-form")).toBeNull();
+    expect(document.querySelector(".guest-state-thank-you")).not.toBeNull();
+    expect(document.querySelector(".guest-state-emoji")?.textContent).toBe("🎉");
+  });
+
+  it("includes the optional picture only when one is selected", async () => {
+    const fetchMock = installActiveGuestLink(async (url) => {
+      if (url === vcardUrl) return vcardResponse();
+      if (url === `/api/guest/links/${guestToken}/submissions`) return response({ success: true }, 201);
+      return response({ error: { code: "not_found" } }, 404);
+    });
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    await renderGuestPage(guestToken);
+    await click(button("Download and share your details"));
+    changeValue(input("guest-name"), "Guest Example");
+    changeValue(input("guest-email"), "guest@example.invalid");
+    changeValue(input("guest-address"), "34 Example Street");
+    changeValue(input("guest-birthday"), "1992-06-17");
+
+    const pictureInput = input("guest-picture");
+    const picture = new File(["synthetic image"], "guest.png", { type: "image/png" });
+    Object.defineProperty(pictureInput, "files", { configurable: true, value: [picture] });
+    act(() => pictureInput.dispatchEvent(new Event("change", { bubbles: true })));
+    await submit(document.querySelector<HTMLFormElement>("#guest-details-form")!);
+
+    const request = fetchMock.mock.calls.find(([url]) => url === `/api/guest/links/${guestToken}/submissions`);
+    const formData = request?.[1]?.body;
+    expect(formData).toBeInstanceOf(FormData);
+    expect((formData as FormData).get("picture")).toMatchObject({ name: "guest.png", type: "image/png" });
+    expect(document.body.textContent).toContain("Your details have been shared.");
+  });
+
+  it("validates required fields before submitting", async () => {
+    const fetchMock = installActiveGuestLink();
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    await renderGuestPage(guestToken);
+    await click(button("Download and share your details"));
+    await submit(document.querySelector<HTMLFormElement>("#guest-details-form")!);
+
+    expect(fetchMock.mock.calls.some(([url]) => url === `/api/guest/links/${guestToken}/submissions`)).toBe(false);
+    expect(input("guest-name").getAttribute("aria-invalid")).toBe("true");
+    expect(document.body.textContent).toContain("Check the required details.");
+  });
+
+  it("preserves entered values when the API rejects a submission", async () => {
+    installActiveGuestLink(async (url) => {
+      if (url === vcardUrl) return vcardResponse();
+      if (url === `/api/guest/links/${guestToken}/submissions`) {
+        return response({ error: { code: "invalid_submission" } }, 400);
+      }
+      return response({ error: { code: "not_found" } }, 404);
+    });
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    await renderGuestPage(guestToken);
+    await click(button("Download and share your details"));
+    changeValue(input("guest-name"), "Guest Example");
+    changeValue(input("guest-email"), "guest@example.invalid");
+    changeValue(input("guest-address"), "34 Example Street");
+    changeValue(input("guest-birthday"), "1992-06-17");
+    await submit(document.querySelector<HTMLFormElement>("#guest-details-form")!);
+
+    expect(input("guest-name").value).toBe("Guest Example");
+    expect(document.body.textContent).toContain("Check the required details and try again.");
+    expect(document.querySelector("#guest-details-form")).not.toBeNull();
+  });
+
+  it.each([404, 410])("shows an unavailable state when link resolution returns %s", async (status) => {
+    installFetch(async () => response({ error: { code: "guest_link_unavailable" } }, status));
+    await renderGuestPage(guestToken);
+
+    expect(document.body.textContent).toContain("This link isn't available");
+    expect(document.querySelector(".guest-state-shell")).not.toBeNull();
+    expect(document.querySelector(".guest-state-emoji")?.textContent).toBe("💌");
+    expect(document.querySelector(".guest-actions")).toBeNull();
+    expect(document.querySelector("#guest-details-form")).toBeNull();
+  });
+
+  it("shows a friendly, centered retry state when link resolution fails", async () => {
+    installFetch(async () => {
+      throw new Error("network failure");
+    });
+    await renderGuestPage(guestToken);
+
+    expect(document.querySelector(".guest-state-error")).not.toBeNull();
+    expect(document.querySelector(".guest-state-emoji")?.textContent).toBe("🌱");
+    expect(document.body.textContent).toContain("A little hiccup");
+    expect(button("Try again")).toBeDefined();
+  });
+
+  it("keeps the form available when the vCard download fails", async () => {
+    installActiveGuestLink(async (url) => {
+      if (url === vcardUrl) return response({ error: { code: "vcard_unavailable" } }, 500);
+      return response({ error: { code: "not_found" } }, 404);
+    });
+    await renderGuestPage(guestToken);
+    await click(button("Download and share your details"));
+
+    expect(document.querySelector("#guest-details-form")).not.toBeNull();
+    expect(document.body.textContent).toContain("The contact card could not be downloaded. Try again.");
   });
 });
 

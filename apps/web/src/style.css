@@ -75,6 +75,78 @@ a:focus-visible {
   padding: 52px 0 40px;
 }
 
+.guest-shell {
+  width: min(100% - 32px, 620px);
+  display: block;
+  padding: clamp(32px, 8vh, 72px) 0 40px;
+  scroll-behavior: smooth;
+}
+
+.guest-state-shell {
+  display: grid;
+  align-content: center;
+  min-height: 100vh;
+  min-height: 100svh;
+  padding-block: 24px;
+}
+
+.guest-state-panel {
+  width: 100%;
+  max-width: 540px;
+  margin: auto;
+  padding: clamp(28px, 7vw, 48px);
+  text-align: center;
+  animation: guest-state-enter 480ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.guest-state-panel .eyebrow {
+  margin-bottom: 12px;
+}
+
+.guest-state-panel h1 {
+  max-width: none;
+  margin-inline: auto;
+}
+
+.guest-state-panel .section-description {
+  max-width: 36ch;
+  margin: 12px auto 0;
+  font-size: 1rem;
+}
+
+.guest-state-panel .notice {
+  margin: 16px 0 0;
+  text-align: left;
+}
+
+.guest-state-emoji {
+  display: grid;
+  width: 76px;
+  height: 76px;
+  margin: 0 auto 20px;
+  place-items: center;
+  border: 1px solid #e6e9e2;
+  border-radius: 50%;
+  background: #f4f7f1;
+  font-size: 2.25rem;
+  animation: guest-state-bob 2.8s ease-in-out 480ms infinite;
+}
+
+.guest-state-thank-you .guest-state-emoji {
+  border-color: #f1dfc6;
+  background: #fff8ed;
+}
+
+.guest-state-error .guest-state-emoji {
+  border-color: #d8e4d8;
+  background: #eff5ee;
+}
+
+.guest-state-unavailable .guest-state-emoji {
+  border-color: #edd5c8;
+  background: #fff4ed;
+}
+
 .panel {
   border: 1px solid #e6e9e2;
   border-radius: 16px;
@@ -84,6 +156,128 @@ a:focus-visible {
 
 .login-panel {
   padding: clamp(26px, 7vw, 52px);
+}
+
+.guest-header {
+  margin: 0 0 24px;
+}
+
+.guest-header .eyebrow {
+  margin-bottom: 12px;
+}
+
+.guest-header .section-description {
+  max-width: 48ch;
+  margin-top: 12px;
+  font-size: 1rem;
+}
+
+.guest-panel {
+  margin-bottom: 14px;
+  padding: clamp(20px, 5vw, 32px);
+}
+
+.guest-panel .section-description {
+  margin-top: 8px;
+}
+
+.guest-actions {
+  display: grid;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.guest-actions button,
+.guest-form-actions button,
+.guest-retry-button {
+  width: 100%;
+}
+
+.guest-primary-action {
+  min-height: 56px;
+  padding: 10px 18px;
+}
+
+.guest-secondary-action {
+  min-height: 48px;
+}
+
+.guest-form-panel {
+  display: grid;
+  gap: 20px;
+  scroll-margin-top: 20px;
+  animation: guest-form-enter 360ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.guest-form-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.guest-form-header h2:focus {
+  outline: none;
+}
+
+.guest-close-button {
+  min-height: 44px;
+}
+
+.guest-form {
+  display: grid;
+  gap: 18px;
+}
+
+.guest-profile-form {
+  width: 100%;
+}
+
+.guest-picture-field input[type="file"] {
+  padding-top: 4px;
+}
+
+.guest-form-actions {
+  padding-top: 2px;
+}
+
+.guest-retry-button {
+  margin-top: 18px;
+}
+
+@keyframes guest-state-enter {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes guest-state-bob {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0);
+  }
+
+  50% {
+    transform: translateY(-5px) rotate(-3deg);
+  }
+}
+
+@keyframes guest-form-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .loading-panel {
@@ -490,6 +684,15 @@ input[type="file"]::file-selector-button {
     padding-top: 30px;
   }
 
+  .guest-shell {
+    width: min(100% - 24px, 620px);
+    padding-top: 32px;
+  }
+
+  .guest-header h1 {
+    font-size: clamp(1.9rem, 10vw, 2.6rem);
+  }
+
   .page-header {
     flex-direction: column;
     gap: 14px;
@@ -551,5 +754,11 @@ input[type="file"]::file-selector-button {
   *::after {
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
+  }
+
+  .guest-state-panel,
+  .guest-state-emoji,
+  .guest-form-panel {
+    animation: none !important;
   }
 }
