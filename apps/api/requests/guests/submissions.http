@@ -22,6 +22,10 @@ Content-Disposition: form-data; name="address"
 Content-Disposition: form-data; name="birthday"
 
 1992-07-14
+--ContactSwapGuestBoundary
+Content-Disposition: form-data; name="phone"
+
++31600000001
 --ContactSwapGuestBoundary--
 
 ### Submit synthetic guest contact details with a photo
@@ -44,6 +48,10 @@ Content-Disposition: form-data; name="address"
 Content-Disposition: form-data; name="birthday"
 
 1992-07-14
+--ContactSwapGuestPhotoBoundary
+Content-Disposition: form-data; name="phone"
+
++31600000001
 --ContactSwapGuestPhotoBoundary
 Content-Disposition: form-data; name="picture"; filename="sample-guest-profile.jpg"
 Content-Type: image/jpeg

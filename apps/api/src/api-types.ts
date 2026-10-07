@@ -3,6 +3,7 @@ export type OwnerProfile = {
   email: string;
   address: string;
   birthday: string;
+  phone: string;
 };
 
 export type StoredOwnerProfile = OwnerProfile & { photo_key: string | null };

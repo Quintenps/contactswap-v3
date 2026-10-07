@@ -5,6 +5,7 @@ type ProfileFields = {
   email: string;
   address: string;
   birthday: string;
+  phone: string;
 };
 
 type Profile = ProfileFields & { hasPhoto: boolean };
@@ -18,14 +19,29 @@ type GuestPageState = "loading" | "error" | "ready" | "unavailable" | "thank-you
 const tokenStorageKey = "contactswap-owner-token";
 const linksPath = "/owner/links";
 const submissionsPath = "/owner/submissions";
-const fields: { name: FieldName; label: string; type: string; autoComplete: string }[] = [
+const fields: {
+  name: FieldName;
+  label: string;
+  type: string;
+  autoComplete: string;
+  hint?: string;
+  placeholder?: string;
+}[] = [
   { name: "name", label: "Full name", type: "text", autoComplete: "name" },
   { name: "email", label: "Email address", type: "email", autoComplete: "email" },
   { name: "address", label: "Address", type: "text", autoComplete: "street-address" },
-  { name: "birthday", label: "Birthday", type: "date", autoComplete: "bday" }
+  { name: "birthday", label: "Birthday", type: "date", autoComplete: "bday" },
+  {
+    name: "phone",
+    label: "Phone number",
+    type: "tel",
+    autoComplete: "tel",
+    hint: "Use international format with the +31 country code.",
+    placeholder: "+31600000000"
+  }
 ];
 
-const emptyFields: ProfileFields = { name: "", email: "", address: "", birthday: "" };
+const emptyFields: ProfileFields = { name: "", email: "", address: "", birthday: "", phone: "" };
 
 function ownerAuthorization(token: string): string {
   return `Bearer ${token}`;
@@ -173,6 +189,7 @@ function isProfile(value: unknown): value is Profile {
     typeof candidate.email === "string" &&
     typeof candidate.address === "string" &&
     typeof candidate.birthday === "string" &&
+    typeof candidate.phone === "string" &&
     typeof candidate.hasPhoto === "boolean"
   );
 }
@@ -220,7 +237,8 @@ function validateProfile(values: ProfileFields): Partial<Record<FieldName, strin
     name: values.name.trim(),
     email: values.email.trim(),
     address: values.address.trim(),
-    birthday: values.birthday.trim()
+    birthday: values.birthday.trim(),
+    phone: values.phone.trim()
   };
 
   if (!trimmed.name) errors.name = "Enter your name.";
@@ -229,6 +247,11 @@ function validateProfile(values: ProfileFields): Partial<Record<FieldName, strin
     errors.email = "Enter a valid email address.";
   }
   if (!trimmed.address) errors.address = "Enter your address.";
+  if (!trimmed.phone) {
+    errors.phone = "Enter your phone number with the +31 country code, such as +31600000000.";
+  } else if (!/^\+[1-9]\d{1,14}$/.test(trimmed.phone)) {
+    errors.phone = "Use international E.164 format, such as +31600000000.";
+  }
   if (!trimmed.birthday) {
     errors.birthday = "Enter your birthday.";
   } else {
@@ -329,7 +352,8 @@ export default function App() {
       name: data.name,
       email: data.email,
       address: data.address,
-      birthday: data.birthday
+      birthday: data.birthday,
+      phone: data.phone
     } : emptyFields);
     setHasPhoto(data?.hasPhoto ?? false);
     setView(
@@ -572,7 +596,8 @@ export default function App() {
       name: values.name.trim(),
       email: values.email.trim(),
       address: values.address.trim(),
-      birthday: values.birthday.trim()
+      birthday: values.birthday.trim(),
+      phone: values.phone.trim()
     };
     try {
       const response = await fetch("/api/owner/profile", {
@@ -592,7 +617,7 @@ export default function App() {
         const code = await errorCode(response);
         setMessage(
           code === "invalid_profile"
-            ? "Check required fields, email, and birthday."
+            ? "Check required fields, email, birthday, and phone number."
             : "Save failed. Changes kept."
         );
         return;
@@ -607,7 +632,8 @@ export default function App() {
         name: data.name,
         email: data.email,
         address: data.address,
-        birthday: data.birthday
+        birthday: data.birthday,
+        phone: data.phone
       });
       setHasPhoto(data.hasPhoto);
       setFieldErrors({});
@@ -1120,7 +1146,7 @@ export default function App() {
 
             <form id="guest-details-form" className="guest-form" onSubmit={handleGuestSubmit} noValidate>
               <div className="profile-form guest-profile-form">
-                {fields.map(({ name, label, type, autoComplete }) => (
+                {fields.map(({ name, label, type, autoComplete, hint, placeholder }) => (
                   <div className="field" key={name}>
                     <label htmlFor={`guest-${name}`}>{label}<span aria-hidden="true"> *</span></label>
                     <input
@@ -1128,16 +1154,22 @@ export default function App() {
                       name={name}
                       type={type}
                       autoComplete={autoComplete}
+                      placeholder={placeholder}
+                      inputMode={name === "phone" ? "tel" : undefined}
                       value={guestValues[name]}
                       required
                       aria-invalid={Boolean(guestFieldErrors[name])}
-                      aria-describedby={guestFieldErrors[name] ? `guest-${name}-error` : undefined}
+                      aria-describedby={[
+                        hint ? `guest-${name}-hint` : undefined,
+                        guestFieldErrors[name] ? `guest-${name}-error` : undefined
+                      ].filter(Boolean).join(" ") || undefined}
                       onChange={(event) => {
                         setGuestValues((current) => ({ ...current, [name]: event.target.value }));
                         setGuestFieldErrors((current) => ({ ...current, [name]: undefined }));
                         setGuestMessage("");
                       }}
                     />
+                    {hint && <span className="field-hint" id={`guest-${name}-hint`}>{hint} Example: {placeholder}</span>}
                     {guestFieldErrors[name] && (
                       <span className="field-error" id={`guest-${name}-error`}>{guestFieldErrors[name]}</span>
                     )}
@@ -1467,7 +1499,7 @@ export default function App() {
         </div>
 
         <form onSubmit={handleSave} className="profile-form" noValidate>
-          {fields.map(({ name, label, type, autoComplete }) => (
+          {fields.map(({ name, label, type, autoComplete, hint, placeholder }) => (
             <div className="field" key={name}>
               <label htmlFor={name}>{label}<span aria-hidden="true"> *</span></label>
               <input
@@ -1475,16 +1507,22 @@ export default function App() {
                 name={name}
                 type={type}
                 autoComplete={autoComplete}
+                placeholder={placeholder}
+                inputMode={name === "phone" ? "tel" : undefined}
                 value={values[name]}
                 required
                 aria-invalid={Boolean(fieldErrors[name])}
-                aria-describedby={fieldErrors[name] ? `${name}-error` : undefined}
+                aria-describedby={[
+                  hint ? `${name}-hint` : undefined,
+                  fieldErrors[name] ? `${name}-error` : undefined
+                ].filter(Boolean).join(" ") || undefined}
                 onChange={(event) => {
                   setValues((current) => ({ ...current, [name]: event.target.value }));
                   setFieldErrors((current) => ({ ...current, [name]: undefined }));
                   setMessage("");
                 }}
               />
+              {hint && <span className="field-hint" id={`${name}-hint`}>{hint} Example: {placeholder}</span>}
               {fieldErrors[name] && <span className="field-error" id={`${name}-error`}>{fieldErrors[name]}</span>}
             </div>
           ))}

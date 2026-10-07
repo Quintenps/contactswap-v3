@@ -9,7 +9,8 @@ const baseProfile = {
   name: "Quinten Example",
   email: "quinten@example.invalid",
   address: "12 Main St, Apt 3; East",
-  birthday: "1990-02-28"
+  birthday: "1990-02-28",
+  phone: "+31600000000"
 };
 
 async function call(
@@ -103,6 +104,7 @@ describe("owner profile API", () => {
     expect(initialVCard).toContain("VERSION:4.0\r\n");
     expect(initialVCard).toContain("FN:Quinten Example\r\n");
     expect(initialVCard).toContain("EMAIL:quinten@example.invalid\r\n");
+    expect(initialVCard).toContain("TEL;VALUE=uri:tel:+31600000000\r\n");
     expect(initialVCard).toContain("BDAY:1990-02-28\r\n");
     expect(initialVCard).toContain("ADR;TYPE=home:;;12 Main St\\, Apt 3\\; East;;;;\r\n");
 
@@ -133,6 +135,9 @@ describe("owner profile API", () => {
       { ...profileRequest({ name: baseProfile.name, email: baseProfile.email, birthday: baseProfile.birthday }) },
       { ...profileRequest({ ...baseProfile, email: "not-an-email" }) },
       { ...profileRequest({ ...baseProfile, birthday: "1990-02-30" }) },
+      { ...profileRequest({ ...baseProfile, phone: "+31 6 0000 0000" }) },
+      { ...profileRequest({ ...baseProfile, phone: "+3161234567890123" }) },
+      { ...profileRequest({ ...baseProfile, phone: "" }) },
       { ...profileRequest({ ...baseProfile, picture: "https://example.invalid/picture.jpg" }) },
       {
         method: "PUT",

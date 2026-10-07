@@ -13,6 +13,7 @@ type Submission = {
   email: string;
   address: string;
   birthday: string;
+  phone: string;
   createdAt: string;
   expiresAt: string;
 };
@@ -43,6 +44,7 @@ async function insertSubmission(
   const email = `${id}@example.invalid`;
   const address = `${id} Guest Street`;
   const birthday = "1988-06-12";
+  const phone = "+31600000001";
 
   await env.DB.prepare(
     `INSERT INTO guest_links (id, token_hash, vcard_signature, created_at)
@@ -52,13 +54,13 @@ async function insertSubmission(
     .run();
   await env.DB.prepare(
     `INSERT INTO guest_submissions
-       (id, link_id, name, email, address, birthday, created_at, expires_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+       (id, link_id, name, email, address, birthday, phone, created_at, expires_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
   )
-    .bind(id, linkId, name, email, address, birthday, createdAt, expiresAt)
+    .bind(id, linkId, name, email, address, birthday, phone, createdAt, expiresAt)
     .run();
 
-  return { id, linkId, name, email, address, birthday, createdAt, expiresAt };
+  return { id, linkId, name, email, address, birthday, phone, createdAt, expiresAt };
 }
 
 describe("owner submissions API", () => {
@@ -133,6 +135,7 @@ describe("owner submissions API", () => {
       email: submission.email,
       address: submission.address,
       birthday: submission.birthday,
+      phone: submission.phone,
       createdAt: submission.createdAt,
       expiresAt: submission.expiresAt
     });
@@ -166,6 +169,7 @@ describe("owner submissions API", () => {
     expect(vcard).toContain("FN:Guest\\, Contact\r\n");
     expect(vcard).toContain(`EMAIL:${submission.email}\r\n`);
     expect(vcard).toContain(`BDAY:${submission.birthday}\r\n`);
+    expect(vcard).toContain(`TEL;VALUE=uri:tel:${submission.phone}\r\n`);
     expect(vcard).toContain(`ADR;TYPE=home:;;${submission.address};;;;\r\n`);
 
     const expired = await insertSubmission(

@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import type { GuestSubmission, StoredGuestSubmission } from "../../api-types";
-import { getPhoto } from "../../api-utils";
+import { getPhoto, isValidPhone } from "../../api-utils";
 import { renderVCard } from "../../vcard";
 
 const routes = new Hono<{ Bindings: Env }>();
@@ -22,7 +22,7 @@ routes.get("/submissions", async (context) => {
 routes.get("/submissions/:id", async (context) => {
   const now = new Date().toISOString();
   const submission = await context.env.DB.prepare(
-    `SELECT id, name, email, address, birthday,
+    `SELECT id, name, email, address, birthday, phone,
             created_at AS createdAt, expires_at AS expiresAt
      FROM guest_submissions
      WHERE id = ? AND expires_at > ?`
@@ -43,7 +43,7 @@ routes.get("/submissions/:id", async (context) => {
 routes.get("/submissions/:id/vcard", async (context) => {
   const now = new Date().toISOString();
   const submission = await context.env.DB.prepare(
-    `SELECT name, email, address, birthday, photo_key
+    `SELECT name, email, address, birthday, phone, photo_key
      FROM guest_submissions
      WHERE id = ? AND expires_at > ?`
   )
@@ -54,6 +54,13 @@ routes.get("/submissions/:id/vcard", async (context) => {
     return context.json(
       { error: { code: "submission_not_found", message: "The submission was not found." } },
       404
+    );
+  }
+
+  if (!isValidPhone(submission.phone)) {
+    return context.json(
+      { error: { code: "submission_phone_required", message: "A valid phone number is required." } },
+      409
     );
   }
 

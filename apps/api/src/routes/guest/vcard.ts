@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import type { StoredOwnerProfile } from "../../api-types";
-import { getPhoto } from "../../api-utils";
+import { getPhoto, isValidPhone } from "../../api-utils";
 import { renderVCard } from "../../vcard";
 
 const routes = new Hono<{ Bindings: Env }>();
@@ -8,7 +8,7 @@ const routes = new Hono<{ Bindings: Env }>();
 routes.get("/vcard/:linkId/:signature", async (context) => {
   const profile = await context.env.DB.prepare(
     `SELECT owner_profile.name, owner_profile.email, owner_profile.address,
-            owner_profile.birthday, owner_profile.photo_key
+            owner_profile.birthday, owner_profile.phone, owner_profile.photo_key
      FROM guest_links
      JOIN owner_profile ON owner_profile.id = 1
      WHERE guest_links.id = ?
@@ -20,6 +20,13 @@ routes.get("/vcard/:linkId/:signature", async (context) => {
     .first<StoredOwnerProfile>();
 
   if (!profile) {
+    return context.json(
+      { error: { code: "vcard_unavailable", message: "The vCard is not available." } },
+      404
+    );
+  }
+
+  if (!isValidPhone(profile.phone)) {
     return context.json(
       { error: { code: "vcard_unavailable", message: "The vCard is not available." } },
       404

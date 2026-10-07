@@ -26,13 +26,13 @@ The following decisions are resolved for this version:
 - Quinten then opens the authorized owner page, where he can click Download to generate and download a vCard from the database record.
 - Quinten is the only profile owner.
 - Quinten's editable profile fields are persisted in D1. Generate his current vCard 4.0 when requested from those fields and his optional optimized photo in private R2; do not store the rendered vCard or image data in D1.
-- Name, email, address, and birthday are required for both profiles; picture is optional.
+- Name, email, address, birthday, and phone number are required for both profiles; picture is optional. Phone numbers use international E.164 format and are included in every generated vCard. Dutch-facing examples use the `+31` country code; other valid international numbers are accepted.
 - Guest submissions are retained for 30 days and then deleted automatically.
 - Links do not expire by age; they can be manually deleted and are removed after the first successful form submission.
 
 ## 5. Proposed solution
 
-Quinten maintains his editable profile in D1 through an owner-only interface authorized by a secret token. His optional optimized photo is stored in private R2. Contactswap generates his current vCard 4.0 when requested, assembling it from the profile fields in D1 and the photo in R2; the vCard is not stored in D1. For each unique guest link, Contactswap creates a signed URL that grants access to Quinten's current vCard specifically through that link. The guest can use the link to access Quinten's card and submit their own contact information through a form.
+Quinten maintains his editable profile in D1 through an owner-only interface authorized by a secret token. His optional optimized photo is stored in private R2. Contactswap generates his current vCard 4.0 when requested, assembling it from the profile fields in D1 and the photo in R2; the vCard is not stored in D1. Both Quinten and each guest provide a phone number in international E.164 format. Dutch-facing examples use the `+31` country code, while other valid international numbers are accepted. Every generated vCard includes the number as a vCard 4.0 telephone property, so it can be used to match an existing contact. For each unique guest link, Contactswap creates a signed URL that grants access to Quinten's current vCard specifically through that link. The guest can use the link to access Quinten's card and submit their own contact information through a form.
 
 After a successful submission, Contactswap stores the guest data in a database, sends a webhook notification to Quinten saying that a form was completed, and shows the guest a thank-you page. Quinten then opens the authorized owner page, where he can click Download to generate a vCard 4.0 from the stored guest record and download it.
 
@@ -69,7 +69,7 @@ The system is web-based, mobile-first, and deployed on Cloudflare Pages. vCard 4
 - Quinten can open the authorized owner page and click Download to generate a vCard from the stored guest database record.
 - Shared links and their signed vCard URLs do not expire by age. Quinten can delete a link, and each link and its signed vCard URL are revoked after its first successful form submission.
 - After a successful submission, the guest sees a thank-you page.
-- Both owner and guest forms require name, email, address, and birthday; picture is optional.
+- Both owner and guest forms require name, email, address, birthday, and an international E.164 phone number; picture is optional.
 - The app is fully web-based and deployed on Cloudflare Pages.
 
 ### Should have
@@ -85,12 +85,12 @@ The system is web-based, mobile-first, and deployed on Cloudflare Pages. vCard 4
 
 ## 8. Information and content
 
-- Quinten's profile contains name, email, address, birthday, and an optional picture.
+- Quinten's profile contains name, email, address, birthday, an international E.164 phone number, and an optional picture.
 - Quinten's editable profile fields are persisted in D1 and reused without re-entering or extracting details from a downloaded vCard. The optional photo is stored in private R2, not D1.
-- A guest may submit the same data types: name, email, address, birthday, and an optional picture.
+- A guest may submit the same data types: name, email, address, birthday, an international E.164 phone number, and an optional picture.
 - Quinten's profile fields are stored in D1; the optional optimized photo is stored in private R2. Generate the vCard 4.0 on request and embed the photo as base64 when present. Do not store image bytes, base64 image data, or the rendered vCard in D1.
 - Guest-submitted fields are stored in a database and used to generate a vCard 4.0 for Quinten when needed.
-- Name, email, address, and birthday are required for both owner and guest forms.
+- Name, email, address, birthday, and phone number are required for both owner and guest forms. Phone numbers use international E.164 format and are included in every generated vCard as a telephone property.
 - Guest submissions and associated stored files are retained for 30 days, then automatically deleted.
 - Contact details, birthdays, addresses, and pictures are personal information and should only be exposed through the intended owner flow or the signed vCard URL associated with an active guest link.
 - Treat each signed vCard URL as a bearer credential scoped to its guest link; do not expose it outside that sharing flow or include its signature in logs.
@@ -155,13 +155,13 @@ The system is web-based, mobile-first, and deployed on Cloudflare Pages. vCard 4
 
 ## 14. Example scenarios
 
-- Submitting details: A family member opens Quinten's guest link and submits their name, email, address, and birthday, with a picture if they choose. Contactswap stores the submission, sends Quinten a notification, and shows the thank-you page.
+- Submitting details: A family member opens Quinten's guest link and submits their name, email, address, birthday, and international E.164 phone number, with a picture if they choose. Contactswap stores the submission, sends Quinten a notification, and shows the thank-you page.
 - Downloading for Quinten: Quinten opens the authorized owner page, clicks Download, and Contactswap generates and downloads a vCard 4.0 from the guest's stored data in the database.
 
 ## 15. Implementation guidance for the agent
 
 - Preserve the single-owner model and the described guest flow.
 - Do not expose the owner token or webhook secret to the browser.
-- Keep the 30-day retention period, single-use link behavior, and required-field requirements unchanged unless explicitly revised.
+- Keep the 30-day retention period and single-use link behavior. Owner and guest forms require name, email, address, birthday, and phone number unless explicitly revised.
 - Prefer simple, reliable implementation choices over broad feature expansion.
 - When a requirement is ambiguous, resolve it in favor of the final product decisions above instead of leaving it unresolved.

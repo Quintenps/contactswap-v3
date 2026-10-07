@@ -15,13 +15,15 @@ const profile = {
   name: "Quinten Example",
   email: "quinten@example.invalid",
   address: "123 Owner Street",
-  birthday: "1990-02-28"
+  birthday: "1990-02-28",
+  phone: "+31600000000"
 };
 const submission = {
   name: "Guest Example",
   email: "guest@example.invalid",
   address: "456 Guest Street",
-  birthday: "1988-06-12"
+  birthday: "1988-06-12",
+  phone: "+31600000001"
 };
 
 async function call(path: string, init: RequestInit = {}): Promise<Response> {
@@ -114,7 +116,9 @@ describe("guest URL API flow", () => {
     );
     expect(firstCard.headers.get("Cache-Control")).toBe("no-store");
     expect(firstCard.headers.get("Referrer-Policy")).toBe("no-referrer");
-    expect(await firstCard.text()).toContain("FN:Quinten Example");
+    const firstCardBody = await firstCard.text();
+    expect(firstCardBody).toContain("FN:Quinten Example");
+    expect(firstCardBody).toContain("TEL;VALUE=uri:tel:+31600000000\r\n");
 
     await call("/api/owner/profile", {
       method: "PUT",
@@ -148,6 +152,8 @@ describe("guest URL API flow", () => {
       { ...submission, name: "   " },
       { ...submission, email: "not-an-email" },
       { ...submission, birthday: "2025-02-30" },
+      { ...submission, phone: "+31 6 0000 0000" },
+      { ...submission, phone: "+3161234567890123" },
       { ...submission, extra: "unsupported" },
       { name: submission.name, email: submission.email, address: submission.address }
     ];
@@ -187,7 +193,7 @@ describe("guest URL API flow", () => {
     expect((await submit(token)).status).toBe(410);
 
     const stored = await env.DB.prepare(
-      "SELECT name, email, address, birthday, created_at, expires_at FROM guest_submissions"
+      "SELECT name, email, address, birthday, phone, created_at, expires_at FROM guest_submissions"
     ).first<Record<string, string>>();
     expect(stored).toMatchObject(submission);
     expect(Date.parse(stored!.expires_at) - Date.parse(stored!.created_at)).toBe(
