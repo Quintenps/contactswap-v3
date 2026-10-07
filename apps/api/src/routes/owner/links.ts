@@ -50,7 +50,7 @@ routes.post("/links", async (context) => {
     .bind(linkId, tokenHash, vcardSignature, new Date().toISOString())
     .run();
 
-  const guestUrl = new URL(`/guest/${guestToken}`, publicAppOrigin).toString();
+  const guestUrl = new URL(`/token/${guestToken}`, publicAppOrigin).toString();
   return context.json({ guestUrl }, 201);
 });
 

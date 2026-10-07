@@ -37,7 +37,7 @@ export function isGuestUrl(value: unknown): value is string {
     const url = new URL(value);
     return (
       (url.protocol === "http:" || url.protocol === "https:") &&
-      /^\/guest\/[^/]+$/.test(url.pathname) &&
+      /^\/token\/[^/]+$/.test(url.pathname) &&
       !url.username &&
       !url.password &&
       !url.search &&

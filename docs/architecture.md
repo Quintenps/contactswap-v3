@@ -14,6 +14,8 @@ TypeScript-based, mobile-first web application with an owner interface and a gue
 
 The frontend communicates with Workers through HTTP APIs. Owner-only operations must be authorized server-side; the admin token and webhook configuration must never be embedded in or exposed to the browser.
 
+The frontend uses `/` for a cheerful, animated welcome page with no owner-dashboard link, `/quinten` for the owner profile, `/quinten/links` for link management, `/quinten/submissions` for submissions, and `/token/{token}` for the guest flow. Welcome-page animations respect the reduced-motion preference. The owner link-creation API returns absolute share URLs using `/token/{token}`. These page routes do not change the `/api/...` endpoints.
+
 ## Backend
 
 Cloudflare Worker APIs provide:

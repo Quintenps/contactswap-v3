@@ -161,7 +161,7 @@ export default function OwnerLinksPage() {
         </div>
         {!profile && (
           <p className="notice" role="status">
-            {t("saveProfileBeforeLink")} <Link to="/">{t("goToProfile")}</Link>
+            {t("saveProfileBeforeLink")} <Link to="/quinten">{t("goToProfile")}</Link>
           </p>
         )}
         <button

@@ -162,14 +162,13 @@ function OwnerLoginPage() {
 
   return (
     <main className="shell">
-      <section className="panel login-panel" aria-labelledby="login-title">
-        <p className="eyebrow">ContactSwap</p>
-        <h1 id="login-title">{t("owner")}</h1>
+      <section className="panel login-panel">
         <form onSubmit={handleSubmit} className="stack">
-          <label htmlFor="owner-token">{t("token")}</label>
           <input
             id="owner-token"
             type="password"
+            aria-label={t("passwordPlaceholder")}
+            placeholder={t("passwordPlaceholder")}
             autoComplete="current-password"
             value={tokenInput}
             onChange={(event) => setTokenInput(event.target.value)}
@@ -196,9 +195,9 @@ export function OwnerPageHeader({ title }: { title: string }) {
       </div>
       <div className="page-actions">
         <nav className="owner-navigation" aria-label={t("navLabel")}>
-          <OwnerNavLink to="/" end>{t("profile")}</OwnerNavLink>
-          <OwnerNavLink to="/owner/links">{t("guestLinks")}</OwnerNavLink>
-          <OwnerNavLink to="/owner/submissions">{t("submissions")}</OwnerNavLink>
+          <OwnerNavLink to="/quinten" end>{t("profile")}</OwnerNavLink>
+          <OwnerNavLink to="/quinten/links">{t("guestLinks")}</OwnerNavLink>
+          <OwnerNavLink to="/quinten/submissions">{t("submissions")}</OwnerNavLink>
           <button className="nav-button owner-nav-logout" type="button" onClick={logout}>{t("logOut")}</button>
         </nav>
       </div>

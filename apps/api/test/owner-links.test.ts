@@ -126,8 +126,8 @@ describe("owner guest-link API", () => {
     expect(firstResponse.headers.get("Cache-Control")).toBe("no-store");
     expect(firstResponse.headers.get("Content-Type")).toContain("application/json");
     expect(firstUrl.origin).toBe("https://contactswap.pages.dev");
-    expect(firstUrl.pathname).toMatch(/^\/guest\/[A-Za-z0-9_-]{43}$/);
-    expect(secondUrl.pathname).toMatch(/^\/guest\/[A-Za-z0-9_-]{43}$/);
+    expect(firstUrl.pathname).toMatch(/^\/token\/[A-Za-z0-9_-]{43}$/);
+    expect(secondUrl.pathname).toMatch(/^\/token\/[A-Za-z0-9_-]{43}$/);
     expect(firstBody.guestUrl).not.toBe(secondBody.guestUrl);
     expect(firstBody.guestUrl).not.toContain("signature");
 

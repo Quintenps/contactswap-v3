@@ -71,7 +71,8 @@ async function clickLink(element: HTMLAnchorElement) {
   await act(async () => element.click());
 }
 
-async function renderApp() {
+async function renderApp(path = "/quinten") {
+  window.history.replaceState({}, "", path);
   container = document.createElement("div");
   document.body.append(container);
   root = createRoot(container);
@@ -79,18 +80,15 @@ async function renderApp() {
 }
 
 async function renderLinksPage() {
-  window.history.pushState({}, "", "/owner/links");
-  await renderApp();
+  await renderApp("/quinten/links");
 }
 
 async function renderSubmissionsPage() {
-  window.history.pushState({}, "", "/owner/submissions");
-  await renderApp();
+  await renderApp("/quinten/submissions");
 }
 
 async function renderGuestPage(token = "guest-test-token") {
-  window.history.pushState({}, "", `/guest/${token}`);
-  await renderApp();
+  await renderApp(`/token/${token}`);
 }
 
 function vcardResponse(
@@ -112,6 +110,16 @@ function installFetch(handler: (input: RequestInfo | URL, init?: RequestInit) =>
 }
 
 describe("frontend routes", () => {
+  it("shows a minimal welcome page without loading owner or guest data", async () => {
+    const fetchMock = installFetch(async () => response(profile));
+    await renderApp("/");
+
+    expect(document.body.textContent).toContain("Good things start with a hello.");
+    expect(document.querySelector(".welcome-illustration")?.getAttribute("aria-hidden")).toBe("true");
+    expect(document.querySelector(".welcome-hero a, .welcome-hero button")).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("navigates between owner pages without a full page load and responds to history changes", async () => {
     window.localStorage.setItem(tokenStorageKey, token);
     const fetchMock = installFetch(async (url) => {
@@ -121,29 +129,28 @@ describe("frontend routes", () => {
     });
     await renderLinksPage();
 
-    const submissionsLink = document.querySelector<HTMLAnchorElement>('nav[aria-label="Owner navigation"] a[href="/owner/submissions"]');
+    const submissionsLink = document.querySelector<HTMLAnchorElement>('nav[aria-label="Owner navigation"] a[href="/quinten/submissions"]');
     if (!submissionsLink) throw new Error("Missing submissions navigation link.");
     await clickLink(submissionsLink);
 
-    expect(window.location.pathname).toBe("/owner/submissions");
+    expect(window.location.pathname).toBe("/quinten/submissions");
     expect(document.body.textContent).toContain("New contacts");
     expect(document.querySelector('nav[aria-label="Owner navigation"] a[aria-current="page"]')?.textContent)
       .toBe("New contacts");
     expect(fetchMock.mock.calls.some(([url]) => url === "/api/owner/submissions")).toBe(true);
 
     await act(async () => {
-      window.history.pushState({}, "", "/owner/links");
+      window.history.pushState({}, "", "/quinten/links");
       window.dispatchEvent(new PopStateEvent("popstate", { state: window.history.state }));
       await Promise.resolve();
     });
-    expect(window.location.pathname).toBe("/owner/links");
+    expect(window.location.pathname).toBe("/quinten/links");
     expect(document.body.textContent).toContain("Links to share");
   });
 
   it("shows a safe not-found state for unknown and malformed guest routes", async () => {
     const fetchMock = installFetch(async () => response(profile));
-    window.history.pushState({}, "", "/guest/");
-    await renderApp();
+    await renderApp("/token/");
 
     expect(document.body.textContent).toContain("Can't find that page");
     expect(fetchMock).not.toHaveBeenCalled();
@@ -151,8 +158,14 @@ describe("frontend routes", () => {
     await act(async () => root?.unmount());
     root = undefined;
     container.remove();
-    window.history.replaceState({}, "", "/not-a-route");
-    await renderApp();
+    await renderApp("/guest/guest-token");
+    expect(document.body.textContent).toContain("Can't find that page");
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    await act(async () => root?.unmount());
+    root = undefined;
+    container.remove();
+    await renderApp("/not-a-route");
     expect(document.body.textContent).toContain("Can't find that page");
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -182,6 +195,19 @@ afterEach(async () => {
 });
 
 describe("owner profile frontend", () => {
+  it("shows a minimal password login with an accessible placeholder", async () => {
+    const fetchMock = installFetch(async () => response(profile));
+    await renderApp();
+
+    const password = input("owner-token");
+    expect(password.type).toBe("password");
+    expect(password.placeholder).toBe("Enter password");
+    expect(password.getAttribute("aria-label")).toBe("Enter password");
+    expect(document.querySelector(".login-panel label, .login-panel h1, .login-panel a")).toBeNull();
+    expect(document.querySelector(".login-panel button")).not.toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("loads retained submissions newest first without displaying private fields or identifiers", async () => {
     window.localStorage.setItem(tokenStorageKey, token);
     const submissions = [
@@ -445,7 +471,7 @@ describe("owner profile frontend", () => {
 
   it("creates a guest link, refreshes the overview, and confirms successful copying", async () => {
     window.localStorage.setItem(tokenStorageKey, token);
-    const guestUrl = "https://contactswap.example/guest/new-secret-token";
+    const guestUrl = "https://contactswap.example/token/new-secret-token";
     const copied = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: copied } });
     let linkReads = 0;
@@ -484,7 +510,7 @@ describe("owner profile frontend", () => {
 
   it("keeps the generated URL available when refreshing the overview fails", async () => {
     window.localStorage.setItem(tokenStorageKey, token);
-    const guestUrl = "https://contactswap.example/guest/one-time-token";
+    const guestUrl = "https://contactswap.example/token/one-time-token";
     let linkReads = 0;
     installFetch(async (url, init) => {
       if (url === "/api/owner/links" && init?.method === "POST") return response({ guestUrl }, 201);
@@ -504,7 +530,7 @@ describe("owner profile frontend", () => {
 
   it("provides a manual copy fallback when clipboard access fails", async () => {
     window.localStorage.setItem(tokenStorageKey, token);
-    const guestUrl = "https://contactswap.example/guest/manual-copy-token";
+    const guestUrl = "https://contactswap.example/token/manual-copy-token";
     Object.defineProperty(navigator, "clipboard", {
       configurable: true,
       value: { writeText: vi.fn().mockRejectedValue(new Error("clipboard unavailable")) }
@@ -534,7 +560,7 @@ describe("owner profile frontend", () => {
 
     expect(document.body.textContent).toContain("Add your contact details before making a share link.");
     expect(button("Generate new link").disabled).toBe(true);
-    expect(document.querySelector('.links-panel a[href="/"]')?.textContent).toContain("Add your details");
+    expect(document.querySelector('.links-panel a[href="/quinten"]')?.textContent).toContain("Add your details");
     expect(fetchMock.mock.calls.some(([, init]) => init?.method === "POST")).toBe(false);
   });
 
