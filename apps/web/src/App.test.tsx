@@ -855,6 +855,7 @@ describe("guest frontend", () => {
     expect(document.querySelector(".guest-owner-avatar")?.textContent).toBe("QE");
     expect(document.querySelector("h1")?.textContent).toBe("Here's my contact card");
     expect(document.body.textContent).toContain("Nothing gets sent until you tap “Share my details.”");
+    expect(document.body.textContent).not.toContain("My latest details, ready for your phone.");
   });
 
   it("previews the owner's picture without a referrer and falls back to initials if it fails", async () => {

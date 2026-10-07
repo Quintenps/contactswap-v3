@@ -313,7 +313,6 @@ export default function GuestPage() {
             <div className="guest-owner-card-copy">
               <p className="guest-owner-card-label">{t("upToDateCard")}</p>
               <h2 id="guest-owner-name" className="guest-owner-name">{ownerName}</h2>
-              <p className="section-description">{t("latestDetailsReady")}</p>
             </div>
           </section>
         </>
