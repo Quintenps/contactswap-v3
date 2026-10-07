@@ -68,9 +68,27 @@ async function renderLinksPage() {
   await renderApp();
 }
 
+async function renderSubmissionsPage() {
+  window.history.pushState({}, "", "/owner/submissions");
+  await renderApp();
+}
+
 async function renderGuestPage(token = "guest-test-token") {
   window.history.pushState({}, "", `/guest/${token}`);
   await renderApp();
+}
+
+function vcardResponse(
+  body = "BEGIN:VCARD\r\nVERSION:4.0\r\nFN:Guest Example\r\nEND:VCARD\r\n",
+  contentType = "text/vcard; version=4.0; charset=utf-8",
+  filename = "contactswap-submission.vcf"
+): Response {
+  return new Response(body, {
+    headers: {
+      "Content-Type": contentType,
+      "Content-Disposition": `attachment; filename="${filename}"`
+    }
+  });
 }
 
 function installFetch(handler: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>) {
@@ -101,6 +119,239 @@ afterEach(async () => {
 });
 
 describe("owner profile frontend", () => {
+  it("loads retained submissions newest first without displaying private fields or identifiers", async () => {
+    window.localStorage.setItem(tokenStorageKey, token);
+    const submissions = [
+      { id: "new-submission", name: "Newest Guest", createdAt: "2026-10-06T12:00:00.000Z", expiresAt: "2026-11-05T12:00:00.000Z", email: "private@example.invalid" },
+      { id: "old-submission", name: "Earlier Guest", createdAt: "2026-10-05T12:00:00.000Z", expiresAt: "2026-11-04T12:00:00.000Z" }
+    ];
+    const fetchMock = installFetch(async (url) => {
+      if (url === "/api/owner/submissions") return response({ submissions });
+      return response(profile);
+    });
+    await renderSubmissionsPage();
+
+    const listCall = fetchMock.mock.calls.find(([url]) => url === "/api/owner/submissions");
+    expect(listCall?.[1]).toMatchObject({
+      headers: { Authorization: expect.any(String) },
+      cache: "no-store"
+    });
+    expect(document.querySelector('nav[aria-label="Owner navigation"] a[aria-current="page"]')?.textContent).toBe("Submissions");
+    expect([...document.querySelectorAll(".submission-card .link-card-content p:first-child")].map((item) => item.textContent))
+      .toEqual(["Newest Guest", "Earlier Guest"]);
+    expect(document.body.textContent).not.toContain("new-submission");
+    expect(document.body.textContent).not.toContain("private@example.invalid");
+    expect(document.body.textContent).not.toContain("2026-11-05");
+    expect(document.body.textContent).not.toContain(token);
+  });
+
+  it("shows a useful empty state for an empty submission list", async () => {
+    window.localStorage.setItem(tokenStorageKey, token);
+    installFetch(async (url) => url === "/api/owner/submissions"
+      ? response({ submissions: [] })
+      : response(profile));
+    await renderSubmissionsPage();
+
+    expect(document.body.textContent).toContain("No guest submissions yet.");
+    expect(document.querySelector(".submission-card")).toBeNull();
+  });
+
+  it("rejects an invalid list response and supports retrying the list request", async () => {
+    window.localStorage.setItem(tokenStorageKey, token);
+    let listReads = 0;
+    installFetch(async (url) => {
+      if (url === "/api/owner/submissions") {
+        listReads += 1;
+        return response({ submissions: listReads === 1 ? [{ id: "missing-expiry", name: "Guest", createdAt: "2026-10-06T12:00:00.000Z" }] : [{
+          id: "valid-submission",
+          name: "Guest Example",
+          createdAt: "2026-10-06T12:00:00.000Z",
+          expiresAt: "2026-11-05T12:00:00.000Z"
+        }] });
+      }
+      return response(profile);
+    });
+    await renderSubmissionsPage();
+
+    expect(document.body.textContent).toContain("Submissions could not be loaded.");
+    expect(document.body.textContent).not.toContain("Guest Example");
+    await click(button("Try again"));
+    expect(document.body.textContent).toContain("Guest Example");
+    expect(listReads).toBe(2);
+  });
+
+  it("downloads a selected submission using the authenticated vCard response and attachment filename", async () => {
+    window.localStorage.setItem(tokenStorageKey, token);
+    const submission = {
+      id: "submission/one",
+      name: "Guest Example",
+      createdAt: "2026-10-06T12:00:00.000Z",
+      expiresAt: "2026-11-05T12:00:00.000Z"
+    };
+    const fetchMock = installFetch(async (url) => {
+      if (url === "/api/owner/submissions") return response({ submissions: [submission] });
+      if (url === "/api/owner/submissions/submission%2Fone/vcard") return vcardResponse();
+      return response(profile);
+    });
+    const clickAnchor = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) {
+      expect(this.download).toBe("contactswap-submission.vcf");
+      expect(this.href).toBe("blob:private-profile-photo");
+    });
+    await renderSubmissionsPage();
+    await click(button("Download"));
+
+    const downloadCall = fetchMock.mock.calls.find(([url]) => String(url).includes("/vcard"));
+    expect(downloadCall?.[0]).toBe("/api/owner/submissions/submission%2Fone/vcard");
+    expect(downloadCall?.[1]).toMatchObject({
+      headers: { Authorization: expect.any(String) },
+      cache: "no-store"
+    });
+    expect(clickAnchor).toHaveBeenCalledOnce();
+    expect(URL.createObjectURL).toHaveBeenCalledOnce();
+    expect(document.body.textContent).toContain("Contact card downloaded.");
+  });
+
+  it("removes an unavailable submission after refreshing the list", async () => {
+    window.localStorage.setItem(tokenStorageKey, token);
+    let listReads = 0;
+    installFetch(async (url) => {
+      if (url === "/api/owner/submissions") {
+        listReads += 1;
+        return response({ submissions: listReads === 1 ? [{
+          id: "expired-submission",
+          name: "Expired Guest",
+          createdAt: "2026-10-06T12:00:00.000Z",
+          expiresAt: "2026-10-06T12:00:01.000Z"
+        }] : [] });
+      }
+      if (String(url).includes("/vcard")) return response({ error: { code: "submission_not_found" } }, 404);
+      return response(profile);
+    });
+    await renderSubmissionsPage();
+    await click(button("Download"));
+
+    expect(document.body.textContent).toContain("This submission is no longer available.");
+    expect(document.body.textContent).not.toContain("Expired Guest");
+    expect(listReads).toBe(2);
+  });
+
+  it("does not download an invalid vCard response and allows retry", async () => {
+    window.localStorage.setItem(tokenStorageKey, token);
+    let downloads = 0;
+    installFetch(async (url) => {
+      if (url === "/api/owner/submissions") return response({ submissions: [{
+        id: "submission-id",
+        name: "Guest Example",
+        createdAt: "2026-10-06T12:00:00.000Z",
+        expiresAt: "2026-11-05T12:00:00.000Z"
+      }] });
+      if (String(url).includes("/vcard")) {
+        downloads += 1;
+        return downloads === 1 ? vcardResponse("not a card", "application/json") : vcardResponse();
+      }
+      return response(profile);
+    });
+    const clickAnchor = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    await renderSubmissionsPage();
+    await click(button("Download"));
+
+    expect(clickAnchor).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain("The contact card could not be downloaded. Try again.");
+    await click(button("Download"));
+    expect(clickAnchor).toHaveBeenCalledOnce();
+  });
+
+  it.each(["service", "network"])("allows retry after a %s download failure", async (failure) => {
+    window.localStorage.setItem(tokenStorageKey, token);
+    let downloads = 0;
+    installFetch(async (url) => {
+      if (url === "/api/owner/submissions") return response({ submissions: [{
+        id: "submission-id",
+        name: "Guest Example",
+        createdAt: "2026-10-06T12:00:00.000Z",
+        expiresAt: "2026-11-05T12:00:00.000Z"
+      }] });
+      if (String(url).includes("/vcard")) {
+        downloads += 1;
+        if (downloads === 1 && failure === "network") throw new Error("network failure");
+        if (downloads === 1) return response({ error: { code: "service_error" } }, 500);
+        return vcardResponse();
+      }
+      return response(profile);
+    });
+    const clickAnchor = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    await renderSubmissionsPage();
+    await click(button("Download"));
+    expect(document.body.textContent).toContain("The contact card could not be downloaded.");
+    await click(button("Download"));
+
+    expect(clickAnchor).toHaveBeenCalledOnce();
+  });
+
+  it("returns to login and hides the list when a vCard download is unauthorized", async () => {
+    window.localStorage.setItem(tokenStorageKey, token);
+    installFetch(async (url) => {
+      if (url === "/api/owner/submissions") return response({ submissions: [{
+        id: "submission-id",
+        name: "Private Guest",
+        createdAt: "2026-10-06T12:00:00.000Z",
+        expiresAt: "2026-11-05T12:00:00.000Z"
+      }] });
+      if (String(url).includes("/vcard")) return response({ error: { code: "unauthorized" } }, 401);
+      return response(profile);
+    });
+    await renderSubmissionsPage();
+    await click(button("Download"));
+
+    expect(window.localStorage.getItem(tokenStorageKey)).toBeNull();
+    expect(document.querySelector("#owner-token")).not.toBeNull();
+    expect(document.body.textContent).not.toContain("Private Guest");
+  });
+
+  it("clears authorization and hides submissions after an unauthorized list response", async () => {
+    window.localStorage.setItem(tokenStorageKey, token);
+    installFetch(async (url) => url === "/api/owner/submissions"
+      ? response({ error: { code: "unauthorized" } }, 401)
+      : response(profile));
+    await renderSubmissionsPage();
+
+    expect(window.localStorage.getItem(tokenStorageKey)).toBeNull();
+    expect(document.querySelector("#owner-token")).not.toBeNull();
+    expect(document.body.textContent).not.toContain("Submitted contacts");
+    expect(document.body.textContent).not.toContain("Guest submissions");
+  });
+
+  it("prevents duplicate downloads for a submission while its request is pending", async () => {
+    window.localStorage.setItem(tokenStorageKey, token);
+    let resolveDownload!: (value: Response) => void;
+    const pendingResponse = new Promise<Response>((resolve) => {
+      resolveDownload = resolve;
+    });
+    const fetchMock = installFetch(async (url) => {
+      if (url === "/api/owner/submissions") return response({ submissions: [{
+        id: "submission-id",
+        name: "Guest Example",
+        createdAt: "2026-10-06T12:00:00.000Z",
+        expiresAt: "2026-11-05T12:00:00.000Z"
+      }] });
+      if (String(url).includes("/vcard")) return pendingResponse;
+      return response(profile);
+    });
+    await renderSubmissionsPage();
+    const downloadButton = button("Download");
+    await act(async () => {
+      downloadButton.click();
+      await Promise.resolve();
+    });
+    expect(downloadButton.disabled).toBe(true);
+    expect(fetchMock.mock.calls.filter(([url]) => String(url).includes("/vcard"))).toHaveLength(1);
+
+    await act(async () => {
+      resolveDownload(vcardResponse());
+      await pendingResponse;
+    });
+  });
+
   it("loads the separate links page and lists statuses with a revoke action only for active links", async () => {
     window.localStorage.setItem(tokenStorageKey, token);
     const links = [
@@ -116,7 +367,7 @@ describe("owner profile frontend", () => {
 
     expect(document.body.textContent).toContain("Guest links");
     expect(document.querySelector('nav[aria-label="Owner navigation"] a[aria-current="page"]')?.textContent).toBe("Guest links");
-    expect([...document.querySelectorAll('nav[aria-label="Owner navigation"] a')].map((link) => link.textContent)).toEqual(["Profile", "Guest links"]);
+    expect([...document.querySelectorAll('nav[aria-label="Owner navigation"] a')].map((link) => link.textContent)).toEqual(["Profile", "Guest links", "Submissions"]);
     expect(document.querySelector('nav[aria-label="Owner navigation"] button')?.textContent).toBe("Log out");
     expect(document.body.textContent).toContain("active");
     expect(document.body.textContent).toContain("consumed");

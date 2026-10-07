@@ -11,11 +11,13 @@ type Profile = ProfileFields & { hasPhoto: boolean };
 type FieldName = keyof ProfileFields;
 type LinkStatus = "active" | "consumed" | "revoked";
 type GuestLink = { id: string; createdAt: string; status: LinkStatus };
-type View = "checking" | "login" | "loading" | "profile" | "links";
+type OwnerSubmission = { id: string; name: string; createdAt: string; expiresAt: string };
+type View = "checking" | "login" | "loading" | "profile" | "links" | "submissions";
 type GuestPageState = "loading" | "error" | "ready" | "unavailable" | "thank-you";
 
 const tokenStorageKey = "contactswap-owner-token";
 const linksPath = "/owner/links";
+const submissionsPath = "/owner/submissions";
 const fields: { name: FieldName; label: string; type: string; autoComplete: string }[] = [
   { name: "name", label: "Full name", type: "text", autoComplete: "name" },
   { name: "email", label: "Email address", type: "email", autoComplete: "email" },
@@ -120,10 +122,47 @@ async function fetchOwnerLinks(token: string, signal?: AbortSignal): Promise<Gue
   return payload.links;
 }
 
+function isOwnerSubmissionList(value: unknown): value is { submissions: OwnerSubmission[] } {
+  if (typeof value !== "object" || value === null || !("submissions" in value) || !Array.isArray(value.submissions)) {
+    return false;
+  }
+  return value.submissions.every((submission: unknown) => {
+    if (typeof submission !== "object" || submission === null) return false;
+    const candidate = submission as Record<string, unknown>;
+    return (
+      typeof candidate.id === "string" &&
+      candidate.id.length > 0 &&
+      typeof candidate.name === "string" &&
+      typeof candidate.createdAt === "string" &&
+      typeof candidate.expiresAt === "string"
+    );
+  });
+}
+
+async function fetchOwnerSubmissions(token: string, signal?: AbortSignal): Promise<OwnerSubmission[]> {
+  const response = await fetch("/api/owner/submissions", {
+    headers: { Authorization: ownerAuthorization(token) },
+    cache: "no-store",
+    signal
+  });
+  if (!response.ok) throw new OwnerApiError(response.status, await errorCode(response));
+  const payload: unknown = await response.json();
+  if (!isOwnerSubmissionList(payload)) throw new Error("Invalid submission list response.");
+  return payload.submissions;
+}
+
 function formatCreatedAt(value: string): string {
   const date = new Date(value);
   if (!Number.isFinite(date.valueOf())) return "Date unavailable";
   return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(date);
+}
+
+function submissionVCardFilename(contentDisposition: string | null): string {
+  const match = contentDisposition?.match(/filename="([^"]+)"|filename=([^;]+)/i);
+  const filename = match?.[1] ?? match?.[2]?.trim();
+  return filename && /^[A-Za-z0-9_-][A-Za-z0-9._-]*\.vcf$/i.test(filename) && !filename.includes("..")
+    ? filename
+    : "contactswap-submission.vcf";
 }
 
 function isProfile(value: unknown): value is Profile {
@@ -223,6 +262,11 @@ export default function App() {
   const [linkActionBusy, setLinkActionBusy] = useState<"create" | string | null>(null);
   const [linkMessage, setLinkMessage] = useState("");
   const [generatedGuestUrl, setGeneratedGuestUrl] = useState<string | null>(null);
+  const [submissions, setSubmissions] = useState<OwnerSubmission[]>([]);
+  const [submissionsLoading, setSubmissionsLoading] = useState(false);
+  const [submissionBusy, setSubmissionBusy] = useState<string[]>([]);
+  const [submissionMessage, setSubmissionMessage] = useState("");
+  const [submissionRetry, setSubmissionRetry] = useState(0);
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<FieldName, string>>>({});
   const [busy, setBusy] = useState<"save" | "upload" | "remove" | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -259,6 +303,10 @@ export default function App() {
     setLinkActionBusy(null);
     setLinkMessage("");
     setGeneratedGuestUrl(null);
+    setSubmissions([]);
+    setSubmissionsLoading(false);
+    setSubmissionBusy([]);
+    setSubmissionMessage("");
     setView("login");
     setFieldErrors({});
     setBusy(null);
@@ -284,7 +332,13 @@ export default function App() {
       birthday: data.birthday
     } : emptyFields);
     setHasPhoto(data?.hasPhoto ?? false);
-    setView(window.location.pathname === linksPath ? "links" : "profile");
+    setView(
+      window.location.pathname === linksPath
+        ? "links"
+        : window.location.pathname === submissionsPath
+          ? "submissions"
+          : "profile"
+    );
     setMessage(tokenRemembered
       ? data ? "" : "No profile yet."
       : "Signed in. Token not remembered.");
@@ -338,6 +392,31 @@ export default function App() {
     if (rememberedToken) void authenticate(rememberedToken);
     else setView("login");
   }, []);
+
+  useEffect(() => {
+    if (view !== "submissions" || !activeToken) return;
+
+    const token = activeToken;
+    const controller = new AbortController();
+    setSubmissionsLoading(true);
+    setSubmissionMessage("");
+    async function loadSubmissions() {
+      try {
+        setSubmissions(await fetchOwnerSubmissions(token, controller.signal));
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        if (error instanceof OwnerApiError && error.status === 401) {
+          setUnauthorized();
+          return;
+        }
+        setSubmissionMessage("Submissions could not be loaded. Try again.");
+      } finally {
+        if (!controller.signal.aborted) setSubmissionsLoading(false);
+      }
+    }
+    void loadSubmissions();
+    return () => controller.abort();
+  }, [view, activeToken, submissionRetry]);
 
   useEffect(() => {
     if (!isGuestRoute || !guestToken) return;
@@ -722,6 +801,74 @@ export default function App() {
     }
   }
 
+  async function handleDownloadSubmission(submission: OwnerSubmission) {
+    if (!activeToken || submissionBusy.includes(submission.id)) return;
+
+    setSubmissionBusy((current) => [...current, submission.id]);
+    setSubmissionMessage("");
+    let downloadUrl: string | undefined;
+    try {
+      const response = await fetch(
+        `/api/owner/submissions/${encodeURIComponent(submission.id)}/vcard`,
+        {
+          headers: { Authorization: ownerAuthorization(activeToken) },
+          cache: "no-store"
+        }
+      );
+      if (response.status === 401) {
+        setUnauthorized();
+        return;
+      }
+      if (response.status === 404) {
+        try {
+          setSubmissions(await fetchOwnerSubmissions(activeToken));
+          setSubmissionMessage("This submission is no longer available.");
+        } catch (error) {
+          if (error instanceof OwnerApiError && error.status === 401) {
+            setUnauthorized();
+            return;
+          }
+          setSubmissionMessage("This submission is no longer available. The list could not be refreshed.");
+        }
+        return;
+      }
+      if (!response.ok) {
+        setSubmissionMessage("The contact card could not be downloaded. Try again.");
+        return;
+      }
+
+      const contentType = response.headers.get("Content-Type")?.toLowerCase() ?? "";
+      const blob = await response.blob();
+      if (!/^text\/vcard(?:\s*;|$)/.test(contentType) || blob.size === 0) {
+        setSubmissionMessage("The contact card could not be downloaded. Try again.");
+        return;
+      }
+
+      downloadUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = downloadUrl;
+      anchor.download = submissionVCardFilename(response.headers.get("Content-Disposition"));
+      anchor.rel = "noreferrer";
+      anchor.referrerPolicy = "no-referrer";
+      anchor.style.display = "none";
+      document.body.append(anchor);
+      try {
+        anchor.click();
+      } finally {
+        anchor.remove();
+      }
+      const completedDownloadUrl = downloadUrl;
+      window.setTimeout(() => URL.revokeObjectURL(completedDownloadUrl), 1000);
+      downloadUrl = undefined;
+      setSubmissionMessage("Contact card downloaded.");
+    } catch {
+      setSubmissionMessage("The contact card could not be downloaded. Check your connection and try again.");
+    } finally {
+      if (downloadUrl) URL.revokeObjectURL(downloadUrl);
+      setSubmissionBusy((current) => current.filter((id) => id !== submission.id));
+    }
+  }
+
   function logout() {
     let storageCleared = true;
     try {
@@ -739,6 +886,10 @@ export default function App() {
     setLinkActionBusy(null);
     setLinkMessage("");
     setGeneratedGuestUrl(null);
+    setSubmissions([]);
+    setSubmissionsLoading(false);
+    setSubmissionBusy([]);
+    setSubmissionMessage("");
     setFieldErrors({});
     setView("login");
     setMessage(storageCleared
@@ -1099,6 +1250,66 @@ export default function App() {
     );
   }
 
+  if (view === "submissions") {
+    return (
+      <main className="shell profile-shell">
+        <header className="page-header">
+          <div>
+            <p className="eyebrow">ContactSwap</p>
+            <h1>Submitted contacts</h1>
+          </div>
+          <div className="page-actions">
+            <nav className="owner-navigation" aria-label="Owner navigation">
+              <a className="nav-button" href="/">Profile</a>
+              <a className="nav-button" href={linksPath}>Guest links</a>
+              <a className="nav-button nav-button-active" href={submissionsPath} aria-current="page">Submissions</a>
+              <button className="nav-button owner-nav-logout" type="button" onClick={logout}>Log out</button>
+            </nav>
+          </div>
+        </header>
+
+        {submissionMessage && <p className="notice page-notice" role="status" aria-live="polite">{submissionMessage}</p>}
+
+        <section className="panel links-panel" aria-labelledby="submissions-heading" aria-busy={submissionsLoading}>
+          <div className="section-heading">
+            <div>
+              <h2 id="submissions-heading">Guest submissions</h2>
+              <p className="section-description">Download each guest's contact card as a vCard.</p>
+            </div>
+          </div>
+          {submissionsLoading ? (
+            <p aria-live="polite">Loading submissions…</p>
+          ) : submissionMessage.startsWith("Submissions could not be loaded") ? (
+            <button className="secondary-button" type="button" onClick={() => setSubmissionRetry((current) => current + 1)}>
+              Try again
+            </button>
+          ) : submissions.length === 0 ? (
+            <p>No guest submissions yet.</p>
+          ) : (
+            <ul className="link-list">
+              {submissions.map((submission) => (
+                <li className="link-card submission-card" key={submission.id}>
+                  <div className="link-card-content">
+                    <p>{submission.name}</p>
+                    <p><span className="link-label">Submitted</span> {formatCreatedAt(submission.createdAt)}</p>
+                  </div>
+                  <button
+                    className="secondary-button"
+                    type="button"
+                    onClick={() => void handleDownloadSubmission(submission)}
+                    disabled={submissionBusy.includes(submission.id)}
+                  >
+                    {submissionBusy.includes(submission.id) ? "Downloading…" : "Download"}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </main>
+    );
+  }
+
   if (view === "links") {
     return (
       <main className="shell profile-shell">
@@ -1111,6 +1322,7 @@ export default function App() {
             <nav className="owner-navigation" aria-label="Owner navigation">
               <a className="nav-button" href="/">Profile</a>
               <a className="nav-button nav-button-active" href={linksPath} aria-current="page">Guest links</a>
+              <a className="nav-button" href={submissionsPath}>Submissions</a>
               <button className="nav-button owner-nav-logout" type="button" onClick={logout}>Log out</button>
             </nav>
           </div>
@@ -1195,6 +1407,7 @@ export default function App() {
           <nav className="owner-navigation" aria-label="Owner navigation">
             <a className="nav-button nav-button-active" href="/" aria-current="page">Profile</a>
             <a className="nav-button" href={linksPath}>Guest links</a>
+            <a className="nav-button" href={submissionsPath}>Submissions</a>
             <button className="nav-button owner-nav-logout" type="button" onClick={logout}>Log out</button>
           </nav>
         </div>

@@ -705,6 +705,7 @@ input[type="file"]::file-selector-button {
 
   .owner-navigation {
     width: 100%;
+    flex-wrap: wrap;
   }
 
   .nav-button {
