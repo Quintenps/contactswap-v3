@@ -167,7 +167,7 @@ describe("guest URL API flow", () => {
     expect(firstCard.headers.get("Referrer-Policy")).toBe("no-referrer");
     const firstCardBody = await firstCard.text();
     expect(firstCardBody).toContain("FN:Quinten Example");
-    expect(firstCardBody).toContain("TEL;VALUE=uri:tel:+31600000000\r\n");
+    expect(firstCardBody).toContain("TEL;VALUE=uri;TYPE=cell,voice;PREF=1:tel:+31600000000\r\n");
 
     await call("/api/owner/profile", {
       method: "PUT",

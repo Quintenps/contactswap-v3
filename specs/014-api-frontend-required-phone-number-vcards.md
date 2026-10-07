@@ -22,7 +22,7 @@ Ensure every owner and guest vCard contains the contact's phone number so a down
 - Add the required phone field to the owner profile and guest submission data models and D1 schemas.
 - Validate and persist phone numbers through the owner profile and guest submission APIs.
 - Include the phone number in owner profile JSON and authorized guest-submission detail responses. Keep the submission list response privacy-minimized and unchanged.
-- Render the corresponding phone number as a vCard 4.0 `TEL;VALUE=uri:tel:+...` property for owner and guest cards.
+- Render the corresponding phone number as a preferred cell/voice vCard 4.0 `TEL` property for owner and guest cards.
 - Add required phone inputs and clear E.164 guidance to the owner profile and guest submission forms.
 - Update local API examples, synthetic test fixtures, and focused tests.
 
@@ -46,7 +46,7 @@ Ensure every owner and guest vCard contains the contact's phone number so a down
 
 - Generate the owner's current vCard from the canonical owner profile, including its phone, for both the owner-authorized download and an active link-scoped guest download.
 - Generate each guest vCard from that guest's stored submission, including that guest's phone.
-- Encode the international number as the URI value of the vCard 4.0 telephone property, for example `TEL;VALUE=uri:tel:+31600000000`.
+- Encode the international number as the URI value of the vCard 4.0 telephone property, for example `TEL;VALUE=uri;TYPE=cell,voice;PREF=1:tel:+31600000000`.
 - Preserve existing vCard 4.0 escaping, line folding, photo embedding, filenames, response headers, access controls, and no-store/referrer protections.
 - Never return a successful vCard response that omits `TEL` or substitutes a phone number from another record.
 
@@ -63,8 +63,8 @@ Ensure every owner and guest vCard contains the contact's phone number so a down
 - A guest submission without a valid E.164 phone number is rejected with the existing safe validation response, creates no guest record, sends no webhook, and leaves the link usable.
 - Valid owner and guest phone numbers are persisted exactly in E.164 representation and returned only through the already authorized profile or submission detail flows.
 - The privacy-minimized guest submission list continues to return only its documented fields and does not expose phone numbers.
-- Every owner vCard (owner-authorized and active guest-link scoped) includes the owner's matching `TEL;VALUE=uri:tel:+...` property.
-- Every authorized guest-submission vCard includes the selected guest's matching `TEL;VALUE=uri:tel:+...` property.
+- Every owner vCard (owner-authorized and active guest-link scoped) includes the owner's matching preferred cell/voice `TEL` property.
+- Every authorized guest-submission vCard includes the selected guest's matching preferred cell/voice `TEL` property.
 - vCards remain valid vCard 4.0 files with existing escaping, folding, optional photo, filename, response-header, authorization, cache-control, and referrer behavior unchanged.
 - Neither webhook payloads nor application logs contain phone numbers.
 - Focused API tests cover valid and invalid profile phone values, valid and invalid guest phone values, persistence, guest-link non-consumption for rejected input, owner and guest vCard telephone properties, and privacy-minimized list/webhook behavior.

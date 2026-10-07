@@ -42,7 +42,7 @@ export function renderVCard(profile: VCardProfile, photo?: Uint8Array): string {
     `FN:${name}`,
     `N:${name};;;;`,
     `EMAIL:${escapeText(profile.email)}`,
-    `TEL;VALUE=uri:tel:${profile.phone}`,
+    `TEL;VALUE=uri;TYPE=cell,voice;PREF=1:tel:${profile.phone}`,
     `BDAY:${profile.birthday}`,
     `ADR;TYPE=home:;;${escapeText(profile.address)};;;;`
   ];

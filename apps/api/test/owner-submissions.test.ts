@@ -169,7 +169,7 @@ describe("owner submissions API", () => {
     expect(vcard).toContain("FN:Guest\\, Contact\r\n");
     expect(vcard).toContain(`EMAIL:${submission.email}\r\n`);
     expect(vcard).toContain(`BDAY:${submission.birthday}\r\n`);
-    expect(vcard).toContain(`TEL;VALUE=uri:tel:${submission.phone}\r\n`);
+    expect(vcard).toContain(`TEL;VALUE=uri;TYPE=cell,voice;PREF=1:tel:${submission.phone}\r\n`);
     expect(vcard).toContain(`ADR;TYPE=home:;;${submission.address};;;;\r\n`);
 
     const expired = await insertSubmission(
