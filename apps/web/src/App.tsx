@@ -32,22 +32,25 @@ function WelcomePage() {
           <p className="welcome-description">{t("welcomeDescription")}</p>
         </div>
         <div className="welcome-illustration" aria-hidden="true">
-          <span className="welcome-sparkle welcome-sparkle-one">✦</span>
-          <span className="welcome-sparkle welcome-sparkle-two">✦</span>
-          <span className="welcome-sparkle welcome-sparkle-three">✧</span>
-          <div className="welcome-card welcome-card-back welcome-card-back-one" />
-          <div className="welcome-card welcome-card-back welcome-card-back-two" />
-          <div className="welcome-card welcome-card-front">
-            <span className="welcome-avatar">♡</span>
-            <span className="welcome-card-lines">
-              <span />
-              <span />
-              <span />
-            </span>
-            <span className="welcome-card-heart">♥</span>
+          <div className="welcome-phone">
+            <span className="welcome-phone-speaker" />
+            <div className="welcome-phone-screen">
+              <div className="welcome-contact-card">
+                <span className="welcome-avatar" />
+                <span className="welcome-card-lines">
+                  <span />
+                  <span />
+                </span>
+              </div>
+              <span className="welcome-save-action">{t("welcomeSaveContact")}</span>
+            </div>
+            <span className="welcome-phone-home" />
           </div>
-          <span className="welcome-orbit welcome-orbit-one" />
-          <span className="welcome-orbit welcome-orbit-two" />
+          <div className="welcome-link-badge">
+            <svg viewBox="0 0 24 24">
+              <path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.72m2.72 6.35a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.72-1.72" />
+            </svg>
+          </div>
         </div>
       </section>
     </main>

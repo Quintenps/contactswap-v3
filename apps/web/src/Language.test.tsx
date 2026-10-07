@@ -88,8 +88,14 @@ describe("frontend language support", () => {
   it("shows a localized welcome page without an owner-dashboard link or API requests", async () => {
     await renderApp("/");
 
-    expect(document.body.textContent).toContain("Een hallo brengt je dichter bij elkaar.");
+    expect(document.body.textContent).toContain("Deel contactgegevens met één link");
+    expect(document.body.textContent).toContain("Contact opslaan");
     expect(document.querySelector(".welcome-hero a, .welcome-hero button")).toBeNull();
+
+    await setLanguage("en");
+    expect(document.body.textContent).toContain("Swap contacts with a link");
+    expect(document.body.textContent).toContain("save your details to their phone");
+    expect(document.body.textContent).toContain("Save contact");
     expect(fetch).not.toHaveBeenCalled();
   });
 

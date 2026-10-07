@@ -114,7 +114,8 @@ describe("frontend routes", () => {
     const fetchMock = installFetch(async () => response(profile));
     await renderApp("/");
 
-    expect(document.body.textContent).toContain("Good things start with a hello.");
+    expect(document.body.textContent).toContain("Swap contacts with a link");
+    expect(document.body.textContent).toContain("save your details to their phone");
     expect(document.querySelector(".welcome-illustration")?.getAttribute("aria-hidden")).toBe("true");
     expect(document.querySelector(".welcome-hero a, .welcome-hero button")).toBeNull();
     expect(fetchMock).not.toHaveBeenCalled();
