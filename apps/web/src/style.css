@@ -1012,10 +1012,10 @@ input[type="file"]::file-selector-button {
 .notice {
   margin: 18px 0 0;
   padding: 12px 14px;
-  border: 1px solid #d5e4f3;
+  border: 1px solid #eddbb8;
   border-radius: 8px;
-  background: #eff6ff;
-  color: #294a6b;
+  background: #fff8e8;
+  color: #704c2c;
   font-size: 0.9rem;
   line-height: 1.5;
 }
