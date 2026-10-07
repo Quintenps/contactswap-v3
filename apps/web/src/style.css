@@ -606,12 +606,90 @@ a:focus-visible {
   gap: 18px;
 }
 
+.guest-photo-panel {
+  display: grid;
+  grid-template-columns: clamp(64px, 20vw, 88px) minmax(0, 1fr);
+  align-items: center;
+  gap: 18px;
+  padding: 16px;
+  border: 1px solid #cbdff4;
+  border-radius: 16px;
+  background: linear-gradient(125deg, #eff7ff 0%, #ffffff 78%);
+  box-shadow: 0 8px 24px #24476b0b;
+}
+
+.guest-photo-avatar {
+  display: grid;
+  width: 100%;
+  aspect-ratio: 1;
+  overflow: hidden;
+  place-items: center;
+  border: 4px solid #ffffff;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #dbeafe, #bfdbfe);
+  color: #477aa8;
+  box-shadow: 0 0 0 1px #c5d9f2, 0 8px 20px #24476b18;
+}
+
+.guest-photo-avatar svg {
+  width: 52%;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-width: 2.5;
+}
+
+.guest-photo-content {
+  min-width: 0;
+}
+
+.guest-photo-content h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.guest-photo-description {
+  margin: 5px 0 12px;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.guest-photo-content input[type="file"] {
+  max-width: 100%;
+  font-size: 0.82rem;
+}
+
+.guest-form-section {
+  min-width: 0;
+  margin: 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fbfdff;
+}
+
+.guest-form-section legend {
+  padding: 0 6px;
+  color: var(--ink);
+  font-weight: 700;
+}
+
 .guest-profile-form {
   width: 100%;
 }
 
 .guest-picture-field input[type="file"] {
   padding-top: 4px;
+}
+
+.guest-photo-avatar .guest-picture-preview {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  object-fit: cover;
 }
 
 .guest-form-actions {

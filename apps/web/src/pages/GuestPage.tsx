@@ -34,13 +34,25 @@ export default function GuestPage() {
   const [guestValues, setGuestValues] = useState<ProfileFields>(emptyFields);
   const [guestFieldErrors, setGuestFieldErrors] = useState<Partial<Record<FieldName, MessageKey>>>({});
   const [guestPictureError, setGuestPictureError] = useState<MessageKey | "">("");
+  const [guestPicturePreviewUrl, setGuestPicturePreviewUrl] = useState<string | null>(null);
   const [guestMessage, setGuestMessage] = useState<MessageKey | "">("");
   const [guestDownloading, setGuestDownloading] = useState(false);
   const [guestDownloadMode, setGuestDownloadMode] = useState<"share" | "card-only" | null>(null);
   const [guestSubmitting, setGuestSubmitting] = useState(false);
   const guestPictureInput = useRef<HTMLInputElement>(null);
+  const guestPictureObjectUrl = useRef<string | null>(null);
   const guestFormPanel = useRef<HTMLElement>(null);
   const guestFormHeading = useRef<HTMLHeadingElement>(null);
+
+  useEffect(() => () => {
+    if (guestPictureObjectUrl.current) URL.revokeObjectURL(guestPictureObjectUrl.current);
+  }, []);
+
+  function setGuestPicturePreview(picture: File | null) {
+    if (guestPictureObjectUrl.current) URL.revokeObjectURL(guestPictureObjectUrl.current);
+    guestPictureObjectUrl.current = picture ? URL.createObjectURL(picture) : null;
+    setGuestPicturePreviewUrl(guestPictureObjectUrl.current);
+  }
 
   useEffect(() => {
     if (!token) {
@@ -109,6 +121,7 @@ export default function GuestPage() {
     setGuestValues(emptyFields);
     setGuestFieldErrors({});
     setGuestPictureError("");
+    setGuestPicturePreview(null);
     if (guestPictureInput.current) guestPictureInput.current.value = "";
   }
 
@@ -222,6 +235,7 @@ export default function GuestPage() {
       setGuestValues(emptyFields);
       setGuestFieldErrors({});
       setGuestPictureError("");
+      setGuestPicturePreview(null);
       setGuestFormOpen(false);
       setGuestVCardUrl(null);
       if (guestPictureInput.current) guestPictureInput.current.value = "";
@@ -346,7 +360,10 @@ export default function GuestPage() {
             <button
               className="quiet-button guest-close-button"
               type="button"
-              onClick={() => setGuestFormOpen(false)}
+              onClick={() => {
+                setGuestPicturePreview(null);
+                setGuestFormOpen(false);
+              }}
               disabled={guestSubmitting}
             >
               {t("close")}
@@ -354,66 +371,123 @@ export default function GuestPage() {
           </div>
 
           <form id="guest-details-form" className="guest-form" onSubmit={handleGuestSubmit} noValidate>
-            <div className="profile-form guest-profile-form">
-              {fields.map(({ name, labelKey, type, autoComplete, hintKey, optional }) => {
-                const example = t(guestExampleKeys[name]);
-                return (
-                  <div className="field" key={name}>
-                    <label htmlFor={`guest-${name}`}>
-                      {t(labelKey)}{" "}
-                      {optional ? <span>({t("optional")})</span> : <span aria-hidden="true"> *</span>}
-                    </label>
-                    <input
-                      id={`guest-${name}`}
-                      name={name}
-                      type={type}
-                      autoComplete={autoComplete}
-                      placeholder={example}
-                      inputMode={name === "phone" ? "tel" : undefined}
-                      value={guestValues[name]}
-                      required={!optional}
-                      aria-invalid={Boolean(guestFieldErrors[name])}
-                      aria-describedby={[
-                        hintKey ? `guest-${name}-hint` : undefined,
-                        guestFieldErrors[name] ? `guest-${name}-error` : undefined
-                      ].filter(Boolean).join(" ") || undefined}
-                      onChange={(event) => {
-                        setGuestValues((current) => ({ ...current, [name]: event.target.value }));
-                        setGuestFieldErrors((current) => ({ ...current, [name]: undefined }));
-                        setGuestMessage("");
-                      }}
-                    />
-                    {hintKey && <span className="field-hint" id={`guest-${name}-hint`}>{t("guestPhoneHint", { example })}</span>}
-                    {guestFieldErrors[name] && (
-                      <span className="field-error" id={`guest-${name}-error`}>{t(guestFieldErrors[name])}</span>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+            <section className="guest-photo-panel" aria-labelledby="guest-photo-heading">
+              <div className="guest-photo-avatar">
+                {guestPicturePreviewUrl ? (
+                  <img
+                    className="guest-picture-preview"
+                    src={guestPicturePreviewUrl}
+                    alt={t("guestPicturePreviewAlt")}
+                  />
+                ) : (
+                  <svg viewBox="0 0 48 48" aria-hidden="true">
+                    <circle cx="24" cy="17" r="8" />
+                    <path d="M9 42c1-9 6-14 15-14s14 5 15 14" />
+                  </svg>
+                )}
+              </div>
+              <div className="guest-photo-content">
+                <h2 id="guest-photo-heading">{t("guestPhotoPanelHeading")}</h2>
+                <p className="guest-photo-description">{t("guestPhotoPanelDescription")}</p>
+                <div className="field guest-picture-field">
+                  <label htmlFor="guest-picture">{t("guestPicture")} <span>({t("optional")})</span></label>
+                  <input
+                    id="guest-picture"
+                    ref={guestPictureInput}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    aria-describedby={guestPictureError ? "guest-picture-error" : undefined}
+                    onChange={(event) => {
+                      const picture = event.currentTarget.files?.[0];
+                      if (picture && !["image/jpeg", "image/png", "image/webp"].includes(picture.type)) {
+                        event.currentTarget.value = "";
+                        setGuestPicturePreview(null);
+                        setGuestPictureError("guestPictureTypeError");
+                        return;
+                      }
+                      setGuestPicturePreview(picture ?? null);
+                      setGuestPictureError("");
+                    }}
+                  />
+                  {guestPictureError && (
+                    <span className="field-error" id="guest-picture-error">{t(guestPictureError)}</span>
+                  )}
+                </div>
+              </div>
+            </section>
 
-            <div className="field guest-picture-field">
-              <label htmlFor="guest-picture">{t("guestPicture")} <span>({t("optional")})</span></label>
-              <input
-                id="guest-picture"
-                ref={guestPictureInput}
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                aria-describedby={guestPictureError ? "guest-picture-error" : undefined}
-                onChange={(event) => {
-                  const picture = event.currentTarget.files?.[0];
-                  if (picture && !["image/jpeg", "image/png", "image/webp"].includes(picture.type)) {
-                    event.currentTarget.value = "";
-                    setGuestPictureError("guestPictureTypeError");
-                    return;
-                  }
-                  setGuestPictureError("");
-                }}
-              />
-              {guestPictureError && (
-                <span className="field-error" id="guest-picture-error">{t(guestPictureError)}</span>
-              )}
-            </div>
+            <fieldset className="guest-form-section">
+              <legend>{t("guestContactSection")}</legend>
+              <div className="profile-form guest-profile-form">
+                {fields.filter(({ optional }) => !optional).map(({ name, labelKey, type, autoComplete, hintKey }) => {
+                  const example = t(guestExampleKeys[name]);
+                  return (
+                    <div className="field" key={name}>
+                      <label htmlFor={`guest-${name}`}>
+                        {t(labelKey)} <span aria-hidden="true"> *</span>
+                      </label>
+                      <input
+                        id={`guest-${name}`}
+                        name={name}
+                        type={type}
+                        autoComplete={autoComplete}
+                        placeholder={example}
+                        inputMode={name === "phone" ? "tel" : undefined}
+                        value={guestValues[name]}
+                        required
+                        aria-invalid={Boolean(guestFieldErrors[name])}
+                        aria-describedby={[
+                          hintKey ? `guest-${name}-hint` : undefined,
+                          guestFieldErrors[name] ? `guest-${name}-error` : undefined
+                        ].filter(Boolean).join(" ") || undefined}
+                        onChange={(event) => {
+                          setGuestValues((current) => ({ ...current, [name]: event.target.value }));
+                          setGuestFieldErrors((current) => ({ ...current, [name]: undefined }));
+                          setGuestMessage("");
+                        }}
+                      />
+                      {hintKey && <span className="field-hint" id={`guest-${name}-hint`}>{t("guestPhoneHint", { example })}</span>}
+                      {guestFieldErrors[name] && (
+                        <span className="field-error" id={`guest-${name}-error`}>{t(guestFieldErrors[name])}</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </fieldset>
+
+            <fieldset className="guest-form-section">
+              <legend>{t("guestWorkSection")}</legend>
+              <div className="profile-form guest-profile-form">
+                {fields.filter(({ optional }) => optional).map(({ name, labelKey, type, autoComplete }) => {
+                  const example = t(guestExampleKeys[name]);
+                  return (
+                    <div className="field" key={name}>
+                      <label htmlFor={`guest-${name}`}>{t(labelKey)} <span>({t("optional")})</span></label>
+                      <input
+                        id={`guest-${name}`}
+                        name={name}
+                        type={type}
+                        autoComplete={autoComplete}
+                        placeholder={example}
+                        value={guestValues[name]}
+                        aria-invalid={Boolean(guestFieldErrors[name])}
+                        aria-describedby={guestFieldErrors[name] ? `guest-${name}-error` : undefined}
+                        onChange={(event) => {
+                          setGuestValues((current) => ({ ...current, [name]: event.target.value }));
+                          setGuestFieldErrors((current) => ({ ...current, [name]: undefined }));
+                          setGuestMessage("");
+                        }}
+                      />
+                      {guestFieldErrors[name] && (
+                        <span className="field-error" id={`guest-${name}-error`}>{t(guestFieldErrors[name])}</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+            </fieldset>
 
             {guestMessage && <p className="notice" role="alert" aria-live="polite">{t(guestMessage)}</p>}
             <div className="guest-form-actions">

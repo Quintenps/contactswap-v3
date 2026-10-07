@@ -954,8 +954,8 @@ describe("guest frontend", () => {
     expect(document.querySelector("#guest-birthday-hint")).toBeNull();
     expect(input("guest-phone").placeholder).toBe("+31612345678");
     expect(document.querySelector("#guest-phone-hint")?.textContent).toContain("Bijvoorbeeld: +31612345678.");
-    expect(input("guest-org").placeholder).toBe("Larkspur Ontwerpstudio");
-    expect(input("guest-title").placeholder).toBe("Senior productontwerper");
+    expect(input("guest-org").placeholder).toBe("Albert Heijn");
+    expect(input("guest-title").placeholder).toBe("Vakkenvuller");
     expect(input("guest-name").value).toBe("A name in progress");
     expect(fetchMock).toHaveBeenCalledTimes(requestCount);
   });
@@ -1098,6 +1098,17 @@ describe("guest frontend", () => {
     const picture = new File(["synthetic image"], "guest.png", { type: "image/png" });
     Object.defineProperty(pictureInput, "files", { configurable: true, value: [picture] });
     act(() => pictureInput.dispatchEvent(new Event("change", { bubbles: true })));
+    expect(document.querySelector("#guest-details-form")?.firstElementChild?.classList.contains("guest-photo-panel"))
+      .toBe(true);
+    expect(document.querySelector("#guest-photo-heading")?.textContent).toBe("Profile photo");
+    expect([...document.querySelectorAll("fieldset legend")].map((legend) => legend.textContent)).toEqual([
+      "Your contact details",
+      "Work details"
+    ]);
+    expect(URL.createObjectURL).toHaveBeenCalledWith(picture);
+    expect(document.querySelector(".guest-picture-preview")?.getAttribute("src")).toBe("blob:private-profile-photo");
+    expect(document.querySelector(".guest-picture-preview")?.getAttribute("alt"))
+      .toBe("Preview of your selected profile picture");
     await submit(document.querySelector<HTMLFormElement>("#guest-details-form")!);
 
     const request = fetchMock.mock.calls.find(([url]) => url === `/api/guest/links/${guestToken}/submissions`);
@@ -1106,6 +1117,7 @@ describe("guest frontend", () => {
     expect((formData as FormData).get("phone")).toBe("+31600000001");
     expect((formData as FormData).get("picture")).toMatchObject({ name: "guest.png", type: "image/png" });
     expect(document.body.textContent).toContain("Your details are on their way.");
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:private-profile-photo");
   });
 
   it("validates required fields before submitting", async () => {
