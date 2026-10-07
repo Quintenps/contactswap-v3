@@ -20,12 +20,12 @@ People's contact details change over time, including addresses, email addresses,
 
 The following decisions are resolved for this version:
 
-- Each guest link supports guest form submission and has its own signed URL for accessing Quinten's current vCard 4.0; there is no public profile URL.
+- Each guest link supports guest form submission and has its own signed URL for accessing Quinten's current vCard 3.0; there is no public profile URL.
 - A signed vCard URL is unique to and valid only for its associated guest link. It is revoked when that link is manually deleted or consumed by a successful submission; it does not expire by age while the link remains active.
 - After a guest submits the form, Quinten receives a notification that a form was completed.
 - Quinten then opens the authorized owner page, where he can click Download to generate and download a vCard from the database record.
 - Quinten is the only profile owner.
-- Quinten's editable profile fields are persisted in D1. Generate his current vCard 4.0 when requested from those fields and his optional optimized photo in private R2; do not store the rendered vCard or image data in D1.
+- Quinten's editable profile fields are persisted in D1. Generate his current vCard 3.0 when requested from those fields and his optional optimized photo in private R2; do not store the rendered vCard or image data in D1.
 - An active guest link may show Quinten's name and optional profile picture on its landing page. If no picture is set, show an initials avatar. Do not show other owner contact fields in this preview; it is not a public profile and is available only through an active guest link.
 - Name, email, address, birthday, and phone number are required for both profiles; picture is optional. Phone numbers use international E.164 format and are included in every generated vCard. Dutch-facing examples use the `+31` country code; other valid international numbers are accepted.
 - Downloaded vCards use a personal `firstname-lastname.vcf` filename derived from the card owner's name.
@@ -34,11 +34,11 @@ The following decisions are resolved for this version:
 
 ## 5. Proposed solution
 
-Quinten maintains his editable profile in D1 through an owner-only interface authorized by a secret token. His optional optimized photo is stored in private R2. Contactswap generates his current vCard 4.0 when requested, assembling it from the profile fields in D1 and the photo in R2; the vCard is not stored in D1. Both Quinten and each guest provide a phone number in international E.164 format. Dutch-facing examples use the `+31` country code, while other valid international numbers are accepted. Every generated vCard includes the number as a vCard 4.0 telephone property, so it can be used to match an existing contact. For each unique guest link, Contactswap creates a signed URL that grants access to Quinten's current vCard specifically through that link. The active link's landing page may also show only Quinten's name and optional profile picture, served through link-scoped access; if no picture is set, it shows an initials avatar. The guest can use the link to access Quinten's card and submit their own contact information through a form.
+Quinten maintains his editable profile in D1 through an owner-only interface authorized by a secret token. His optional optimized photo is stored in private R2. Contactswap generates his current vCard 3.0 when requested, assembling it from the profile fields in D1 and the photo in R2; the vCard is not stored in D1. Both Quinten and each guest provide a phone number in international E.164 format. Dutch-facing examples use the `+31` country code, while other valid international numbers are accepted. Every generated vCard includes the number as a vCard 3.0 text telephone property, so it can be used to match an existing contact. For each unique guest link, Contactswap creates a signed URL that grants access to Quinten's current vCard specifically through that link. The active link's landing page may also show only Quinten's name and optional profile picture, served through link-scoped access; if no picture is set, it shows an initials avatar. The guest can use the link to access Quinten's card and submit their own contact information through a form.
 
-After a successful submission, Contactswap stores the guest data in a database, sends a webhook notification to Quinten saying that a form was completed, and shows the guest a thank-you page. Quinten then opens the authorized owner page, where he can click Download to generate a vCard 4.0 from the stored guest record and download it.
+After a successful submission, Contactswap stores the guest data in a database, sends a webhook notification to Quinten saying that a form was completed, and shows the guest a thank-you page. Quinten then opens the authorized owner page, where he can click Download to generate a vCard 3.0 from the stored guest record and download it.
 
-The system is web-based, mobile-first, and deployed on Cloudflare Pages. vCard 4.0 is the required file format.
+The system is web-based, mobile-first, and deployed on Cloudflare Pages. vCard 3.0 is the required generated contact-file format.
 
 ## 6. Core user journey
 
@@ -49,7 +49,7 @@ The system is web-based, mobile-first, and deployed on Cloudflare Pages. vCard 4
 5. The guest opens the link, can access Quinten's vCard through its signed URL, and can submit their own contact details.
 6. Contactswap stores the guest record and sends Quinten a notification that someone completed the form.
 7. Quinten opens the authorized owner page and clicks Download.
-8. Contactswap generates a vCard 4.0 from the stored guest data and downloads it for Quinten.
+8. Contactswap generates a vCard 3.0 from the stored guest data and downloads it for Quinten.
 9. The link is deleted after the first successful form submission, and guest submissions are deleted after 30 days.
 
 ## 7. Features and scope
@@ -61,11 +61,11 @@ The system is web-based, mobile-first, and deployed on Cloudflare Pages. vCard 4
 - Quinten can edit his profile on the owner profile page and manage guest links on a separate owner-only page protected by a secret token; a full account system is not required.
 - Quinten can rotate the admin token by updating the API Worker's Cloudflare Worker Secret; the token must never be exposed in client-side code.
 - Quinten can download his current profile vCard through an owner-authorized endpoint. Generate it on request from the current D1 profile fields and optional photo in R2; do not store vCard text or image data in D1.
-- When a profile photo is present, include it in vCard 4.0 as a base64-encoded `PHOTO` data URI. Resize and compress uploads before storing them in private R2.
+- When a profile photo is present, include it in vCard 3.0 as a base64-encoded `PHOTO;ENCODING=b;TYPE=JPEG` property. Resize and compress uploads before storing them in private R2.
 - Quinten can generate a unique guest link for form submission.
-- Every guest link has a distinct signed URL for accessing Quinten's current vCard 4.0; the card must not be available through a public profile URL.
+- Every guest link has a distinct signed URL for accessing Quinten's current vCard 3.0; the card must not be available through a public profile URL.
 - A guest can open the link, access Quinten's vCard through its signed URL, and submit their own contact details through a form.
-- Guest submissions are stored in a database and used to generate a vCard 4.0 file for Quinten.
+- Guest submissions are stored in a database and used to generate a vCard 3.0 file for Quinten.
 - Guest submissions and related stored files are deleted after 30 days.
 - Quinten receives a webhook notification after a successful guest submission.
 - Quinten can open the authorized owner page and click Download to generate a vCard from the stored guest database record.
@@ -91,8 +91,8 @@ The system is web-based, mobile-first, and deployed on Cloudflare Pages. vCard 4
 - Quinten's profile contains name, email, address, birthday, an international E.164 phone number, and an optional picture.
 - Quinten's editable profile fields are persisted in D1 and reused without re-entering or extracting details from a downloaded vCard. The optional photo is stored in private R2, not D1.
 - A guest may submit the same data types: name, email, address, birthday, an international E.164 phone number, and an optional picture.
-- Quinten's profile fields are stored in D1; the optional optimized photo is stored in private R2. Generate the vCard 4.0 on request and embed the photo as base64 when present. Do not store image bytes, base64 image data, or the rendered vCard in D1.
-- Guest-submitted fields are stored in a database and used to generate a vCard 4.0 for Quinten when needed.
+- Quinten's profile fields are stored in D1; the optional optimized photo is stored in private R2. Generate the vCard 3.0 on request and embed the photo as base64 using vCard 3.0 binary photo syntax when present. Do not store image bytes, base64 image data, or the rendered vCard in D1.
+- Guest-submitted fields are stored in a database and used to generate a vCard 3.0 for Quinten when needed.
 - Name, email, address, birthday, and phone number are required for both owner and guest forms. Phone numbers use international E.164 format and are included in every generated vCard as a telephone property.
 - Guest submissions and associated stored files are retained for 30 days, then automatically deleted.
 - Contact details, birthdays, addresses, and pictures are personal information and should only be exposed through the intended owner flow or an active guest link. The guest landing-page preview is limited to Quinten's name and optional profile picture; do not expose other owner fields there. Keep profile photos private in R2 and serve any guest preview only through a link-scoped resource that rejects deleted or consumed links.
@@ -123,7 +123,7 @@ The system is web-based, mobile-first, and deployed on Cloudflare Pages. vCard 4
 - Signed vCard URLs are generated and validated server-side and are scoped to their associated guest link.
 - Guest submissions are stored in a database compatible with Cloudflare Pages; Cloudflare D1 is the default choice.
 - Webhook credentials are configured as Cloudflare Worker Secrets on the API Worker, with Discord as the initial example destination.
-- vCard 4.0 is the required storage and contact-file format.
+- vCard 3.0 is the required generated contact-file format.
 
 ## 11. Design and accessibility
 
@@ -145,13 +145,13 @@ The system is web-based, mobile-first, and deployed on Cloudflare Pages. vCard 4
 - Quinten can open the owner page and see his saved contact details.
 - Quinten can edit his own details on the profile page and manage shareable guest links on a separate page.
 - Quinten's profile persists between visits so he does not need to re-enter it every time.
-- Quinten can edit his persisted D1 profile and download a current vCard 4.0 generated from the saved profile and optional photo.
+- Quinten can edit his persisted D1 profile and download a current vCard 3.0 generated from the saved profile and optional photo.
 - Quinten can download his own current vCard without using a guest link.
 - A guest can complete the form successfully and sees a thank-you page.
 - Quinten receives a notification when a guest submits the form.
-- Quinten can open the authorized owner page and generate/download a vCard 4.0 from the stored guest data.
+- Quinten can open the authorized owner page and generate/download a vCard 3.0 from the stored guest data.
 - Quinten can update his own profile through the secret-authorized page without a full account system.
-- Guest submissions are stored in a database, generate a vCard 4.0 for Quinten, trigger a webhook notification, and are deleted after 30 days.
+- Guest submissions are stored in a database, generate a vCard 3.0 for Quinten, trigger a webhook notification, and are deleted after 30 days.
 - Shared links can be manually deleted and are removed after the first successful form submission.
 - Quinten's vCard is not publicly accessible; each guest link provides only its own revocable signed URL to the current card.
 - The web app deploys successfully to Cloudflare Pages.
@@ -160,7 +160,7 @@ The system is web-based, mobile-first, and deployed on Cloudflare Pages. vCard 4
 ## 14. Example scenarios
 
 - Submitting details: A family member opens Quinten's guest link and submits their name, email, address, birthday, and international E.164 phone number, with a picture if they choose. Contactswap stores the submission, sends Quinten a notification, and shows the thank-you page.
-- Downloading for Quinten: Quinten opens the authorized owner page, clicks Download, and Contactswap generates and downloads a vCard 4.0 from the guest's stored data in the database.
+- Downloading for Quinten: Quinten opens the authorized owner page, clicks Download, and Contactswap generates and downloads a vCard 3.0 from the guest's stored data in the database.
 
 ## 15. Implementation guidance for the agent
 

@@ -12,7 +12,7 @@ GET {{baseUrl}}/api/owner/submissions/{{submissionId}}
 Authorization: Bearer {{adminToken}}
 Accept: application/json
 
-### Download a guest submission as vCard 4.0
+### Download a guest submission as vCard 3.0
 GET {{baseUrl}}/api/owner/submissions/{{submissionId}}/vcard
 Authorization: Bearer {{adminToken}}
 Accept: text/vcard

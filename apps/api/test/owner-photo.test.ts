@@ -238,9 +238,14 @@ describe("owner profile photo API", () => {
     expect(new Uint8Array(await preview.arrayBuffer())).toEqual(optimizedPhoto);
 
     const ownerCard = await (await call("/api/owner/profile/vcard")).text();
-    const photoLine = `PHOTO:data:image/jpeg;base64,${toBase64(optimizedPhoto)}`;
+    const photoLine = `PHOTO;ENCODING=b;TYPE=JPEG:${toBase64(optimizedPhoto)}`;
     const unfoldedOwnerCard = ownerCard.replaceAll("\r\n ", "");
     expect(unfoldedOwnerCard).toContain(`${photoLine}\r\n`);
+    expect(ownerCard).toContain("VERSION:3.0\r\n");
+    const photoBase64 = unfoldedOwnerCard.match(/PHOTO;ENCODING=b;TYPE=JPEG:([^\r\n]+)/)?.[1];
+    expect(photoBase64).toBe(toBase64(optimizedPhoto));
+    expect(new Uint8Array([...atob(photoBase64!).split("").map((character) => character.charCodeAt(0))]))
+      .toEqual(optimizedPhoto);
     expect(ownerCard.split("\r\n").filter(Boolean).every((line) => new TextEncoder().encode(line).length <= 75))
       .toBe(true);
 

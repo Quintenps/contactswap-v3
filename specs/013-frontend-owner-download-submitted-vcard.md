@@ -6,7 +6,7 @@ Done
 
 ## Goal
 
-Let Quinten find retained guest submissions in the owner interface and download an individual submission as a vCard 4.0 using the existing owner-authorized API.
+Let Quinten find retained guest submissions in the owner interface and download an individual submission as a vCard 3.0 using the existing owner-authorized API.
 
 ## Scope
 
@@ -40,7 +40,7 @@ Let Quinten find retained guest submissions in the owner interface and download 
 - `GET /api/owner/submissions` returns `{ submissions: [...] }`. Each item contains only `id`, `name`, `createdAt`, and `expiresAt`. Validate the response before displaying or using its IDs.
 - The list endpoint is ordered newest first and excludes submissions expired at the current time. Treat an empty list as a normal state.
 - Download a selected submission with `GET /api/owner/submissions/{id}/vcard`, encoding the ID as a path component.
-- The API returns a generated vCard 4.0 attachment with `Content-Type: text/vcard; version=4.0; charset=utf-8` and a sanitized `firstname-lastname.vcf` filename based on the submitted name. Use the returned file content and attachment filename when initiating the download; do not construct vCard content from the list response.
+- The API returns a generated vCard 3.0 attachment with `Content-Type: text/vcard; version=3.0; charset=utf-8` and a sanitized `firstname-lastname.vcf` filename based on the submitted name. Use the returned file content and attachment filename when initiating the download; do not construct vCard content from the list response.
 - Respect `Cache-Control: no-store`. Do not cache contact data or vCard blobs beyond what is needed to complete the immediate download.
 - Do not log contact fields, submission IDs, authorization headers, response bodies, or vCard contents.
 

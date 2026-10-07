@@ -183,11 +183,16 @@ describe("guest photo API", () => {
     const card = await cardResponse.text();
     expect(cardResponse.status).toBe(200);
     expect(cardResponse.headers.get("Cache-Control")).toBe("no-store");
-    expect(cardResponse.headers.get("Content-Type")).toBe("text/vcard; version=4.0; charset=utf-8");
+    expect(cardResponse.headers.get("Content-Type")).toBe("text/vcard; version=3.0; charset=utf-8");
     const unfolded = card.replaceAll("\r\n ", "");
+    expect(card).toContain("VERSION:3.0\r\n");
     expect(unfolded).toContain(
-      `PHOTO:data:image/jpeg;base64,${toBase64(optimizedPhoto)}\r\n`
+      `PHOTO;ENCODING=b;TYPE=JPEG:${toBase64(optimizedPhoto)}\r\n`
     );
+    const photoBase64 = unfolded.match(/PHOTO;ENCODING=b;TYPE=JPEG:([^\r\n]+)/)?.[1];
+    expect(photoBase64).toBe(toBase64(optimizedPhoto));
+    expect(new Uint8Array([...atob(photoBase64!).split("").map((character) => character.charCodeAt(0))]))
+      .toEqual(optimizedPhoto);
     expect(card.split("\r\n").filter(Boolean).every((line) => new TextEncoder().encode(line).length <= 75))
       .toBe(true);
   });

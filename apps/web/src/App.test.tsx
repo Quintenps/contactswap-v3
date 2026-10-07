@@ -94,8 +94,8 @@ async function renderGuestPage(token = "guest-test-token") {
 }
 
 function vcardResponse(
-  body = "BEGIN:VCARD\r\nVERSION:4.0\r\nFN:Guest Example\r\nEND:VCARD\r\n",
-  contentType = "text/vcard; version=4.0; charset=utf-8",
+  body = "BEGIN:VCARD\r\nVERSION:3.0\r\nFN:Guest Example\r\nEND:VCARD\r\n",
+  contentType = "text/vcard; version=3.0; charset=utf-8",
   filename = "guest-example.vcf"
 ): Response {
   return new Response(body, {
@@ -820,9 +820,9 @@ describe("guest frontend", () => {
     "/api/guest/profile-photo/00000000-0000-4000-8000-000000000001/test-signature";
 
   function vcardResponse() {
-    return new Response("BEGIN:VCARD\nVERSION:4.0\nEND:VCARD\n", {
+    return new Response("BEGIN:VCARD\nVERSION:3.0\nEND:VCARD\n", {
       headers: {
-        "Content-Type": "text/vcard; version=4.0; charset=utf-8",
+        "Content-Type": "text/vcard; version=3.0; charset=utf-8",
         "Content-Disposition": 'attachment; filename="quinten-example.vcf"'
       }
     });

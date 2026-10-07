@@ -2,7 +2,7 @@
 
 A small, privacy-focused contact-sharing app for a single owner.
 
-Quinten keeps his own contact profile, creates guest links, and receives guest submissions that can be downloaded as vCard 4.0 files. The app is designed around a simple Cloudflare stack with owner-only management and single-use guest links.
+Quinten keeps his own contact profile, creates guest links, and receives guest submissions that can be downloaded as vCard 3.0 files. The app is designed around a simple Cloudflare stack with owner-only management and single-use guest links.
 
 ## Stack
 
@@ -12,7 +12,7 @@ Quinten keeps his own contact profile, creates guest links, and receives guest s
 - TypeScript
 - React and React DOM with Vite
 - Hono for Worker API routing
-- vCard 4.0
+- vCard 3.0
 
 ## Prerequisites
 

@@ -87,7 +87,7 @@ All existing validation and response semantics remain intact, including required
 Preserve the existing response headers for binary content:
 
 - Owner profile photo preview: `Content-Type: image/jpeg`, `Content-Disposition: inline`, `X-Content-Type-Options: nosniff`, and `Cache-Control: no-store`.
-- Owner profile vCard and owner submission vCard: `Content-Type: text/vcard; version=4.0; charset=utf-8`, their existing attachment `Content-Disposition`, and `Cache-Control: no-store`.
+- Owner profile vCard and owner submission vCard: `Content-Type: text/vcard; version=3.0; charset=utf-8`, their existing attachment `Content-Disposition`, and `Cache-Control: no-store`.
 - Guest link-scoped owner vCard: the same vCard content type and profile attachment disposition, plus `Referrer-Policy: no-referrer` and `Cache-Control: no-store`.
 
 ## Shared Logic and Scheduled Work
