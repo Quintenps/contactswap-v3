@@ -40,7 +40,7 @@ Let Quinten find retained guest submissions in the owner interface and download 
 - `GET /api/owner/submissions` returns `{ submissions: [...] }`. Each item contains only `id`, `name`, `createdAt`, and `expiresAt`. Validate the response before displaying or using its IDs.
 - The list endpoint is ordered newest first and excludes submissions expired at the current time. Treat an empty list as a normal state.
 - Download a selected submission with `GET /api/owner/submissions/{id}/vcard`, encoding the ID as a path component.
-- The API returns a generated vCard 4.0 attachment with `Content-Type: text/vcard; version=4.0; charset=utf-8` and a stable `.vcf` filename. Use the returned file content and attachment filename when initiating the download; do not construct vCard content from the list response.
+- The API returns a generated vCard 4.0 attachment with `Content-Type: text/vcard; version=4.0; charset=utf-8` and a sanitized `firstname-lastname.vcf` filename based on the submitted name. Use the returned file content and attachment filename when initiating the download; do not construct vCard content from the list response.
 - Respect `Cache-Control: no-store`. Do not cache contact data or vCard blobs beyond what is needed to complete the immediate download.
 - Do not log contact fields, submission IDs, authorization headers, response bodies, or vCard contents.
 
@@ -69,7 +69,7 @@ Let Quinten find retained guest submissions in the owner interface and download 
 - A submission row shows only the submitted name and localized submission time; it does not expose email, address, birthday, picture, expiration timestamp, or submission ID.
 - An empty list displays a useful empty state without a false error.
 - Selecting Download requests only the selected record's `/vcard` endpoint and sends the owner token only in the authorization header.
-- A valid, non-empty vCard response is downloaded as a `.vcf` attachment using the API filename when available; invalid content or failed requests do not trigger a false success state.
+- A valid, non-empty vCard response is downloaded as a `.vcf` attachment using the API's personalized filename; invalid content or failed requests do not trigger a false success state.
 - Unknown or expired records are handled identically as unavailable; after a successful refresh they are removed from the list.
 - Duplicate downloads for one submission are prevented while its request is in progress, and failed recoverable downloads can be retried.
 - A `401` returns to the established login flow and leaves no submission details visible.

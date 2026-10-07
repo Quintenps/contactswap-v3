@@ -34,6 +34,23 @@ function foldLine(line: string): string {
   return folded;
 }
 
+export function vCardDownloadFilename(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  const selectedParts = parts.length > 1 ? [parts[0], parts[parts.length - 1]] : parts;
+  const filenameParts = selectedParts
+    .map((part) =>
+      part
+        .normalize("NFKD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "")
+    )
+    .filter(Boolean);
+
+  return `${filenameParts.join("-") || "contact"}.vcf`;
+}
+
 export function renderVCard(profile: VCardProfile, photo?: Uint8Array): string {
   const name = escapeText(profile.name);
   const lines = [

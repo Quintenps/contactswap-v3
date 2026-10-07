@@ -7,6 +7,7 @@ import {
   isGuestSubmissionSuccess
 } from "../lib/api";
 import { emptyFields, fields, validateProfile } from "../lib/forms";
+import { vCardFilename } from "../lib/api";
 import { useLanguage, type MessageKey } from "../lib/i18n";
 import type { FieldName, GuestPageState, ProfileFields } from "../types";
 
@@ -132,7 +133,7 @@ export default function GuestPage() {
       downloadUrl = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
       anchor.href = downloadUrl;
-      anchor.download = "contactswap-profile.vcf";
+      anchor.download = vCardFilename(response.headers.get("Content-Disposition"));
       anchor.rel = "noreferrer";
       anchor.referrerPolicy = "no-referrer";
       anchor.style.display = "none";

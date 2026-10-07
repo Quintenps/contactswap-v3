@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import type { GuestSubmission, StoredGuestSubmission } from "../../api-types";
 import { getPhoto, isValidPhone } from "../../api-utils";
-import { renderVCard } from "../../vcard";
+import { renderVCard, vCardDownloadFilename } from "../../vcard";
 
 const routes = new Hono<{ Bindings: Env }>();
 
@@ -66,7 +66,10 @@ routes.get("/submissions/:id/vcard", async (context) => {
 
   const photo = await getPhoto(context.env, submission.photo_key);
   context.header("Content-Type", "text/vcard; version=4.0; charset=utf-8");
-  context.header("Content-Disposition", 'attachment; filename="contactswap-submission.vcf"');
+  context.header(
+    "Content-Disposition",
+    `attachment; filename="${vCardDownloadFilename(submission.name)}"`
+  );
   context.header("Referrer-Policy", "no-referrer");
   return context.body(renderVCard(submission, photo));
 });

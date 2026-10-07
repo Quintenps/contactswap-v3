@@ -47,7 +47,7 @@ Ensure every owner and guest vCard contains the contact's phone number so a down
 - Generate the owner's current vCard from the canonical owner profile, including its phone, for both the owner-authorized download and an active link-scoped guest download.
 - Generate each guest vCard from that guest's stored submission, including that guest's phone.
 - Encode the international number as the URI value of the vCard 4.0 telephone property, for example `TEL;VALUE=uri;TYPE=cell,voice;PREF=1:tel:+31600000000`.
-- Preserve existing vCard 4.0 escaping, line folding, photo embedding, filenames, response headers, access controls, and no-store/referrer protections.
+- Preserve existing vCard 4.0 escaping, line folding, photo embedding, response headers, access controls, and no-store/referrer protections. Name each downloaded card using a sanitized `firstname-lastname.vcf` filename derived from that card's name.
 - Never return a successful vCard response that omits `TEL` or substitutes a phone number from another record.
 
 ## Frontend Behavior

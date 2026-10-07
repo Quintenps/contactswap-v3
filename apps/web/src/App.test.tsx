@@ -96,7 +96,7 @@ async function renderGuestPage(token = "guest-test-token") {
 function vcardResponse(
   body = "BEGIN:VCARD\r\nVERSION:4.0\r\nFN:Guest Example\r\nEND:VCARD\r\n",
   contentType = "text/vcard; version=4.0; charset=utf-8",
-  filename = "contactswap-submission.vcf"
+  filename = "guest-example.vcf"
 ): Response {
   return new Response(body, {
     headers: {
@@ -257,7 +257,7 @@ describe("owner profile frontend", () => {
       return response(profile);
     });
     const clickAnchor = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) {
-      expect(this.download).toBe("contactswap-submission.vcf");
+      expect(this.download).toBe("guest-example.vcf");
       expect(this.href).toBe("blob:private-profile-photo");
     });
     await renderSubmissionsPage();
@@ -821,7 +821,10 @@ describe("guest frontend", () => {
 
   function vcardResponse() {
     return new Response("BEGIN:VCARD\nVERSION:4.0\nEND:VCARD\n", {
-      headers: { "Content-Type": "text/vcard; version=4.0; charset=utf-8" }
+      headers: {
+        "Content-Type": "text/vcard; version=4.0; charset=utf-8",
+        "Content-Disposition": 'attachment; filename="quinten-example.vcf"'
+      }
     });
   }
 
@@ -873,7 +876,11 @@ describe("guest frontend", () => {
 
   it("downloads the card, hides welcome panels, and focuses the form from the primary action", async () => {
     const fetchMock = installActiveGuestLink();
-    const anchorClick = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    const anchorClick = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(function (this: HTMLAnchorElement) {
+        expect(this.download).toBe("quinten-example.vcf");
+      });
     await renderGuestPage(guestToken);
 
     await click(button("Download my card & share your details"));

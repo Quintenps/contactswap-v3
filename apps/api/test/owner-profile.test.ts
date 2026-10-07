@@ -98,7 +98,7 @@ describe("owner profile API", () => {
       "text/vcard; version=4.0; charset=utf-8"
     );
     expect(downloadResponse.headers.get("Content-Disposition")).toBe(
-      'attachment; filename="contactswap-profile.vcf"'
+      'attachment; filename="quinten-example.vcf"'
     );
     expect(downloadResponse.headers.get("Cache-Control")).toBe("no-store");
     expect(initialVCard).toContain("VERSION:4.0\r\n");

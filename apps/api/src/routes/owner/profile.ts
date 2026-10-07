@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { optimizeProfilePhoto, PhotoRequestError, photoLimits, readPhotoBody } from "../../photo";
 import type { StoredOwnerProfile } from "../../api-types";
 import { getPhoto, isValidPhone, parseProfile } from "../../api-utils";
-import { renderVCard } from "../../vcard";
+import { renderVCard, vCardDownloadFilename } from "../../vcard";
 
 const routes = new Hono<{ Bindings: Env }>();
 
@@ -89,7 +89,10 @@ routes.get("/profile/vcard", async (context) => {
 
   const photo = await getPhoto(context.env, profile.photo_key);
   context.header("Content-Type", "text/vcard; version=4.0; charset=utf-8");
-  context.header("Content-Disposition", 'attachment; filename="contactswap-profile.vcf"');
+  context.header(
+    "Content-Disposition",
+    `attachment; filename="${vCardDownloadFilename(profile.name)}"`
+  );
   return context.body(renderVCard(profile, photo));
 });
 

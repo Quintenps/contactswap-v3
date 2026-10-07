@@ -45,7 +45,7 @@ Provide authorized API endpoints for Quinten to read and save his contact profil
 ### `GET /api/owner/profile/vcard`
 
 - Requires owner authorization.
-- Returns the current vCard 4.0 persisted with the profile, as a downloadable file with `Content-Type: text/vcard; version=4.0; charset=utf-8` and `Content-Disposition: attachment; filename="contactswap-profile.vcf"`.
+- Returns the current vCard 4.0 persisted with the profile, as a downloadable file with `Content-Type: text/vcard; version=4.0; charset=utf-8` and a sanitized `Content-Disposition` filename based on the profile name in `firstname-lastname.vcf` format.
 - Returns `404` with a stable error code when no profile has been saved yet.
 - Does not regenerate the vCard during download; profile saves are responsible for keeping the stored vCard current.
 

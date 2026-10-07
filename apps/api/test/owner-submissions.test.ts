@@ -162,7 +162,7 @@ describe("owner submissions API", () => {
     expect(response.headers.get("Cache-Control")).toBe("no-store");
     expect(response.headers.get("Content-Type")).toBe("text/vcard; version=4.0; charset=utf-8");
     expect(response.headers.get("Content-Disposition")).toBe(
-      'attachment; filename="contactswap-submission.vcf"'
+      'attachment; filename="guest-contact.vcf"'
     );
     expect(response.headers.get("Referrer-Policy")).toBe("no-referrer");
     expect(vcard).toContain("VERSION:4.0\r\n");

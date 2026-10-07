@@ -28,6 +28,7 @@ The following decisions are resolved for this version:
 - Quinten's editable profile fields are persisted in D1. Generate his current vCard 4.0 when requested from those fields and his optional optimized photo in private R2; do not store the rendered vCard or image data in D1.
 - An active guest link may show Quinten's name and optional profile picture on its landing page. If no picture is set, show an initials avatar. Do not show other owner contact fields in this preview; it is not a public profile and is available only through an active guest link.
 - Name, email, address, birthday, and phone number are required for both profiles; picture is optional. Phone numbers use international E.164 format and are included in every generated vCard. Dutch-facing examples use the `+31` country code; other valid international numbers are accepted.
+- Downloaded vCards use a personal `firstname-lastname.vcf` filename derived from the card owner's name.
 - Guest submissions are retained for 30 days and then deleted automatically.
 - Links do not expire by age; they can be manually deleted and are removed after the first successful form submission.
 
@@ -71,6 +72,7 @@ The system is web-based, mobile-first, and deployed on Cloudflare Pages. vCard 4
 - Shared links and their signed vCard URLs do not expire by age. Quinten can delete a link, and each link and its signed vCard URL are revoked after its first successful form submission.
 - After a successful submission, the guest sees a thank-you page.
 - Both owner and guest forms require name, email, address, birthday, and an international E.164 phone number; picture is optional.
+- Downloaded owner and guest vCards use a sanitized `firstname-lastname.vcf` filename derived from that card's name.
 - The app is fully web-based and deployed on Cloudflare Pages.
 
 ### Should have

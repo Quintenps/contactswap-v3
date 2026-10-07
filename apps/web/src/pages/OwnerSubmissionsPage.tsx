@@ -4,7 +4,7 @@ import {
   fetchOwnerSubmissions,
   OwnerApiError,
   ownerAuthorization,
-  submissionVCardFilename
+  vCardFilename
 } from "../lib/api";
 import { formatDateTime, useLanguage, type MessageKey } from "../lib/i18n";
 import type { OwnerSubmission } from "../types";
@@ -89,7 +89,7 @@ export default function OwnerSubmissionsPage() {
       downloadUrl = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
       anchor.href = downloadUrl;
-      anchor.download = submissionVCardFilename(response.headers.get("Content-Disposition"));
+      anchor.download = vCardFilename(response.headers.get("Content-Disposition"));
       anchor.rel = "noreferrer";
       anchor.referrerPolicy = "no-referrer";
       anchor.style.display = "none";

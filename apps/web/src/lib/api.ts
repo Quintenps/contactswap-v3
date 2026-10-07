@@ -167,12 +167,12 @@ export async function errorCode(response: Response): Promise<string | undefined>
   return undefined;
 }
 
-export function submissionVCardFilename(contentDisposition: string | null): string {
+export function vCardFilename(contentDisposition: string | null): string {
   const match = contentDisposition?.match(/filename="([^"]+)"|filename=([^;]+)/i);
   const filename = match?.[1] ?? match?.[2]?.trim();
   return filename && /^[A-Za-z0-9_-][A-Za-z0-9._-]*\.vcf$/i.test(filename) && !filename.includes("..")
     ? filename
-    : "contactswap-submission.vcf";
+    : "contact.vcf";
 }
 
 export function guestSubmissionErrorKey(code: string | undefined): MessageKey {

@@ -161,7 +161,7 @@ describe("guest URL API flow", () => {
       "text/vcard; version=4.0; charset=utf-8"
     );
     expect(firstCard.headers.get("Content-Disposition")).toBe(
-      'attachment; filename="contactswap-profile.vcf"'
+      'attachment; filename="quinten-example.vcf"'
     );
     expect(firstCard.headers.get("Cache-Control")).toBe("no-store");
     expect(firstCard.headers.get("Referrer-Policy")).toBe("no-referrer");
