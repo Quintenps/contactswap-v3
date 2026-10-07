@@ -1,31 +1,32 @@
 import type { FieldName, ProfileFields } from "../types";
+import type { MessageKey } from "./i18n";
 
 export const fields: {
   name: FieldName;
-  label: string;
+  labelKey: MessageKey;
   type: string;
   autoComplete: string;
-  hint?: string;
+  hintKey?: MessageKey;
   placeholder?: string;
 }[] = [
-  { name: "name", label: "Full name", type: "text", autoComplete: "name" },
-  { name: "email", label: "Email address", type: "email", autoComplete: "email" },
-  { name: "address", label: "Address", type: "text", autoComplete: "street-address" },
-  { name: "birthday", label: "Birthday", type: "date", autoComplete: "bday" },
+  { name: "name", labelKey: "fieldName", type: "text", autoComplete: "name" },
+  { name: "email", labelKey: "fieldEmail", type: "email", autoComplete: "email" },
+  { name: "address", labelKey: "fieldAddress", type: "text", autoComplete: "street-address" },
+  { name: "birthday", labelKey: "fieldBirthday", type: "date", autoComplete: "bday" },
   {
     name: "phone",
-    label: "Phone number",
+    labelKey: "fieldPhone",
     type: "tel",
     autoComplete: "tel",
-    hint: "Use international format with the +31 country code.",
+    hintKey: "phoneHint",
     placeholder: "+31600000000"
   }
 ];
 
 export const emptyFields: ProfileFields = { name: "", email: "", address: "", birthday: "", phone: "" };
 
-export function validateProfile(values: ProfileFields): Partial<Record<FieldName, string>> {
-  const errors: Partial<Record<FieldName, string>> = {};
+export function validateProfile(values: ProfileFields): Partial<Record<FieldName, MessageKey>> {
+  const errors: Partial<Record<FieldName, MessageKey>> = {};
   const trimmed = {
     name: values.name.trim(),
     email: values.email.trim(),
@@ -34,19 +35,19 @@ export function validateProfile(values: ProfileFields): Partial<Record<FieldName
     phone: values.phone.trim()
   };
 
-  if (!trimmed.name) errors.name = "Enter your name.";
-  if (!trimmed.email) errors.email = "Enter your email address.";
+  if (!trimmed.name) errors.name = "enterName";
+  if (!trimmed.email) errors.email = "enterEmail";
   else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed.email)) {
-    errors.email = "Enter a valid email address.";
+    errors.email = "validEmail";
   }
-  if (!trimmed.address) errors.address = "Enter your address.";
+  if (!trimmed.address) errors.address = "enterAddress";
   if (!trimmed.phone) {
-    errors.phone = "Enter your phone number with the +31 country code, such as +31600000000.";
+    errors.phone = "enterPhone";
   } else if (!/^\+[1-9]\d{1,14}$/.test(trimmed.phone)) {
-    errors.phone = "Use international E.164 format, such as +31600000000.";
+    errors.phone = "validPhone";
   }
   if (!trimmed.birthday) {
-    errors.birthday = "Enter your birthday.";
+    errors.birthday = "enterBirthday";
   } else {
     const date = new Date(`${trimmed.birthday}T00:00:00.000Z`);
     if (
@@ -55,7 +56,7 @@ export function validateProfile(values: ProfileFields): Partial<Record<FieldName
       !Number.isFinite(date.valueOf()) ||
       date.toISOString().slice(0, 10) !== trimmed.birthday
     ) {
-      errors.birthday = "Enter a valid birthday.";
+      errors.birthday = "validBirthday";
     }
   }
   return errors;

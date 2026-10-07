@@ -7,14 +7,16 @@ import GuestPage from "./pages/GuestPage";
 import OwnerLinksPage from "./pages/OwnerLinksPage";
 import OwnerProfilePage from "./pages/OwnerProfilePage";
 import OwnerSubmissionsPage from "./pages/OwnerSubmissionsPage";
+import { LanguageProvider, LanguageSwitcher, useLanguage } from "./lib/i18n";
 
 function NotFoundPage() {
+  const { t } = useLanguage();
   return (
     <main className="shell guest-shell guest-state-shell">
       <section className="panel guest-panel guest-state-panel" role="status">
         <p className="eyebrow">ContactSwap</p>
-        <h1>Page not found</h1>
-        <p className="section-description">Check the link and try again.</p>
+        <h1>{t("notFoundTitle")}</h1>
+        <p className="section-description">{t("notFoundDescription")}</p>
       </section>
     </main>
   );
@@ -22,18 +24,21 @@ function NotFoundPage() {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route element={<OwnerSessionProvider />}>
-          <Route element={<OwnerSessionGate />}>
-            <Route path="/" element={<OwnerProfilePage />} />
-            <Route path="/owner/links" element={<OwnerLinksPage />} />
-            <Route path="/owner/submissions" element={<OwnerSubmissionsPage />} />
+    <LanguageProvider>
+      <BrowserRouter>
+        <LanguageSwitcher />
+        <Routes>
+          <Route element={<OwnerSessionProvider />}>
+            <Route element={<OwnerSessionGate />}>
+              <Route path="/" element={<OwnerProfilePage />} />
+              <Route path="/owner/links" element={<OwnerLinksPage />} />
+              <Route path="/owner/submissions" element={<OwnerSubmissionsPage />} />
+            </Route>
           </Route>
-        </Route>
-        <Route path="/guest/:token" element={<GuestPage />} />
-        <Route path="*" element={<NotFoundPage />} />
-      </Routes>
-    </BrowserRouter>
+          <Route path="/guest/:token" element={<GuestPage />} />
+          <Route path="*" element={<NotFoundPage />} />
+        </Routes>
+      </BrowserRouter>
+    </LanguageProvider>
   );
 }

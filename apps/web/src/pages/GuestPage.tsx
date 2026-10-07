@@ -2,15 +2,17 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useParams } from "react-router-dom";
 import {
   errorCode,
-  guestSubmissionErrorMessage,
+  guestSubmissionErrorKey,
   isGuestLinkResolution,
   isGuestSubmissionSuccess
 } from "../lib/api";
 import { emptyFields, fields, validateProfile } from "../lib/forms";
+import { useLanguage, type MessageKey } from "../lib/i18n";
 import type { FieldName, GuestPageState, ProfileFields } from "../types";
 
 export default function GuestPage() {
   const { token = "" } = useParams();
+  const { t } = useLanguage();
   const [guestPageState, setGuestPageState] = useState<GuestPageState>("loading");
   const [guestRetry, setGuestRetry] = useState(0);
   const [ownerName, setOwnerName] = useState("");
@@ -19,9 +21,9 @@ export default function GuestPage() {
   const [guestVCardUrl, setGuestVCardUrl] = useState<string | null>(null);
   const [guestFormOpen, setGuestFormOpen] = useState(false);
   const [guestValues, setGuestValues] = useState<ProfileFields>(emptyFields);
-  const [guestFieldErrors, setGuestFieldErrors] = useState<Partial<Record<FieldName, string>>>({});
-  const [guestPictureError, setGuestPictureError] = useState("");
-  const [guestMessage, setGuestMessage] = useState("");
+  const [guestFieldErrors, setGuestFieldErrors] = useState<Partial<Record<FieldName, MessageKey>>>({});
+  const [guestPictureError, setGuestPictureError] = useState<MessageKey | "">("");
+  const [guestMessage, setGuestMessage] = useState<MessageKey | "">("");
   const [guestDownloading, setGuestDownloading] = useState(false);
   const [guestDownloadMode, setGuestDownloadMode] = useState<"share" | "card-only" | null>(null);
   const [guestSubmitting, setGuestSubmitting] = useState(false);
@@ -54,14 +56,14 @@ export default function GuestPage() {
           return;
         }
         if (!response.ok) {
-          setGuestMessage("This link could not be loaded. Try again.");
+          setGuestMessage("linkCouldNotLoad");
           setGuestPageState("error");
           return;
         }
         const payload: unknown = await response.json();
         if (cancelled) return;
         if (!isGuestLinkResolution(payload)) {
-          setGuestMessage("This link could not be loaded. Try again.");
+          setGuestMessage("linkCouldNotLoad");
           setGuestPageState("error");
           return;
         }
@@ -71,7 +73,7 @@ export default function GuestPage() {
         setGuestPageState("ready");
       } catch {
         if (!cancelled) {
-          setGuestMessage("Connection failed. Check your connection and try again.");
+          setGuestMessage("guestConnectionFailed");
           setGuestPageState("error");
         }
       }
@@ -117,13 +119,13 @@ export default function GuestPage() {
         return;
       }
       if (!response.ok) {
-        setGuestMessage("The contact card could not be downloaded. Try again.");
+        setGuestMessage("guestCardCouldNotDownload");
         return;
       }
       const contentType = response.headers.get("Content-Type")?.toLowerCase() ?? "";
       const blob = await response.blob();
       if (!contentType.startsWith("text/vcard") || blob.size === 0) {
-        setGuestMessage("The contact card could not be downloaded. Try again.");
+        setGuestMessage("guestCardCouldNotDownload");
         return;
       }
 
@@ -144,7 +146,7 @@ export default function GuestPage() {
       window.setTimeout(() => URL.revokeObjectURL(completedDownloadUrl), 1000);
       downloadUrl = undefined;
     } catch {
-      setGuestMessage("The contact card could not be downloaded. Check your connection and try again.");
+      setGuestMessage("guestCardDownloadConnectionFailed");
     } finally {
       if (downloadUrl) URL.revokeObjectURL(downloadUrl);
       setGuestDownloading(false);
@@ -159,13 +161,13 @@ export default function GuestPage() {
     const errors = validateProfile(guestValues);
     setGuestFieldErrors(errors);
     if (Object.keys(errors).length > 0) {
-      setGuestMessage("Check the required details.");
+      setGuestMessage("checkRequiredDetails");
       return;
     }
 
     const picture = guestPictureInput.current?.files?.[0];
     if (picture && !["image/jpeg", "image/png", "image/webp"].includes(picture.type)) {
-      setGuestPictureError("Use a JPEG, PNG, or WebP picture.");
+      setGuestPictureError("guestPictureTypeError");
       return;
     }
 
@@ -190,17 +192,17 @@ export default function GuestPage() {
         return;
       }
       if (!response.ok) {
-        setGuestMessage(guestSubmissionErrorMessage(await errorCode(response)));
+        setGuestMessage(guestSubmissionErrorKey(await errorCode(response)));
         return;
       }
       if (response.status !== 201) {
-        setGuestMessage("Your submission could not be confirmed. Check the link before trying again.");
+        setGuestMessage("guestSubmissionCouldNotConfirm");
         return;
       }
 
       const payload: unknown = await response.json();
       if (!isGuestSubmissionSuccess(payload)) {
-        setGuestMessage("Your submission could not be confirmed. Check the link before trying again.");
+        setGuestMessage("guestSubmissionCouldNotConfirm");
         return;
       }
       setGuestValues(emptyFields);
@@ -211,7 +213,7 @@ export default function GuestPage() {
       if (guestPictureInput.current) guestPictureInput.current.value = "";
       setGuestPageState("thank-you");
     } catch {
-      setGuestMessage("Submission could not be confirmed. Check your connection and try again.");
+      setGuestMessage("guestSubmissionConnectionFailed");
     } finally {
       setGuestSubmitting(false);
     }
@@ -222,7 +224,7 @@ export default function GuestPage() {
       <main className="shell guest-shell" aria-busy="true">
         <section className="panel guest-panel loading-panel" aria-live="polite">
           <p className="eyebrow">ContactSwap</p>
-          <h1>Loading your link…</h1>
+          <h1>{t("linkLoading")}</h1>
         </section>
       </main>
     );
@@ -238,8 +240,8 @@ export default function GuestPage() {
         >
           <span className="guest-state-emoji" aria-hidden="true">💌</span>
           <p className="eyebrow">ContactSwap</p>
-          <h1 id="guest-unavailable-heading">This link isn't available</h1>
-          <p className="section-description">Ask the person who shared it with you for a fresh link.</p>
+          <h1 id="guest-unavailable-heading">{t("linkUnavailable")}</h1>
+          <p className="section-description">{t("requestFreshLink")}</p>
         </section>
       </main>
     );
@@ -251,8 +253,8 @@ export default function GuestPage() {
         <section className="panel guest-panel guest-state-panel guest-state-thank-you" aria-labelledby="guest-thank-you-heading">
           <span className="guest-state-emoji" aria-hidden="true">🎉</span>
           <p className="eyebrow">ContactSwap</p>
-          <h1 id="guest-thank-you-heading">Thanks for sharing!</h1>
-          <p className="section-description">You're all set. Your details have been shared.</p>
+          <h1 id="guest-thank-you-heading">{t("thanksForSharing")}</h1>
+          <p className="section-description">{t("detailsShared")}</p>
         </section>
       </main>
     );
@@ -264,14 +266,14 @@ export default function GuestPage() {
         <section className="panel guest-panel guest-state-panel guest-state-error" aria-labelledby="guest-error-heading">
           <span className="guest-state-emoji" aria-hidden="true">🌱</span>
           <p className="eyebrow">ContactSwap</p>
-          <h1 id="guest-error-heading">A little hiccup</h1>
-          <p className="notice" role="alert">{guestMessage}</p>
+          <h1 id="guest-error-heading">{t("guestErrorTitle")}</h1>
+          <p className="notice" role="alert">{t(guestMessage || "linkCouldNotLoad")}</p>
           <button
             className="primary-button guest-retry-button"
             type="button"
             onClick={() => setGuestRetry((current) => current + 1)}
           >
-            Try again
+            {t("retry")}
           </button>
         </section>
       </main>
@@ -284,8 +286,8 @@ export default function GuestPage() {
         <>
           <header className="guest-header">
             <p className="eyebrow">ContactSwap</p>
-            <h1>Here's my contact card</h1>
-            <p className="section-description">Download my latest contact details and save them to your phone.</p>
+            <h1>{t("guestCardHeading")}</h1>
+            <p className="section-description">{t("guestCardDescription")}</p>
           </header>
 
           <section className="panel guest-panel guest-owner-card" aria-labelledby="guest-owner-name">
@@ -308,9 +310,9 @@ export default function GuestPage() {
               )}
             </div>
             <div className="guest-owner-card-copy">
-              <p className="guest-owner-card-label">Up-to-date contact card</p>
+              <p className="guest-owner-card-label">{t("upToDateCard")}</p>
               <h2 id="guest-owner-name" className="guest-owner-name">{ownerName}</h2>
-              <p className="section-description">My latest details, ready to save.</p>
+              <p className="section-description">{t("latestDetailsReady")}</p>
             </div>
           </section>
         </>
@@ -322,10 +324,10 @@ export default function GuestPage() {
             <div>
               <p className="eyebrow">ContactSwap</p>
               <h1 id="guest-form-heading" ref={guestFormHeading} tabIndex={-1}>
-                Share your details with {ownerName}
+                {t("shareDetailsHeading", { ownerName })}
               </h1>
               <p className="section-description">
-                All fields are required except your picture. Nothing is sent until you choose “Share my details.”
+                {t("guestFormPrivacy")}
               </p>
             </div>
             <button
@@ -334,15 +336,15 @@ export default function GuestPage() {
               onClick={() => setGuestFormOpen(false)}
               disabled={guestSubmitting}
             >
-              Close
+              {t("close")}
             </button>
           </div>
 
           <form id="guest-details-form" className="guest-form" onSubmit={handleGuestSubmit} noValidate>
             <div className="profile-form guest-profile-form">
-              {fields.map(({ name, label, type, autoComplete, hint, placeholder }) => (
+              {fields.map(({ name, labelKey, type, autoComplete, hintKey, placeholder }) => (
                 <div className="field" key={name}>
-                  <label htmlFor={`guest-${name}`}>{label}<span aria-hidden="true"> *</span></label>
+                  <label htmlFor={`guest-${name}`}>{t(labelKey)}<span aria-hidden="true"> *</span></label>
                   <input
                     id={`guest-${name}`}
                     name={name}
@@ -354,7 +356,7 @@ export default function GuestPage() {
                     required
                     aria-invalid={Boolean(guestFieldErrors[name])}
                     aria-describedby={[
-                      hint ? `guest-${name}-hint` : undefined,
+                      hintKey ? `guest-${name}-hint` : undefined,
                       guestFieldErrors[name] ? `guest-${name}-error` : undefined
                     ].filter(Boolean).join(" ") || undefined}
                     onChange={(event) => {
@@ -363,16 +365,16 @@ export default function GuestPage() {
                       setGuestMessage("");
                     }}
                   />
-                  {hint && <span className="field-hint" id={`guest-${name}-hint`}>{hint} Example: {placeholder}</span>}
+                  {hintKey && <span className="field-hint" id={`guest-${name}-hint`}>{t(hintKey)} Example: {placeholder}</span>}
                   {guestFieldErrors[name] && (
-                    <span className="field-error" id={`guest-${name}-error`}>{guestFieldErrors[name]}</span>
+                    <span className="field-error" id={`guest-${name}-error`}>{t(guestFieldErrors[name])}</span>
                   )}
                 </div>
               ))}
             </div>
 
             <div className="field guest-picture-field">
-              <label htmlFor="guest-picture">Picture <span>(optional)</span></label>
+              <label htmlFor="guest-picture">{t("guestPicture")} <span>({t("optional")})</span></label>
               <input
                 id="guest-picture"
                 ref={guestPictureInput}
@@ -383,21 +385,21 @@ export default function GuestPage() {
                   const picture = event.currentTarget.files?.[0];
                   if (picture && !["image/jpeg", "image/png", "image/webp"].includes(picture.type)) {
                     event.currentTarget.value = "";
-                    setGuestPictureError("Use a JPEG, PNG, or WebP picture.");
+                    setGuestPictureError("guestPictureTypeError");
                     return;
                   }
                   setGuestPictureError("");
                 }}
               />
               {guestPictureError && (
-                <span className="field-error" id="guest-picture-error">{guestPictureError}</span>
+                <span className="field-error" id="guest-picture-error">{t(guestPictureError)}</span>
               )}
             </div>
 
-            {guestMessage && <p className="notice" role="alert" aria-live="polite">{guestMessage}</p>}
+            {guestMessage && <p className="notice" role="alert" aria-live="polite">{t(guestMessage)}</p>}
             <div className="guest-form-actions">
               <button className="primary-button" type="submit" disabled={guestSubmitting || guestDownloading}>
-                {guestSubmitting ? "Sending…" : "Share my details"}
+                {guestSubmitting ? t("sending") : t("shareMyDetails")}
               </button>
             </div>
           </form>
@@ -406,12 +408,12 @@ export default function GuestPage() {
 
       {!guestFormOpen && (
         <section className="panel guest-panel guest-download-panel" aria-labelledby="guest-actions-heading">
-          <h2 id="guest-actions-heading">Take my details with you</h2>
+          <h2 id="guest-actions-heading">{t("takeDetailsWithYou")}</h2>
           <p className="section-description">
-            Download my latest contact card and share your details in return. This opens an optional form; nothing is sent until you choose “Share my details.”
+            {t("guestDownloadDescription")}
           </p>
           {guestMessage && (
-            <p className="notice" role="status" aria-live="polite">{guestMessage}</p>
+            <p className="notice" role="status" aria-live="polite">{t(guestMessage)}</p>
           )}
           <div className="guest-actions">
             <button
@@ -421,8 +423,8 @@ export default function GuestPage() {
               disabled={!guestVCardUrl || guestDownloading}
             >
               {guestDownloading && guestDownloadMode === "share"
-                ? "Preparing your download…"
-                : "Download my card & share your details"}
+                ? t("preparingDownload")
+                : t("downloadAndShare")}
             </button>
             <button
               className="secondary-button guest-secondary-action"
@@ -431,8 +433,8 @@ export default function GuestPage() {
               disabled={!guestVCardUrl || guestDownloading}
             >
               {guestDownloading && guestDownloadMode === "card-only"
-                ? "Preparing your download…"
-                : "Download card only"}
+                ? t("preparingDownload")
+                : t("downloadCardOnly")}
             </button>
           </div>
         </section>

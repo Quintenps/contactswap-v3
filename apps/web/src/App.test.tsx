@@ -4,6 +4,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
+import { languageStorageKey } from "./lib/i18n";
 
 const token = "owner-test-token";
 const profile = {
@@ -33,7 +34,16 @@ function input(id: string): HTMLInputElement {
 }
 
 function button(text: string): HTMLButtonElement {
-  const element = [...document.querySelectorAll("button")].find((item) => item.textContent?.includes(text));
+  const updatedCopy: Record<string, string> = {
+    "Download": "Get vCard",
+    "Generate new link": "Make a link",
+    "Revoke": "Delete",
+    "Log out": "Sign out",
+    "Download my card & share your details": "Get my card & share your details",
+    "Download card only": "Just get my card"
+  };
+  const expectedText = updatedCopy[text] ?? text;
+  const element = [...document.querySelectorAll("button")].find((item) => item.textContent?.includes(expectedText));
   if (!element) throw new Error(`Missing button: ${text}`);
   return element;
 }
@@ -116,9 +126,9 @@ describe("frontend routes", () => {
     await clickLink(submissionsLink);
 
     expect(window.location.pathname).toBe("/owner/submissions");
-    expect(document.body.textContent).toContain("Submitted contacts");
+    expect(document.body.textContent).toContain("New contacts");
     expect(document.querySelector('nav[aria-label="Owner navigation"] a[aria-current="page"]')?.textContent)
-      .toBe("Submissions");
+      .toBe("New contacts");
     expect(fetchMock.mock.calls.some(([url]) => url === "/api/owner/submissions")).toBe(true);
 
     await act(async () => {
@@ -127,7 +137,7 @@ describe("frontend routes", () => {
       await Promise.resolve();
     });
     expect(window.location.pathname).toBe("/owner/links");
-    expect(document.body.textContent).toContain("Your links");
+    expect(document.body.textContent).toContain("Links to share");
   });
 
   it("shows a safe not-found state for unknown and malformed guest routes", async () => {
@@ -135,7 +145,7 @@ describe("frontend routes", () => {
     window.history.pushState({}, "", "/guest/");
     await renderApp();
 
-    expect(document.body.textContent).toContain("Page not found");
+    expect(document.body.textContent).toContain("Can't find that page");
     expect(fetchMock).not.toHaveBeenCalled();
 
     await act(async () => root?.unmount());
@@ -143,7 +153,7 @@ describe("frontend routes", () => {
     container.remove();
     window.history.replaceState({}, "", "/not-a-route");
     await renderApp();
-    expect(document.body.textContent).toContain("Page not found");
+    expect(document.body.textContent).toContain("Can't find that page");
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
@@ -151,6 +161,7 @@ describe("frontend routes", () => {
 beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   window.localStorage.clear();
+  window.localStorage.setItem(languageStorageKey, "en");
   Object.defineProperty(URL, "createObjectURL", {
     configurable: true,
     value: vi.fn(() => "blob:private-profile-photo")
@@ -188,7 +199,7 @@ describe("owner profile frontend", () => {
       headers: { Authorization: expect.any(String) },
       cache: "no-store"
     });
-    expect(document.querySelector('nav[aria-label="Owner navigation"] a[aria-current="page"]')?.textContent).toBe("Submissions");
+    expect(document.querySelector('nav[aria-label="Owner navigation"] a[aria-current="page"]')?.textContent).toBe("New contacts");
     expect([...document.querySelectorAll(".submission-card .link-card-content p:first-child")].map((item) => item.textContent))
       .toEqual(["Newest Guest", "Earlier Guest"]);
     expect(document.body.textContent).not.toContain("new-submission");
@@ -204,7 +215,7 @@ describe("owner profile frontend", () => {
       : response(profile));
     await renderSubmissionsPage();
 
-    expect(document.body.textContent).toContain("No guest submissions yet.");
+    expect(document.body.textContent).toContain("No new contacts yet.");
     expect(document.querySelector(".submission-card")).toBeNull();
   });
 
@@ -225,7 +236,7 @@ describe("owner profile frontend", () => {
     });
     await renderSubmissionsPage();
 
-    expect(document.body.textContent).toContain("Submissions could not be loaded.");
+    expect(document.body.textContent).toContain("Couldn't load new contacts.");
     expect(document.body.textContent).not.toContain("Guest Example");
     await click(button("Try again"));
     expect(document.body.textContent).toContain("Guest Example");
@@ -282,7 +293,7 @@ describe("owner profile frontend", () => {
     await renderSubmissionsPage();
     await click(button("Download"));
 
-    expect(document.body.textContent).toContain("This submission is no longer available.");
+    expect(document.body.textContent).toContain("This contact isn't available anymore.");
     expect(document.body.textContent).not.toContain("Expired Guest");
     expect(listReads).toBe(2);
   });
@@ -308,7 +319,7 @@ describe("owner profile frontend", () => {
     await click(button("Download"));
 
     expect(clickAnchor).not.toHaveBeenCalled();
-    expect(document.body.textContent).toContain("The contact card could not be downloaded. Try again.");
+    expect(document.body.textContent).toContain("Couldn't download this contact. Try again.");
     await click(button("Download"));
     expect(clickAnchor).toHaveBeenCalledOnce();
   });
@@ -334,7 +345,9 @@ describe("owner profile frontend", () => {
     const clickAnchor = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
     await renderSubmissionsPage();
     await click(button("Download"));
-    expect(document.body.textContent).toContain("The contact card could not be downloaded.");
+    expect(document.body.textContent).toContain(failure === "network"
+      ? "Couldn't download the contact card. Check your connection"
+      : "Couldn't download this contact. Try again.");
     await click(button("Download"));
 
     expect(clickAnchor).toHaveBeenCalledOnce();
@@ -369,8 +382,8 @@ describe("owner profile frontend", () => {
 
     expect(window.localStorage.getItem(tokenStorageKey)).toBeNull();
     expect(document.querySelector("#owner-token")).not.toBeNull();
-    expect(document.body.textContent).not.toContain("Submitted contacts");
-    expect(document.body.textContent).not.toContain("Guest submissions");
+    expect(document.body.textContent).not.toContain("New contacts");
+    expect(document.body.textContent).not.toContain("Contacts from friends");
   });
 
   it("prevents duplicate downloads for a submission while its request is pending", async () => {
@@ -417,13 +430,13 @@ describe("owner profile frontend", () => {
     });
     await renderLinksPage();
 
-    expect(document.body.textContent).toContain("Guest links");
-    expect(document.querySelector('nav[aria-label="Owner navigation"] a[aria-current="page"]')?.textContent).toBe("Guest links");
-    expect([...document.querySelectorAll('nav[aria-label="Owner navigation"] a')].map((link) => link.textContent)).toEqual(["Profile", "Guest links", "Submissions"]);
-    expect(document.querySelector('nav[aria-label="Owner navigation"] button')?.textContent).toBe("Log out");
-    expect(document.body.textContent).toContain("active");
-    expect(document.body.textContent).toContain("consumed");
-    expect(document.body.textContent).toContain("revoked");
+    expect(document.body.textContent).toContain("Share links");
+    expect(document.querySelector('nav[aria-label="Owner navigation"] a[aria-current="page"]')?.textContent).toBe("Share links");
+    expect([...document.querySelectorAll('nav[aria-label="Owner navigation"] a')].map((link) => link.textContent)).toEqual(["My profile", "Share links", "New contacts"]);
+    expect(document.querySelector('nav[aria-label="Owner navigation"] button')?.textContent).toBe("Sign out");
+    expect(document.querySelector(".status-active")?.textContent).toBe("Active");
+    expect(document.querySelector(".status-consumed")?.textContent).toBe("Used");
+    expect(document.querySelector(".status-revoked")?.textContent).toBe("Revoked");
     expect([...document.querySelectorAll(".link-card code")].map((item) => item.textContent)).toEqual(links.map((link) => link.id));
     expect(document.querySelectorAll(".link-card .danger-button")).toHaveLength(1);
     expect(fetchMock.mock.calls.some(([url, init]) => url === "/api/owner/links" && init?.cache === "no-store")).toBe(true);
@@ -458,14 +471,14 @@ describe("owner profile frontend", () => {
     expect(document.querySelector<HTMLInputElement>("#generated-guest-url")?.value).toBe(guestUrl);
     */
     expect(typeof (createCall?.[1]?.headers as Record<string, string>)?.Authorization).toBe("string");
-    expect(document.body.textContent).toContain("Link created.");
-    expect(document.body.textContent).toContain("cannot be retrieved");
+    expect(document.body.textContent).toContain("Your link's ready");
+    expect(document.body.textContent).toContain("get this URL back later");
     expect(document.body.textContent).not.toContain(token);
     expect(createCall?.[1]).not.toHaveProperty("body");
 
     await click(button("Copy link"));
     expect(copied).toHaveBeenCalledWith(guestUrl);
-    expect(document.body.textContent).toContain("Guest link copied.");
+    expect(document.body.textContent).toContain("Link copied. Send it to a friend!");
     expect(document.body.textContent).toContain("00000000-0000-4000-8000-000000000001");
   });
 
@@ -485,8 +498,8 @@ describe("owner profile frontend", () => {
     await click(button("Generate new link"));
 
     expect(document.querySelector<HTMLInputElement>("#generated-guest-url")?.value).toBe(guestUrl);
-    expect(document.body.textContent).toContain("overview could not be refreshed");
-    expect(document.body.textContent).not.toContain("Link creation failed.");
+    expect(document.body.textContent).toContain("list didn't reload");
+    expect(document.body.textContent).not.toContain("Couldn't make the link.");
   });
 
   it("provides a manual copy fallback when clipboard access fails", async () => {
@@ -519,9 +532,9 @@ describe("owner profile frontend", () => {
     });
     await renderLinksPage();
 
-    expect(document.body.textContent).toContain("Save your owner profile before creating a guest link.");
+    expect(document.body.textContent).toContain("Add your contact details before making a share link.");
     expect(button("Generate new link").disabled).toBe(true);
-    expect(document.querySelector('.links-panel a[href="/"]')?.textContent).toContain("Go to your profile");
+    expect(document.querySelector('.links-panel a[href="/"]')?.textContent).toContain("Add your details");
     expect(fetchMock.mock.calls.some(([, init]) => init?.method === "POST")).toBe(false);
   });
 
@@ -537,7 +550,7 @@ describe("owner profile frontend", () => {
     await renderLinksPage();
     await click(button("Generate new link"));
 
-    expect(document.body.textContent).toContain("Save your owner profile before creating a link.");
+    expect(document.body.textContent).toContain("Add your contact details before making a link.");
     expect(document.querySelector<HTMLInputElement>("#generated-guest-url")).toBeNull();
     expect(document.body.textContent).not.toContain("Link created.");
     expect(fetchMock.mock.calls.some(([url, init]) => url === "/api/owner/links" && init?.method === "POST")).toBe(true);
@@ -575,14 +588,14 @@ describe("owner profile frontend", () => {
       headers: { Authorization: `****** },
       cache: "no-store"
     }));
-    expect(document.body.textContent).toContain("revoked");
+    expect(document.body.textContent).toContain("Revoked");
     */
     const deleteCall = fetchMock.mock.calls.find(([url, init]) => url === `/api/owner/links/${linkId}` && init?.method === "DELETE");
     expect(deleteCall?.[1]?.method).toBe("DELETE");
     expect(typeof (deleteCall?.[1]?.headers as Record<string, string>)?.Authorization).toBe("string");
     expect(deleteCall?.[1]?.cache).toBe("no-store");
     expect(document.querySelector(".link-card .status-revoked")).not.toBeNull();
-    expect(document.body.textContent).toContain("Link status updated.");
+    expect(document.body.textContent).toContain("Link deleted.");
     expect(document.querySelectorAll(".link-card .danger-button")).toHaveLength(0);
   });
 
@@ -596,8 +609,8 @@ describe("owner profile frontend", () => {
 
     expect(window.localStorage.getItem(tokenStorageKey)).toBeNull();
     expect(document.querySelector("#owner-token")).not.toBeNull();
-    expect(document.body.textContent).toContain("Unauthorized.");
-    expect(document.body.textContent).not.toContain("Guest links");
+    expect(document.body.textContent).toContain("That token didn't work.");
+    expect(document.body.textContent).not.toContain("Share links");
   });
 
   it("loads a remembered token using the authorization header and no-store cache", async () => {
@@ -605,7 +618,7 @@ describe("owner profile frontend", () => {
     const fetchMock = installFetch(async () => response(profile));
     await renderApp();
 
-    expect(await screenText()).toContain("Contact details");
+    expect(await screenText()).toContain("My details");
     expect([...document.querySelectorAll(".profile-shell > section.panel")].map((panel) =>
       panel.getAttribute("aria-labelledby")
     )).toEqual(["photo-heading", "profile-heading"]);
@@ -629,7 +642,7 @@ describe("owner profile frontend", () => {
 
     expect(window.localStorage.getItem(tokenStorageKey)).toBe(token);
     expect(fetchMock.mock.calls[0]?.[1]?.headers).toEqual({ Authorization: `Bearer ${token}` });
-    expect(document.body.textContent).toContain("New");
+    expect(document.body.textContent).toContain("Not set up");
     changeValue(input("name"), " Quinten Example ");
     changeValue(input("email"), " quinten@example.invalid ");
     changeValue(input("address"), " 12 Main Street ");
@@ -650,7 +663,7 @@ describe("owner profile frontend", () => {
       birthday: profile.birthday,
       phone: profile.phone
     });
-    expect(document.body.textContent).toContain("Saved.");
+    expect(document.body.textContent).toContain("Changes saved.");
     expect([...document.querySelectorAll(".profile-shell > .page-notice, .profile-shell > section.panel")].map((element) =>
       element.classList.contains("page-notice") ? "notice" : element.getAttribute("aria-labelledby")
     )).toEqual(["notice", "photo-heading", "profile-heading"]);
@@ -665,7 +678,7 @@ describe("owner profile frontend", () => {
       birthday: profile.birthday,
       phone: profile.phone
     });
-    expect(document.body.textContent).toContain("Saved.");
+    expect(document.body.textContent).toContain("Changes saved.");
   });
 
   it("returns to login and clears a remembered token after a 401", async () => {
@@ -677,7 +690,7 @@ describe("owner profile frontend", () => {
     expect(document.querySelector("#owner-token")).not.toBeNull();
     expect(document.body.textContent).not.toContain(profile.email);
     expect(document.querySelector("#name")).toBeNull();
-    expect(document.body.textContent).toContain("Unauthorized.");
+    expect(document.body.textContent).toContain("That token didn't work.");
   });
 
   it("requires an international phone number before saving the owner profile", async () => {
@@ -705,15 +718,15 @@ describe("owner profile frontend", () => {
 
     changeValue(input("email"), "not-an-email");
     await submit(input("email").form!);
-    expect(document.body.textContent).toContain("Enter a valid email address.");
+    expect(document.body.textContent).toContain("That email address doesn't look right.");
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
     changeValue(input("email"), "correct@example.invalid");
     changeValue(input("name"), "Edited name");
     await submit(input("email").form!);
-    expect(document.body.textContent).toContain("Check required fields, email, birthday, and phone number.");
+    expect(document.body.textContent).toContain("Check the required fields, email, birthday, and phone number.");
     expect(input("name").value).toBe("Edited name");
-    expect(document.body.textContent).toContain("Unsaved");
+    expect(document.body.textContent).toContain("Not saved");
   });
 
   it("uploads a selected photo as its raw file and loads the authorized preview", async () => {
@@ -734,7 +747,7 @@ describe("owner profile frontend", () => {
     expect(uploadCall?.[0]).toBe("/api/owner/profile/photo");
     expect(uploadCall?.[1]?.headers).toEqual({ Authorization: `Bearer ${token}`, "Content-Type": "image/png" });
     expect(uploadCall?.[1]?.body).toBe(uploaded);
-    expect(document.body.textContent).toContain("Photo saved.");
+    expect(document.body.textContent).toContain("Photo updated.");
     expect(document.querySelector('img[alt="Profile photo"]')).not.toBeNull();
     expect(URL.createObjectURL).toHaveBeenCalled();
     expect(fetchMock.mock.calls.filter(([url, init]) => url === "/api/owner/profile/photo" && !init?.method).length).toBe(2);
@@ -780,9 +793,9 @@ describe("owner profile frontend", () => {
     });
     await submit(input("profile-photo").form!);
 
-    expect(document.body.textContent).toContain("Image too large.");
-    expect(document.body.textContent).not.toContain("Photo saved.");
-    expect(document.body.textContent).toContain("None");
+    expect(document.body.textContent).toContain("That photo's too big.");
+    expect(document.body.textContent).not.toContain("Photo updated.");
+    expect(document.body.textContent).toContain("Not added");
   });
 
   it("logs out by clearing the remembered token and returning to the login form", async () => {
@@ -790,12 +803,12 @@ describe("owner profile frontend", () => {
     installFetch(async () => response(profile));
     await renderApp();
 
-    expect(document.querySelector('nav[aria-label="Owner navigation"] a[aria-current="page"]')?.textContent).toBe("Profile");
+    expect(document.querySelector('nav[aria-label="Owner navigation"] a[aria-current="page"]')?.textContent).toBe("My profile");
     await click(button("Log out"));
     expect(window.localStorage.getItem(tokenStorageKey)).toBeNull();
     expect(document.querySelector("#owner-token")).not.toBeNull();
     expect(document.querySelector("#name")).toBeNull();
-    expect(document.body.textContent).toContain("Logged out.");
+    expect(document.body.textContent).toContain("You're signed out.");
   });
 });
 
@@ -838,7 +851,7 @@ describe("guest frontend", () => {
     expect(document.querySelector(".guest-owner-name")?.textContent).toBe("Quinten Example");
     expect(document.querySelector(".guest-owner-avatar")?.textContent).toBe("QE");
     expect(document.querySelector("h1")?.textContent).toBe("Here's my contact card");
-    expect(document.body.textContent).toContain("nothing is sent until you choose “Share my details.”");
+    expect(document.body.textContent).toContain("Nothing gets sent until you tap “Share my details.”");
   });
 
   it("previews the owner's picture without a referrer and falls back to initials if it fails", async () => {
@@ -920,7 +933,7 @@ describe("guest frontend", () => {
     expect(submission?.[1]?.body).toBeInstanceOf(FormData);
     expect((submission?.[1]?.body as FormData).get("picture")).toBeNull();
     expect((submission?.[1]?.body as FormData).get("phone")).toBe("+31600000001");
-    expect(document.body.textContent).toContain("Your details have been shared.");
+    expect(document.body.textContent).toContain("Your details are on their way.");
     expect(document.body.textContent).not.toContain("Guest Example");
     expect(document.querySelector("#guest-details-form")).toBeNull();
     expect(document.querySelector(".guest-state-thank-you")).not.toBeNull();
@@ -953,7 +966,7 @@ describe("guest frontend", () => {
     expect(formData).toBeInstanceOf(FormData);
     expect((formData as FormData).get("phone")).toBe("+31600000001");
     expect((formData as FormData).get("picture")).toMatchObject({ name: "guest.png", type: "image/png" });
-    expect(document.body.textContent).toContain("Your details have been shared.");
+    expect(document.body.textContent).toContain("Your details are on their way.");
   });
 
   it("validates required fields before submitting", async () => {
@@ -966,7 +979,7 @@ describe("guest frontend", () => {
     expect(fetchMock.mock.calls.some(([url]) => url === `/api/guest/links/${guestToken}/submissions`)).toBe(false);
     expect(input("guest-name").getAttribute("aria-invalid")).toBe("true");
     expect(input("guest-phone").getAttribute("aria-invalid")).toBe("true");
-    expect(document.body.textContent).toContain("Check the required details.");
+    expect(document.body.textContent).toContain("A few details need fixing.");
   });
 
   it("requires an E.164 phone number in the guest form and preserves invalid input", async () => {
@@ -1008,7 +1021,7 @@ describe("guest frontend", () => {
     await submit(document.querySelector<HTMLFormElement>("#guest-details-form")!);
 
     expect(input("guest-name").value).toBe("Guest Example");
-    expect(document.body.textContent).toContain("Check the required details and try again.");
+    expect(document.body.textContent).toContain("Check those details and try again.");
     expect(document.querySelector("#guest-details-form")).not.toBeNull();
   });
 
@@ -1016,7 +1029,7 @@ describe("guest frontend", () => {
     installFetch(async () => response({ error: { code: "guest_link_unavailable" } }, status));
     await renderGuestPage(guestToken);
 
-    expect(document.body.textContent).toContain("This link isn't available");
+    expect(document.body.textContent).toContain("This link isn't active");
     expect(document.querySelector(".guest-state-shell")).not.toBeNull();
     expect(document.querySelector(".guest-state-emoji")?.textContent).toBe("💌");
     expect(document.querySelector(".guest-actions")).toBeNull();
@@ -1031,7 +1044,7 @@ describe("guest frontend", () => {
 
     expect(document.querySelector(".guest-state-error")).not.toBeNull();
     expect(document.querySelector(".guest-state-emoji")?.textContent).toBe("🌱");
-    expect(document.body.textContent).toContain("A little hiccup");
+    expect(document.body.textContent).toContain("Oops, that didn't work");
     expect(button("Try again")).toBeDefined();
   });
 
@@ -1044,7 +1057,7 @@ describe("guest frontend", () => {
     await click(button("Download my card & share your details"));
 
     expect(document.querySelector("#guest-details-form")).not.toBeNull();
-    expect(document.body.textContent).toContain("The contact card could not be downloaded. Try again.");
+    expect(document.body.textContent).toContain("Couldn't get the contact card. Try again.");
   });
 });
 

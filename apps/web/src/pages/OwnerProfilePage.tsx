@@ -1,19 +1,21 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { OwnerPageHeader, useOwnerSession } from "../app/OwnerSession";
-import { errorCode, isProfile, ownerAuthorization, photoErrorMessage } from "../lib/api";
+import { errorCode, isProfile, ownerAuthorization, photoErrorKey } from "../lib/api";
 import { emptyFields, fields, validateProfile } from "../lib/forms";
+import { useLanguage, type MessageKey } from "../lib/i18n";
 import type { FieldName, ProfileFields } from "../types";
 
 export default function OwnerProfilePage() {
   const { token, profile, setProfile, unauthorized } = useOwnerSession();
+  const { t } = useLanguage();
   const [values, setValues] = useState<ProfileFields>(() => profile
     ? { name: profile.name, email: profile.email, address: profile.address, birthday: profile.birthday, phone: profile.phone }
     : emptyFields);
   const [hasPhoto, setHasPhoto] = useState(profile?.hasPhoto ?? false);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [photoRevision, setPhotoRevision] = useState(0);
-  const [message, setMessage] = useState(profile ? "" : "No profile yet.");
-  const [fieldErrors, setFieldErrors] = useState<Partial<Record<FieldName, string>>>({});
+  const [message, setMessage] = useState<MessageKey | "">(profile ? "" : "noProfileYet");
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<FieldName, MessageKey>>>({});
   const [busy, setBusy] = useState<"save" | "upload" | "remove" | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -54,11 +56,11 @@ export default function OwnerProfilePage() {
           return;
         }
         if (response.status === 404) {
-          setMessage("Photo unavailable.");
+          setMessage("photoUnavailable");
           return;
         }
         if (!response.ok) {
-          setMessage("Preview failed.");
+          setMessage("previewFailed");
           return;
         }
         objectUrl = URL.createObjectURL(await response.blob());
@@ -68,7 +70,7 @@ export default function OwnerProfilePage() {
         }
         setPhotoUrl(objectUrl);
       } catch {
-        if (!cancelled) setMessage("Preview failed.");
+        if (!cancelled) setMessage("previewFailed");
       }
     }
     void loadPhoto();
@@ -84,7 +86,7 @@ export default function OwnerProfilePage() {
     const errors = validateProfile(values);
     setFieldErrors(errors);
     if (Object.keys(errors).length > 0) {
-      setMessage("Check required fields.");
+      setMessage("checkRequiredFields");
       return;
     }
 
@@ -115,21 +117,21 @@ export default function OwnerProfilePage() {
         const code = await errorCode(response);
         setMessage(
           code === "invalid_profile"
-            ? "Check required fields, email, birthday, and phone number."
-            : "Save failed. Changes kept."
+            ? "invalidProfileFields"
+            : "saveFailedChangesKept"
         );
         return;
       }
       const data: unknown = await response.json();
       if (!isProfile(data)) {
-        setMessage("Save not confirmed. Reload to check.");
+        setMessage("saveNotConfirmed");
         return;
       }
       setProfile(data);
       setFieldErrors({});
-      setMessage("Saved.");
+      setMessage("saved");
     } catch {
-      setMessage("Save failed. Changes kept.");
+      setMessage("saveFailedChangesKept");
     } finally {
       setBusy(null);
     }
@@ -140,12 +142,12 @@ export default function OwnerProfilePage() {
     if (!token || !profile || busy) return;
     const file = fileInput.current?.files?.[0];
     if (!file) {
-      setMessage("Choose an image.");
+      setMessage("chooseImage");
       return;
     }
     const supportedTypes = ["image/jpeg", "image/png", "image/webp"];
     if (!supportedTypes.includes(file.type)) {
-      setMessage("Use JPEG, PNG, or WebP.");
+      setMessage("useImageTypes");
       return;
     }
 
@@ -163,17 +165,17 @@ export default function OwnerProfilePage() {
         return;
       }
       if (!response.ok) {
-        setMessage(photoErrorMessage(await errorCode(response)));
+        setMessage(photoErrorKey(await errorCode(response)));
         return;
       }
       setProfile((current) => current ? { ...current, hasPhoto: true } : current);
       setHasPhoto(true);
       setPhotoUrl(null);
       setPhotoRevision((current) => current + 1);
-      setMessage("Photo saved.");
+      setMessage("photoSaved");
       if (fileInput.current) fileInput.current.value = "";
     } catch {
-      setMessage("Photo upload failed. Try again.");
+      setMessage("photoUploadFailed");
     } finally {
       setBusy(null);
     }
@@ -181,7 +183,7 @@ export default function OwnerProfilePage() {
 
   async function handlePhotoRemoval() {
     if (!token || !hasPhoto || busy) return;
-    if (!window.confirm("Remove photo?")) return;
+    if (!window.confirm(t("removePhotoConfirmation"))) return;
 
     setBusy("remove");
     setMessage("");
@@ -197,14 +199,14 @@ export default function OwnerProfilePage() {
       }
       if (!response.ok) {
         const code = await errorCode(response);
-        setMessage(code === "photo_not_found" ? "Photo unavailable. Reload." : "Photo removal failed. Try again.");
+        setMessage(code === "photo_not_found" ? "photoNotFoundReload" : "photoRemovalFailed");
         return;
       }
       setHasPhoto(false);
       setProfile((current) => current ? { ...current, hasPhoto: false } : current);
-      setMessage("Photo removed.");
+      setMessage("photoRemoved");
     } catch {
-      setMessage("Photo removal failed. Try again.");
+      setMessage("photoRemovalFailed");
     } finally {
       setBusy(null);
     }
@@ -214,19 +216,19 @@ export default function OwnerProfilePage() {
 
   return (
     <main className="shell profile-shell">
-      <OwnerPageHeader title="Profile" />
-      {message && <p className="notice page-notice" role="status" aria-live="polite">{message}</p>}
+      <OwnerPageHeader title={t("profile")} />
+      {message && <p className="notice page-notice" role="status" aria-live="polite">{t(message)}</p>}
 
       <section className="panel photo-panel" aria-labelledby="photo-heading">
         <div className="section-heading">
-          <div><h2 id="photo-heading">Photo</h2></div>
-          <span className="state-pill">{hasPhoto ? "Added" : "None"}</span>
+          <div><h2 id="photo-heading">{t("photo")}</h2></div>
+          <span className="state-pill">{hasPhoto ? t("photoAdded") : t("photoNone")}</span>
         </div>
         {hasPhoto && (
           <div className="photo-preview">
             {photoUrl
-              ? <img src={photoUrl} alt="Profile photo" />
-              : <span className="preview-placeholder" aria-live="polite">Loading…</span>}
+              ? <img src={photoUrl} alt={t("profilePhotoAlt")} />
+              : <span className="preview-placeholder" aria-live="polite">{t("uploadingPreview")}</span>}
           </div>
         )}
         <form className="photo-form" onSubmit={handlePhotoUpload}>
@@ -235,16 +237,16 @@ export default function OwnerProfilePage() {
             ref={fileInput}
             type="file"
             accept="image/jpeg,image/png,image/webp"
-            aria-label="Profile photo"
+            aria-label={t("profilePhotoAlt")}
             disabled={!profile || busy !== null}
           />
           <div className="photo-actions">
             <button className="secondary-button" type="submit" disabled={!profile || busy !== null}>
-              {busy === "upload" ? "Uploading…" : hasPhoto ? "Replace" : "Upload"}
+              {busy === "upload" ? t("uploading") : hasPhoto ? t("replacing") : t("upload")}
             </button>
             {hasPhoto && (
               <button className="danger-button" type="button" onClick={handlePhotoRemoval} disabled={busy !== null}>
-                {busy === "remove" ? "Removing…" : "Remove"}
+                {busy === "remove" ? t("removing") : t("remove")}
               </button>
             )}
           </div>
@@ -253,15 +255,15 @@ export default function OwnerProfilePage() {
 
       <section className="panel profile-panel" aria-labelledby="profile-heading">
         <div className="section-heading">
-          <div><h2 id="profile-heading">Contact details</h2></div>
+          <div><h2 id="profile-heading">{t("contactDetails")}</h2></div>
           <span className={`state-pill ${hasUnsavedChanges ? "state-unsaved" : ""}`}>
-            {!profile ? "New" : hasUnsavedChanges ? "Unsaved" : "Saved"}
+            {!profile ? t("new") : hasUnsavedChanges ? t("unsaved") : t("saved")}
           </span>
         </div>
         <form onSubmit={handleSave} className="profile-form" noValidate>
-          {fields.map(({ name, label, type, autoComplete, hint, placeholder }) => (
+          {fields.map(({ name, labelKey, type, autoComplete, hintKey, placeholder }) => (
             <div className="field" key={name}>
-              <label htmlFor={name}>{label}<span aria-hidden="true"> *</span></label>
+              <label htmlFor={name}>{t(labelKey)}<span aria-hidden="true"> *</span></label>
               <input
                 id={name}
                 name={name}
@@ -273,7 +275,7 @@ export default function OwnerProfilePage() {
                 required
                 aria-invalid={Boolean(fieldErrors[name])}
                 aria-describedby={[
-                  hint ? `${name}-hint` : undefined,
+                  hintKey ? `${name}-hint` : undefined,
                   fieldErrors[name] ? `${name}-error` : undefined
                 ].filter(Boolean).join(" ") || undefined}
                 onChange={(event) => {
@@ -282,13 +284,13 @@ export default function OwnerProfilePage() {
                   setMessage("");
                 }}
               />
-              {hint && <span className="field-hint" id={`${name}-hint`}>{hint} Example: {placeholder}</span>}
-              {fieldErrors[name] && <span className="field-error" id={`${name}-error`}>{fieldErrors[name]}</span>}
+              {hintKey && <span className="field-hint" id={`${name}-hint`}>{t(hintKey)} Example: {placeholder}</span>}
+              {fieldErrors[name] && <span className="field-error" id={`${name}-error`}>{t(fieldErrors[name])}</span>}
             </div>
           ))}
           <div className="form-actions">
             <button className="primary-button" type="submit" disabled={busy !== null}>
-              {busy === "save" ? "Saving…" : "Save"}
+              {busy === "save" ? t("saving") : t("save")}
             </button>
           </div>
         </form>
