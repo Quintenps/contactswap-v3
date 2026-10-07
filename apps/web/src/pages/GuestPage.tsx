@@ -3,8 +3,8 @@ import { useParams } from "react-router-dom";
 import {
   errorCode,
   guestSubmissionErrorMessage,
-  isGuestSubmissionSuccess,
-  isGuestVCardPath
+  isGuestLinkResolution,
+  isGuestSubmissionSuccess
 } from "../lib/api";
 import { emptyFields, fields, validateProfile } from "../lib/forms";
 import type { FieldName, GuestPageState, ProfileFields } from "../types";
@@ -13,6 +13,9 @@ export default function GuestPage() {
   const { token = "" } = useParams();
   const [guestPageState, setGuestPageState] = useState<GuestPageState>("loading");
   const [guestRetry, setGuestRetry] = useState(0);
+  const [ownerName, setOwnerName] = useState("");
+  const [ownerProfilePhotoUrl, setOwnerProfilePhotoUrl] = useState<string | null>(null);
+  const [ownerProfilePhotoFailed, setOwnerProfilePhotoFailed] = useState(false);
   const [guestVCardUrl, setGuestVCardUrl] = useState<string | null>(null);
   const [guestFormOpen, setGuestFormOpen] = useState(false);
   const [guestValues, setGuestValues] = useState<ProfileFields>(emptyFields);
@@ -20,6 +23,7 @@ export default function GuestPage() {
   const [guestPictureError, setGuestPictureError] = useState("");
   const [guestMessage, setGuestMessage] = useState("");
   const [guestDownloading, setGuestDownloading] = useState(false);
+  const [guestDownloadMode, setGuestDownloadMode] = useState<"share" | "card-only" | null>(null);
   const [guestSubmitting, setGuestSubmitting] = useState(false);
   const guestPictureInput = useRef<HTMLInputElement>(null);
   const guestFormPanel = useRef<HTMLElement>(null);
@@ -35,6 +39,9 @@ export default function GuestPage() {
     async function resolveGuestLink() {
       setGuestPageState("loading");
       setGuestMessage("");
+      setOwnerName("");
+      setOwnerProfilePhotoUrl(null);
+      setOwnerProfilePhotoFailed(false);
       setGuestVCardUrl(null);
       try {
         const response = await fetch(`/api/guest/links/${encodeURIComponent(token)}`, {
@@ -53,16 +60,13 @@ export default function GuestPage() {
         }
         const payload: unknown = await response.json();
         if (cancelled) return;
-        if (
-          typeof payload !== "object" ||
-          payload === null ||
-          !("vcardUrl" in payload) ||
-          !isGuestVCardPath(payload.vcardUrl)
-        ) {
+        if (!isGuestLinkResolution(payload)) {
           setGuestMessage("This link could not be loaded. Try again.");
           setGuestPageState("error");
           return;
         }
+        setOwnerName(payload.ownerName);
+        setOwnerProfilePhotoUrl(payload.profilePhotoUrl);
         setGuestVCardUrl(payload.vcardUrl);
         setGuestPageState("ready");
       } catch {
@@ -100,6 +104,7 @@ export default function GuestPage() {
     if (!guestVCardUrl || guestDownloading) return;
 
     setGuestDownloading(true);
+    setGuestDownloadMode(openForm ? "share" : "card-only");
     setGuestMessage("");
     let downloadUrl: string | undefined;
     try {
@@ -143,6 +148,7 @@ export default function GuestPage() {
     } finally {
       if (downloadUrl) URL.revokeObjectURL(downloadUrl);
       setGuestDownloading(false);
+      setGuestDownloadMode(null);
     }
   }
 
@@ -274,20 +280,53 @@ export default function GuestPage() {
 
   return (
     <main className="shell guest-shell">
-      <header className="guest-header">
-        <p className="eyebrow">ContactSwap</p>
-        <h1>Stay in touch</h1>
-        <p className="section-description">
-          Download Quinten's contact card, and share your details if you'd like to stay in touch.
-        </p>
-      </header>
+      {!guestFormOpen && (
+        <>
+          <header className="guest-header">
+            <p className="eyebrow">ContactSwap</p>
+            <h1>Here's my contact card</h1>
+            <p className="section-description">Download my latest contact details and save them to your phone.</p>
+          </header>
+
+          <section className="panel guest-panel guest-owner-card" aria-labelledby="guest-owner-name">
+            <div className="guest-owner-avatar" aria-hidden="true">
+              {ownerProfilePhotoUrl && !ownerProfilePhotoFailed ? (
+                <img
+                  src={ownerProfilePhotoUrl}
+                  alt=""
+                  referrerPolicy="no-referrer"
+                  onError={() => setOwnerProfilePhotoFailed(true)}
+                />
+              ) : (
+                ownerName
+                  .trim()
+                  .split(/\s+/)
+                  .map((part) => part.charAt(0))
+                  .slice(0, 2)
+                  .join("")
+                  .toUpperCase()
+              )}
+            </div>
+            <div className="guest-owner-card-copy">
+              <p className="guest-owner-card-label">Up-to-date contact card</p>
+              <h2 id="guest-owner-name" className="guest-owner-name">{ownerName}</h2>
+              <p className="section-description">My latest details, ready to save.</p>
+            </div>
+          </section>
+        </>
+      )}
 
       {guestFormOpen && (
         <section className="panel guest-panel guest-form-panel" aria-labelledby="guest-form-heading" ref={guestFormPanel}>
           <div className="guest-form-header">
             <div>
-              <h2 id="guest-form-heading" ref={guestFormHeading} tabIndex={-1}>Share your details</h2>
-              <p className="section-description">All fields are required except your picture.</p>
+              <p className="eyebrow">ContactSwap</p>
+              <h1 id="guest-form-heading" ref={guestFormHeading} tabIndex={-1}>
+                Share your details with {ownerName}
+              </h1>
+              <p className="section-description">
+                All fields are required except your picture. Nothing is sent until you choose “Share my details.”
+              </p>
             </div>
             <button
               className="quiet-button guest-close-button"
@@ -365,33 +404,39 @@ export default function GuestPage() {
         </section>
       )}
 
-      <section className="panel guest-panel" aria-labelledby="guest-actions-heading">
-        <h2 id="guest-actions-heading">Choose what works for you</h2>
-        <p className="section-description">
-          The first option downloads Quinten's card and opens a form. Your details are only sent if you submit it.
-        </p>
-        {guestMessage && !guestFormOpen && (
-          <p className="notice" role="status" aria-live="polite">{guestMessage}</p>
-        )}
-        <div className="guest-actions">
-          <button
-            className="primary-button guest-primary-action"
-            type="button"
-            onClick={() => void handleGuestDownload(true)}
-            disabled={!guestVCardUrl || guestDownloading}
-          >
-            {guestDownloading && guestFormOpen ? "Preparing your download…" : "Download and share your details"}
-          </button>
-          <button
-            className="secondary-button guest-secondary-action"
-            type="button"
-            onClick={() => void handleGuestDownload(false)}
-            disabled={!guestVCardUrl || guestDownloading}
-          >
-            {guestDownloading && !guestFormOpen ? "Preparing your download…" : "Download Quinten's contact card only"}
-          </button>
-        </div>
-      </section>
+      {!guestFormOpen && (
+        <section className="panel guest-panel guest-download-panel" aria-labelledby="guest-actions-heading">
+          <h2 id="guest-actions-heading">Take my details with you</h2>
+          <p className="section-description">
+            Download my latest contact card and share your details in return. This opens an optional form; nothing is sent until you choose “Share my details.”
+          </p>
+          {guestMessage && (
+            <p className="notice" role="status" aria-live="polite">{guestMessage}</p>
+          )}
+          <div className="guest-actions">
+            <button
+              className="primary-button guest-primary-action"
+              type="button"
+              onClick={() => void handleGuestDownload(true)}
+              disabled={!guestVCardUrl || guestDownloading}
+            >
+              {guestDownloading && guestDownloadMode === "share"
+                ? "Preparing your download…"
+                : "Download my card & share your details"}
+            </button>
+            <button
+              className="secondary-button guest-secondary-action"
+              type="button"
+              onClick={() => void handleGuestDownload(false)}
+              disabled={!guestVCardUrl || guestDownloading}
+            >
+              {guestDownloading && guestDownloadMode === "card-only"
+                ? "Preparing your download…"
+                : "Download card only"}
+            </button>
+          </div>
+        </section>
+      )}
     </main>
   );
 }

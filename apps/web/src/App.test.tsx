@@ -803,6 +803,9 @@ describe("guest frontend", () => {
   const guestToken = "guest-test-token";
   const vcardUrl = "/api/guest/vcard/00000000-0000-4000-8000-000000000001/test-signature";
 
+  const profilePhotoUrl =
+    "/api/guest/profile-photo/00000000-0000-4000-8000-000000000001/test-signature";
+
   function vcardResponse() {
     return new Response("BEGIN:VCARD\nVERSION:4.0\nEND:VCARD\n", {
       headers: { "Content-Type": "text/vcard; version=4.0; charset=utf-8" }
@@ -811,7 +814,9 @@ describe("guest frontend", () => {
 
   function installActiveGuestLink(handler?: (url: RequestInfo | URL, init?: RequestInit) => Promise<Response>) {
     return installFetch(async (url, init) => {
-      if (url === `/api/guest/links/${guestToken}`) return response({ vcardUrl });
+      if (url === `/api/guest/links/${guestToken}`) {
+        return response({ ownerName: "Quinten Example", profilePhotoUrl: null, vcardUrl });
+      }
       if (handler) return handler(url, init);
       if (url === vcardUrl) return vcardResponse();
       return response({ error: { code: "not_found" } }, 404);
@@ -827,18 +832,38 @@ describe("guest frontend", () => {
       referrerPolicy: "no-referrer"
     });
     expect(document.querySelector("#owner-token")).toBeNull();
-    expect(button("Download and share your details").className).toContain("guest-primary-action");
-    expect(button("Download Quinten's contact card only").className).toContain("guest-secondary-action");
+    expect(button("Download my card & share your details").className).toContain("guest-primary-action");
+    expect(button("Download card only").className).toContain("guest-secondary-action");
     expect(document.querySelector("#guest-details-form")).toBeNull();
-    expect(document.body.textContent).toContain("Your details are only sent if you submit it.");
+    expect(document.querySelector(".guest-owner-name")?.textContent).toBe("Quinten Example");
+    expect(document.querySelector(".guest-owner-avatar")?.textContent).toBe("QE");
+    expect(document.querySelector("h1")?.textContent).toBe("Here's my contact card");
+    expect(document.body.textContent).toContain("nothing is sent until you choose “Share my details.”");
   });
 
-  it("downloads the contact card and opens the form from the primary action", async () => {
+  it("previews the owner's picture without a referrer and falls back to initials if it fails", async () => {
+    installFetch(async (url) => url === `/api/guest/links/${guestToken}`
+      ? response({ ownerName: "Quinten Example", profilePhotoUrl, vcardUrl })
+      : response({ error: { code: "not_found" } }, 404));
+    await renderGuestPage(guestToken);
+
+    const image = document.querySelector<HTMLImageElement>(".guest-owner-avatar img");
+    expect(image?.src).toBe(new URL(profilePhotoUrl, window.location.origin).toString());
+    expect(image?.getAttribute("referrerpolicy")).toBe("no-referrer");
+    await act(async () => {
+      image?.dispatchEvent(new Event("error"));
+    });
+
+    expect(document.querySelector(".guest-owner-avatar img")).toBeNull();
+    expect(document.querySelector(".guest-owner-avatar")?.textContent).toBe("QE");
+  });
+
+  it("downloads the card, hides welcome panels, and focuses the form from the primary action", async () => {
     const fetchMock = installActiveGuestLink();
     const anchorClick = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
     await renderGuestPage(guestToken);
 
-    await click(button("Download and share your details"));
+    await click(button("Download my card & share your details"));
 
     expect(fetchMock).toHaveBeenCalledWith(vcardUrl, {
       cache: "no-store",
@@ -847,12 +872,17 @@ describe("guest frontend", () => {
     expect(URL.createObjectURL).toHaveBeenCalled();
     expect(anchorClick).toHaveBeenCalled();
     const formPanel = document.querySelector(".guest-form-panel");
-    const actionsPanel = document.querySelector("#guest-actions-heading")?.closest("section");
     expect(formPanel).not.toBeNull();
-    expect(
-      (formPanel!.compareDocumentPosition(actionsPanel!) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
-    ).toBe(true);
+    expect(document.querySelector(".guest-owner-card")).toBeNull();
+    expect(document.querySelector(".guest-download-panel")).toBeNull();
+    expect(document.querySelector("#guest-form-heading")?.textContent).toBe(
+      "Share your details with Quinten Example"
+    );
     expect(document.activeElement?.id).toBe("guest-form-heading");
+
+    await click(button("Close"));
+    expect(document.querySelector(".guest-owner-card")).not.toBeNull();
+    expect(document.querySelector(".guest-download-panel")).not.toBeNull();
   });
 
   it("downloads only when the secondary action is selected", async () => {
@@ -860,7 +890,7 @@ describe("guest frontend", () => {
     vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
     await renderGuestPage(guestToken);
 
-    await click(button("Download Quinten's contact card only"));
+    await click(button("Download card only"));
 
     expect(fetchMock.mock.calls.some(([url]) => url === vcardUrl)).toBe(true);
     expect(document.querySelector("#guest-details-form")).toBeNull();
@@ -874,7 +904,7 @@ describe("guest frontend", () => {
     });
     vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
     await renderGuestPage(guestToken);
-    await click(button("Download and share your details"));
+    await click(button("Download my card & share your details"));
 
     changeValue(input("guest-name"), "Guest Example");
     changeValue(input("guest-email"), "guest@example.invalid");
@@ -905,7 +935,7 @@ describe("guest frontend", () => {
     });
     vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
     await renderGuestPage(guestToken);
-    await click(button("Download and share your details"));
+    await click(button("Download my card & share your details"));
     changeValue(input("guest-name"), "Guest Example");
     changeValue(input("guest-email"), "guest@example.invalid");
     changeValue(input("guest-address"), "34 Example Street");
@@ -930,7 +960,7 @@ describe("guest frontend", () => {
     const fetchMock = installActiveGuestLink();
     vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
     await renderGuestPage(guestToken);
-    await click(button("Download and share your details"));
+    await click(button("Download my card & share your details"));
     await submit(document.querySelector<HTMLFormElement>("#guest-details-form")!);
 
     expect(fetchMock.mock.calls.some(([url]) => url === `/api/guest/links/${guestToken}/submissions`)).toBe(false);
@@ -943,7 +973,7 @@ describe("guest frontend", () => {
     const fetchMock = installActiveGuestLink();
     vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
     await renderGuestPage(guestToken);
-    await click(button("Download and share your details"));
+    await click(button("Download my card & share your details"));
 
     changeValue(input("guest-name"), "Guest Example");
     changeValue(input("guest-email"), "guest@example.invalid");
@@ -969,7 +999,7 @@ describe("guest frontend", () => {
     });
     vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
     await renderGuestPage(guestToken);
-    await click(button("Download and share your details"));
+    await click(button("Download my card & share your details"));
     changeValue(input("guest-name"), "Guest Example");
     changeValue(input("guest-email"), "guest@example.invalid");
     changeValue(input("guest-address"), "34 Example Street");
@@ -1011,7 +1041,7 @@ describe("guest frontend", () => {
       return response({ error: { code: "not_found" } }, 404);
     });
     await renderGuestPage(guestToken);
-    await click(button("Download and share your details"));
+    await click(button("Download my card & share your details"));
 
     expect(document.querySelector("#guest-details-form")).not.toBeNull();
     expect(document.body.textContent).toContain("The contact card could not be downloaded. Try again.");

@@ -20,12 +20,14 @@ Cloudflare Worker APIs provide:
 
 - Owner profile read and update, plus an owner-authorized download of the current profile vCard
 - Guest-link creation, including creation of a distinct signed URL for the owner's current vCard, and manual deletion
-- Guest form access and submission
+- Guest form access and submission, plus link-scoped access to the owner's display name and optional profile photo for the guest landing-page preview
 - Owner access to submitted guest records and on-demand vCard 4.0 downloads generated from those records
 - Delivery of the owner's current vCard 4.0 through the signed URL associated with an active guest link
 - A summary webhook notification after successful submissions, without guest contact details
 
 The owner's vCard is not available through a public profile URL. Each guest link has a distinct signed URL, validated server-side and scoped to that link. The URL is valid only while its associated link is active and is revoked when the link is deleted or consumed. Guest links are single-use for submissions: a link is consumed only when a submission succeeds.
+
+The guest landing-page preview may expose only the owner's name and optional profile photo through the active guest link. Serve the private R2 photo through a link-scoped Worker route that verifies the associated link is active and returns `Cache-Control: no-store`; do not make the photo publicly addressable. Do not include other owner contact fields in the preview. A missing photo is represented by initials in the frontend.
 
 ## Database
 
@@ -39,7 +41,7 @@ Guest submissions are retained for 30 days. A scheduled Worker process deletes e
 
 Signed vCard URLs follow the lifecycle of their guest link and do not expire by age while that link remains active. Treat each URL as a bearer credential: do not log its signature, prevent it from leaking through referrers, and return vCard responses with `Cache-Control: no-store`.
 
-Only data required for ContactSwap functionality should be stored, and contact data must only be exposed through the intended owner or guest flow.
+Only data required for ContactSwap functionality should be stored, and contact data must only be exposed through the intended owner or guest flow. Guest-link preview data is limited to the owner's name and optional photo and is served only for active links.
 
 ## Storage
 

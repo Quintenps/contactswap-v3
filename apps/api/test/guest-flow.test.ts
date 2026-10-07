@@ -82,15 +82,24 @@ describe("guest URL API flow", () => {
     vi.restoreAllMocks();
   });
 
-  it("resolves an active token without exposing profile data and rejects unknown tokens", async () => {
+  it("resolves an active token with only the guest preview and rejects unknown tokens", async () => {
     const { token } = await createGuestLink();
     const resolved = await call(`/api/guest/links/${token}`);
-    const body = (await resolved.json()) as { vcardUrl: string };
+    const body = (await resolved.json()) as {
+      ownerName: string;
+      profilePhotoUrl: string | null;
+      vcardUrl: string;
+    };
 
     expect(resolved.status).toBe(200);
     expect(resolved.headers.get("Cache-Control")).toBe("no-store");
+    expect(body.ownerName).toBe(profile.name);
+    expect(body.profilePhotoUrl).toBeNull();
     expect(body.vcardUrl).toMatch(/^\/api\/guest\/vcard\/[\da-f-]{36}\/[A-Za-z\d_-]+$/i);
     expect(JSON.stringify(body)).not.toContain(profile.email);
+    expect(JSON.stringify(body)).not.toContain(profile.address);
+    expect(JSON.stringify(body)).not.toContain(profile.birthday);
+    expect(JSON.stringify(body)).not.toContain(profile.phone);
 
     const unknown = await call("/api/guest/links/unknown-token");
     expect(unknown.status).toBe(404);
@@ -98,6 +107,46 @@ describe("guest URL API flow", () => {
     expect(await unknown.json()).toEqual({
       error: { code: "guest_link_not_found", message: "The guest link was not found." }
     });
+  });
+
+  it("serves the profile photo only while its guest link is active", async () => {
+    const revokedLink = await createGuestLink();
+    const photoKey = `owner-profile/guest-preview-${crypto.randomUUID()}.jpg`;
+    const photoBytes = new Uint8Array([0xff, 0xd8, 0xff, 0xd9]);
+    await env.PHOTOS.put(photoKey, photoBytes, { httpMetadata: { contentType: "image/jpeg" } });
+    await env.DB.prepare("UPDATE owner_profile SET photo_key = ? WHERE id = 1")
+      .bind(photoKey)
+      .run();
+
+    const revokedResolution = (await (
+      await call(`/api/guest/links/${revokedLink.token}`)
+    ).json()) as { profilePhotoUrl: string };
+    expect(revokedResolution.profilePhotoUrl).toMatch(
+      /^\/api\/guest\/profile-photo\/[\da-f-]{36}\/[A-Za-z\d_-]+$/i
+    );
+    const photo = await call(revokedResolution.profilePhotoUrl);
+    expect(photo.status).toBe(200);
+    expect(photo.headers.get("Cache-Control")).toBe("no-store");
+    expect(photo.headers.get("Content-Type")).toBe("image/jpeg");
+    expect(photo.headers.get("Content-Disposition")).toBe("inline");
+    expect(photo.headers.get("Referrer-Policy")).toBe("no-referrer");
+    expect(photo.headers.get("X-Content-Type-Options")).toBe("nosniff");
+    expect(new Uint8Array(await photo.arrayBuffer())).toEqual(photoBytes);
+    const [linkId, signature] = revokedResolution.profilePhotoUrl.split("/").slice(-2);
+    expect((await call(`/api/guest/profile-photo/${linkId}/${signature.slice(1)}x`)).status).toBe(404);
+
+    await env.DB.prepare("UPDATE guest_links SET revoked_at = ? WHERE id = ?")
+      .bind(new Date().toISOString(), revokedLink.linkId)
+      .run();
+    expect((await call(revokedResolution.profilePhotoUrl)).status).toBe(404);
+
+    const consumedLink = await createGuestLink();
+    const consumedResolution = (await (
+      await call(`/api/guest/links/${consumedLink.token}`)
+    ).json()) as { profilePhotoUrl: string };
+    expect((await submit(consumedLink.token)).status).toBe(201);
+    expect((await call(consumedResolution.profilePhotoUrl)).status).toBe(404);
+    await env.PHOTOS.delete(photoKey);
   });
 
   it("serves the current owner vCard only with an active link-scoped signature", async () => {
