@@ -14,7 +14,7 @@ Ensure every owner and guest vCard contains the contact's phone number so a down
 - Phone numbers use international E.164 format: a leading `+` followed by 2 to 15 digits, with the first digit after `+` nonzero (for example, `+31600000000`).
 - Dutch-facing phone guidance and examples use the `+31` country code; the API continues accepting any valid international E.164 number.
 - The API validates the E.164 representation but does not verify that a number is assigned, reachable, or controlled by the submitter.
-- Every generated owner and guest vCard 4.0 includes the corresponding number in a `TEL` property.
+- Every generated owner and guest vCard 3.0 includes the corresponding number in a `TEL` property.
 - This is a pre-production change. There are no legacy production profiles or submissions to backfill.
 
 ## Scope
@@ -22,7 +22,7 @@ Ensure every owner and guest vCard contains the contact's phone number so a down
 - Add the required phone field to the owner profile and guest submission data models and D1 schemas.
 - Validate and persist phone numbers through the owner profile and guest submission APIs.
 - Include the phone number in owner profile JSON and authorized guest-submission detail responses. Keep the submission list response privacy-minimized and unchanged.
-- Render the corresponding phone number as a preferred cell/voice vCard 4.0 `TEL` property for owner and guest cards.
+- Render the corresponding phone number as a preferred cell/voice vCard 3.0 `TEL` property for owner and guest cards.
 - Add required phone inputs and clear E.164 guidance to the owner profile and guest submission forms.
 - Update local API examples, synthetic test fixtures, and focused tests.
 
@@ -46,8 +46,8 @@ Ensure every owner and guest vCard contains the contact's phone number so a down
 
 - Generate the owner's current vCard from the canonical owner profile, including its phone, for both the owner-authorized download and an active link-scoped guest download.
 - Generate each guest vCard from that guest's stored submission, including that guest's phone.
-- Encode the international number as the URI value of the vCard 4.0 telephone property, for example `TEL;VALUE=uri;TYPE=cell,voice;PREF=1:tel:+31600000000`.
-- Preserve existing vCard 4.0 escaping, line folding, photo embedding, response headers, access controls, and no-store/referrer protections. Name each downloaded card using a sanitized `firstname-lastname.vcf` filename derived from that card's name.
+- Encode the international number as a vCard 3.0 text telephone value, for example `TEL;TYPE=CELL,VOICE,PREF:+31600000000`; do not use a URI value or `tel:` prefix.
+- Preserve vCard 3.0 escaping, line folding, binary photo embedding, response headers, access controls, and no-store/referrer protections. Name each downloaded card using a sanitized `firstname-lastname.vcf` filename derived from that card's name.
 - Never return a successful vCard response that omits `TEL` or substitutes a phone number from another record.
 
 ## Frontend Behavior
@@ -65,7 +65,7 @@ Ensure every owner and guest vCard contains the contact's phone number so a down
 - The privacy-minimized guest submission list continues to return only its documented fields and does not expose phone numbers.
 - Every owner vCard (owner-authorized and active guest-link scoped) includes the owner's matching preferred cell/voice `TEL` property.
 - Every authorized guest-submission vCard includes the selected guest's matching preferred cell/voice `TEL` property.
-- vCards remain valid vCard 4.0 files with existing escaping, folding, optional photo, filename, response-header, authorization, cache-control, and referrer behavior unchanged.
+- vCards remain valid vCard 3.0 files with existing escaping, folding, optional photo, filename, response-header, authorization, cache-control, and referrer behavior unchanged.
 - Neither webhook payloads nor application logs contain phone numbers.
 - Focused API tests cover valid and invalid profile phone values, valid and invalid guest phone values, persistence, guest-link non-consumption for rejected input, owner and guest vCard telephone properties, and privacy-minimized list/webhook behavior.
 - Focused frontend tests cover required phone controls, E.164 guidance, validation feedback, preserving values on errors, and successful submission with a valid number.

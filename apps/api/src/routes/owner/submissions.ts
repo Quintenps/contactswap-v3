@@ -65,7 +65,7 @@ routes.get("/submissions/:id/vcard", async (context) => {
   }
 
   const photo = await getPhoto(context.env, submission.photo_key);
-  context.header("Content-Type", "text/vcard; version=4.0; charset=utf-8");
+  context.header("Content-Type", "text/vcard; version=3.0; charset=utf-8");
   context.header(
     "Content-Disposition",
     `attachment; filename="${vCardDownloadFilename(submission.name)}"`

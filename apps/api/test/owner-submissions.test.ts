@@ -160,17 +160,18 @@ describe("owner submissions API", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("Cache-Control")).toBe("no-store");
-    expect(response.headers.get("Content-Type")).toBe("text/vcard; version=4.0; charset=utf-8");
+    expect(response.headers.get("Content-Type")).toBe("text/vcard; version=3.0; charset=utf-8");
     expect(response.headers.get("Content-Disposition")).toBe(
       'attachment; filename="guest-contact.vcf"'
     );
     expect(response.headers.get("Referrer-Policy")).toBe("no-referrer");
-    expect(vcard).toContain("VERSION:4.0\r\n");
+    expect(vcard).toContain("VERSION:3.0\r\n");
     expect(vcard).toContain("FN:Guest\\, Contact\r\n");
     expect(vcard).toContain(`EMAIL:${submission.email}\r\n`);
     expect(vcard).toContain(`BDAY:${submission.birthday}\r\n`);
-    expect(vcard).toContain(`TEL;VALUE=uri;TYPE=cell,voice;PREF=1:tel:${submission.phone}\r\n`);
+    expect(vcard).toContain(`TEL;TYPE=CELL,VOICE,PREF:${submission.phone}\r\n`);
     expect(vcard).toContain(`ADR;TYPE=home:;;${submission.address};;;;\r\n`);
+    expect(vcard).not.toContain("PHOTO:");
 
     const expired = await insertSubmission(
       "Expired Contact",

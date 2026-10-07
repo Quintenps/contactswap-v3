@@ -38,7 +38,7 @@ All routes require `Authorization: Bearer <admin-token>`, following the existing
 - The source upload must be at most 19 MiB, staying below the Images binding's documented 20 MB input limit. The server verifies that the bytes match the declared supported image type. Reject SVG, animated formats, mismatched content types, and empty bodies.
 - The Worker uses the Cloudflare Images binding to normalize the source to JPEG, preserve its aspect ratio, and scale it down to fit within 256 by 256 pixels without upscaling. The Worker removes JPEG APP1-APP15 and comment segments from the transformed output, including EXIF GPS data.
 - The Worker tries maximum dimensions of 256, 192, 128, and 96 pixels, in that order. At each dimension it tries JPEG qualities 85, 75, and 65, in that order. The Images binding's default `scale-down` fit preserves aspect ratio and does not upscale. The Worker checks the actual encoded size after metadata removal and accepts the first result no larger than 75 KiB. It returns the stable `photo_too_large` error if all 12 candidates exceed the cap; it does not encode below quality 65 or a 96-pixel maximum dimension.
-- The exact optimized JPEG bytes are stored in private R2 and embedded on demand in generated vCard 4.0 `PHOTO` data URIs: `PHOTO:data:image/jpeg;base64,<base64-data>`. The vCard and base64 image are not stored; each download uses current D1 profile fields and the current R2 photo.
+- The exact optimized JPEG bytes are stored in private R2 and embedded on demand in generated vCard 3.0 `PHOTO;ENCODING=b;TYPE=JPEG` properties. The vCard and base64 image are not stored; each download uses current D1 profile fields and the current R2 photo.
 - Returns `200` JSON with `{ "hasPhoto": true }` after the new photo is stored and its object key is persisted.
 - Returns `404` with a stable error code if the owner profile has not yet been created. The owner saves the required profile fields before uploading a photo.
 - Returns `400` for an empty or malformed image, `413` when the source body exceeds 19 MiB, `415` for an unsupported media type, `422` with `photo_too_large` if an image cannot be normalized within the output cap, `401` for missing or invalid owner authorization, and a generic `500` for unexpected failures.
@@ -82,7 +82,7 @@ All routes require `Authorization: Bearer <admin-token>`, following the existing
 - Validate the media type against the file signature; do not trust the request header or extension alone.
 - Enforce the 19 MiB source limit while reading the request stream so oversized bodies are rejected before being fully buffered or stored.
 - Never trust browser-side resizing or compression as a substitute for server-side normalization.
-- Fold the complete encoded `PHOTO` content line according to vCard 4.0 rules after base64 encoding, without changing the unfolded data URI or exceeding 75 octets per physical line.
+- Fold the complete encoded `PHOTO` content line according to vCard 3.0 rules after base64 encoding, without changing the unfolded property value or exceeding 75 octets per physical line.
 - Do not reflect filenames, object keys, storage errors, or internal exception details in responses.
 - Image responses must not be publicly cacheable or served from an unauthenticated route.
 - Tests use generated synthetic image bytes only; never commit real photos or credentials.

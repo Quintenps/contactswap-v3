@@ -158,7 +158,7 @@ describe("guest URL API flow", () => {
 
     expect(firstCard.status).toBe(200);
     expect(firstCard.headers.get("Content-Type")).toBe(
-      "text/vcard; version=4.0; charset=utf-8"
+      "text/vcard; version=3.0; charset=utf-8"
     );
     expect(firstCard.headers.get("Content-Disposition")).toBe(
       'attachment; filename="quinten-example.vcf"'
@@ -167,7 +167,8 @@ describe("guest URL API flow", () => {
     expect(firstCard.headers.get("Referrer-Policy")).toBe("no-referrer");
     const firstCardBody = await firstCard.text();
     expect(firstCardBody).toContain("FN:Quinten Example");
-    expect(firstCardBody).toContain("TEL;VALUE=uri;TYPE=cell,voice;PREF=1:tel:+31600000000\r\n");
+    expect(firstCardBody).toContain("VERSION:3.0\r\n");
+    expect(firstCardBody).toContain("TEL;TYPE=CELL,VOICE,PREF:+31600000000\r\n");
 
     await call("/api/owner/profile", {
       method: "PUT",

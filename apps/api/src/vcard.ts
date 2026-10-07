@@ -55,17 +55,17 @@ export function renderVCard(profile: VCardProfile, photo?: Uint8Array): string {
   const name = escapeText(profile.name);
   const lines = [
     "BEGIN:VCARD",
-    "VERSION:4.0",
+    "VERSION:3.0",
     `FN:${name}`,
     `N:${name};;;;`,
     `EMAIL:${escapeText(profile.email)}`,
-    `TEL;VALUE=uri;TYPE=cell,voice;PREF=1:tel:${profile.phone}`,
+    `TEL;TYPE=CELL,VOICE,PREF:${profile.phone}`,
     `BDAY:${profile.birthday}`,
     `ADR;TYPE=home:;;${escapeText(profile.address)};;;;`
   ];
 
   if (photo) {
-    lines.push(`PHOTO:data:image/jpeg;base64,${encodePhotoBase64(photo)}`);
+    lines.push(`PHOTO;ENCODING=b;TYPE=JPEG:${encodePhotoBase64(photo)}`);
   }
   lines.push("END:VCARD");
 

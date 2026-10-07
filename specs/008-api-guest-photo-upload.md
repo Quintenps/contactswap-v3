@@ -6,7 +6,7 @@ Proposed
 
 ## Goal
 
-Allow a guest to include an optional photo in the same request as their contact submission. Store only the optimized photo in private R2, keep its object key with the guest record in D1, include the photo in the owner's generated guest vCard 4.0, and automatically expire guest photos through an R2 lifecycle rule.
+Allow a guest to include an optional photo in the same request as their contact submission. Store only the optimized photo in private R2, keep its object key with the guest record in D1, include the photo in the owner's generated guest vCard 3.0, and automatically expire guest photos through an R2 lifecycle rule.
 
 ## Scope
 
@@ -14,7 +14,7 @@ Allow a guest to include an optional photo in the same request as their contact 
 - Require multipart form submissions whether or not a photo is supplied; do not accept JSON submissions.
 - Reuse the owner-photo image validation, optimization, output limits, private R2 bucket, and Cloudflare Images binding established by spec 007.
 - Persist only the guest photo's R2 object key in D1.
-- Include the optimized photo as a base64 `PHOTO` data URI in the owner-authorized vCard generated for that guest submission.
+- Include the optimized photo as a base64 vCard 3.0 `PHOTO;ENCODING=b;TYPE=JPEG` property in the owner-authorized vCard generated for that guest submission.
 - Store every guest photo under a dedicated R2 key prefix with a lifecycle expiration rule of 30 days. Keep owner photos under a separate prefix that is not covered by this rule.
 - Add a D1 migration, focused API tests, and a local `.http` example using synthetic data.
 
@@ -42,7 +42,7 @@ Allow a guest to include an optional photo in the same request as their contact 
 ### Owner guest vCard download
 
 - `GET /api/owner/submissions/{id}/vcard` remains owner-authorized and generates the card on demand from the retained guest record and, when present, its optimized R2 photo.
-- Embed the optimized JPEG as `PHOTO:data:image/jpeg;base64,<base64-data>` using the existing vCard 4.0 renderer and line-folding behavior. Do not store a rendered vCard or base64 photo data.
+- Embed the optimized JPEG as `PHOTO;ENCODING=b;TYPE=JPEG:<base64-data>` using the vCard 3.0 renderer and line-folding behavior. Do not store a rendered vCard or base64 photo data.
 - Keep the existing attachment content type, filename, `Cache-Control: no-store`, and not-found behavior for missing or expired submissions.
 - Do not return the R2 object key or expose the photo through a separate guest-facing or public route. The existing guest-link signed vCard continues to contain the owner's photo only, not a guest photo.
 
@@ -78,7 +78,7 @@ Allow a guest to include an optional photo in the same request as their contact 
 
 - A valid multipart submission without a photo succeeds once with a null photo key. A valid multipart submission with one supported photo succeeds once, stores the guest record and optimized JPEG, consumes the link, and creates the existing privacy-safe notification.
 - The guest's uploaded file is normalized to a metadata-free JPEG within the specified dimension and 75 KiB output limits. Invalid, animated, oversized, unsupported, mismatched, and uncompressible files are rejected with the documented stable errors and do not consume the link or leave a stored guest record.
-- Submissions without a photo have a null photo key and generate the same vCard content as before. Submissions with a photo generate an owner-downloadable vCard 4.0 whose decoded `PHOTO` bytes exactly match the optimized R2 object and whose folded line unfolds correctly.
+- Submissions without a photo have a null photo key and generate a card without a `PHOTO` property. Submissions with a photo generate an owner-downloadable vCard 3.0 whose decoded `PHOTO` bytes exactly match the optimized R2 object and whose folded line unfolds correctly.
 - Unauthorized owner requests cannot retrieve contact data or photo content. The photo key is not exposed by owner list/detail responses or any guest response, and no guest or public route returns photo bytes or a URL.
 - Unknown, consumed, and revoked links retain the existing behavior. Concurrent submissions cannot create more than one guest record. Any object written for a losing request remains private under the guest-photo prefix and is automatically expired by the R2 lifecycle rule.
 - Failed R2 or D1 persistence does not consume the link or enqueue a notification, and does not return success. Any uploaded but unreferenced object is automatically expired by the same R2 lifecycle rule; no staging journal or manual object deletion is required.

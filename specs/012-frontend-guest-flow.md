@@ -6,13 +6,13 @@ Done
 
 ## Goal
 
-Provide a mobile-first guest experience for an active shared link. Encourage guests to download Quinten's current vCard 4.0 and share their own details, while retaining a clear download-only option.
+Provide a mobile-first guest experience for an active shared link. Encourage guests to download Quinten's current vCard 3.0 and share their own details, while retaining a clear download-only option.
 
 ## Scope
 
 - Resolve the guest token from the shared `/guest/{token}` URL.
 - For an active link, show the owner's name and optional profile picture on the landing page; show an initials avatar if there is no picture.
-- Present an active-link landing page with a primary option to download Quinten's current vCard 4.0 and open the contact submission form, plus a secondary download-only option.
+- Present an active-link landing page with a primary option to download Quinten's current vCard 3.0 and open the contact submission form, plus a secondary download-only option.
 - Let the guest choose whether to complete and submit the contact form.
 - Submit required guest contact fields and an optional picture through the existing guest API.
 - Provide loading, validation, success, unavailable-link, and recoverable-error states.
@@ -28,7 +28,7 @@ Provide a mobile-first guest experience for an active shared link. Encourage gue
 1. The guest opens the shared `/guest/{token}` URL.
 2. While the frontend resolves the link, show a clear loading state and do not expose internal errors or credentials.
 3. If the link is active, show a prominent owner contact-card preview containing only the owner's name and optional profile picture. Use a large initials avatar when no picture exists. Introduce the page with personal copy that makes clear the card contains the owner's latest saved details. Show a landing page with two choices, giving the primary visual emphasis to:
-   - **Download my card & share your details**, which starts the owner's current vCard 4.0 download and opens the guest submission form.
+   - **Download my card & share your details**, which starts the owner's current vCard 3.0 download and opens the guest submission form.
    - **Download card only**, a clearly available but visually secondary action that downloads the vCard without opening the form.
 4. The guest may download the card without submitting anything. Downloading or viewing the card does not consume the guest link.
 5. When the guest chooses **Download my card & share your details**, begin the download and show the form. Hide the owner-card and download-choice panels while the form is open, and focus the form heading. The guest may leave the form incomplete or close it without submitting; the guest must explicitly submit the form to share their details.
@@ -88,7 +88,7 @@ Provide a mobile-first guest experience for an active shared link. Encourage gue
 - Choosing **Download my card & share your details** starts the vCard download and reveals the submission form without submitting it.
 - While the form is open, the owner-card and download-choice panels are hidden; closing the form restores them.
 - After the combined action, the form appears before the download options, scrolls near the top of the viewport, and receives keyboard focus.
-- Downloading the card requests the link-scoped signed URL and downloads the owner's current vCard 4.0 without consuming the link.
+- Downloading the card requests the link-scoped signed URL and downloads the owner's current vCard 3.0 without consuming the link.
 - A guest can choose not to submit after opening the form, and no submission request is sent unless they explicitly submit it.
 - The form requires name, email, address, and birthday and allows a picture to be omitted.
 - Invalid fields and unsupported/invalid pictures produce safe feedback; rejected or failed submissions do not show the thank-you state or discard the guest's entered values.

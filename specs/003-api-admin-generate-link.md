@@ -6,7 +6,7 @@ Done
 
 ## Goal
 
-Allow Quinten to create an active, shareable guest link through the owner-authorized API. The guest can use the link to access Quinten's current vCard 4.0 and submit their own contact details, according to the existing product decisions.
+Allow Quinten to create an active, shareable guest link through the owner-authorized API. The guest can use the link to access Quinten's current vCard 3.0 and submit their own contact details, according to the existing product decisions.
 
 ## Scope
 
@@ -40,7 +40,7 @@ Allow Quinten to create an active, shareable guest link through the owner-author
 ## Data and Behavior
 
 - Store only the information needed to validate and manage the active link and its signed vCard URL. Do not store a duplicate owner profile or vCard in each link.
-- Each created link is unique, remains active without an age-based expiry, and is associated with a distinct signed URL for the owner's current vCard 4.0.
+- Each created link is unique, remains active without an age-based expiry, and is associated with a distinct signed URL for the owner's current vCard 3.0.
 - This endpoint persists a distinct HMAC signature for each link. Guest-facing URL validation, vCard delivery, and link revocation are handled by their respective endpoints and are outside this spec.
 - The guest URL opens the guest flow, where the guest can access the current owner vCard and optionally submit their own contact details.
 - The vCard URL grants access only while its associated guest link is active. It is revoked when the link is manually deleted or consumed by a successful guest submission.

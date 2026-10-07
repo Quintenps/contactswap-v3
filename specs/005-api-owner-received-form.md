@@ -6,14 +6,14 @@ Done
 
 ## Goal
 
-Continue the guest URL flow from spec 004. After a guest successfully submits the form, Quinten receives a Discord webhook notification and can retrieve the saved submission through the owner-authorized API, including downloading it as a vCard 4.0.
+Continue the guest URL flow from spec 004. After a guest successfully submits the form, Quinten receives a Discord webhook notification and can retrieve the saved submission through the owner-authorized API, including downloading it as a vCard 3.0.
 
 ## Scope
 
 - Send the configured Discord webhook a fixed `@everyone` notification after a successful guest submission, using the durable notification outbox and retry behavior established by spec 004.
 - Add an owner-authorized endpoint to list retained guest submissions using privacy-minimizing summary fields.
 - Add an owner-authorized endpoint to retrieve the contact details for one submission.
-- Add an owner-authorized endpoint to generate and download one submission as a vCard 4.0 from its D1 record.
+- Add an owner-authorized endpoint to generate and download one submission as a vCard 3.0 from its D1 record.
 - Add focused API tests and local `.http` examples for owner retrieval and vCard download.
 
 ## Out of Scope
@@ -43,8 +43,8 @@ All owner endpoints require `Authorization: Bearer <admin-token>`, following the
 
 ### `GET /api/owner/submissions/{id}/vcard`
 
-- Generates a vCard 4.0 from the retained submission record at request time; do not store a duplicate rendered guest vCard.
-- Returns it as an attachment with `Content-Type: text/vcard; version=4.0; charset=utf-8` and a stable `.vcf` filename.
+- Generates a vCard 3.0 from the retained submission record at request time; do not store a duplicate rendered guest vCard.
+- Returns it as an attachment with `Content-Type: text/vcard; version=3.0; charset=utf-8` and a stable `.vcf` filename.
 - Returns the same `404` behavior as the detail endpoint for missing or expired submissions.
 
 ### Authorization and errors
@@ -76,7 +76,7 @@ All owner endpoints require `Authorization: Bearer <admin-token>`, following the
 - Unauthorized requests to all three owner submission endpoints return `401` without disclosing submission data.
 - The list endpoint returns retained records newest first with only the documented summary fields; it returns an empty list when no retained records exist.
 - The detail endpoint returns the requested record's contact fields and timestamps only to an authorized owner. Unknown and expired IDs receive the same `404` response.
-- The vCard endpoint generates a valid vCard 4.0 attachment from the requested database record with the documented content type, stable filename, and `Cache-Control: no-store`.
+- The vCard endpoint generates a valid vCard 3.0 attachment from the requested database record with the documented content type, stable filename, and `Cache-Control: no-store`.
 - Missing and expired records cannot be retrieved or downloaded, including during the interval before scheduled cleanup runs.
 - A successful guest submission results in the exact configured Discord message being queued and eventually delivered. Delivery failures are retried without storing or sending guest contact details.
 - The Discord payload permits the intended `@everyone` notification and contains no guest-provided data; the webhook's target channel allows that mention.

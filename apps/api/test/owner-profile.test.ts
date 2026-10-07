@@ -95,18 +95,19 @@ describe("owner profile API", () => {
     const initialVCard = await downloadResponse.text();
     expect(downloadResponse.status).toBe(200);
     expect(downloadResponse.headers.get("Content-Type")).toBe(
-      "text/vcard; version=4.0; charset=utf-8"
+      "text/vcard; version=3.0; charset=utf-8"
     );
     expect(downloadResponse.headers.get("Content-Disposition")).toBe(
       'attachment; filename="quinten-example.vcf"'
     );
     expect(downloadResponse.headers.get("Cache-Control")).toBe("no-store");
-    expect(initialVCard).toContain("VERSION:4.0\r\n");
+    expect(initialVCard).toContain("VERSION:3.0\r\n");
     expect(initialVCard).toContain("FN:Quinten Example\r\n");
     expect(initialVCard).toContain("EMAIL:quinten@example.invalid\r\n");
-    expect(initialVCard).toContain("TEL;VALUE=uri;TYPE=cell,voice;PREF=1:tel:+31600000000\r\n");
+    expect(initialVCard).toContain("TEL;TYPE=CELL,VOICE,PREF:+31600000000\r\n");
     expect(initialVCard).toContain("BDAY:1990-02-28\r\n");
     expect(initialVCard).toContain("ADR;TYPE=home:;;12 Main St\\, Apt 3\\; East;;;;\r\n");
+    expect(initialVCard).not.toContain("PHOTO:");
 
     const updatedProfile = { ...baseProfile, address: "99 New Street" };
     const updateResponse = await call(

@@ -6,7 +6,7 @@ Done
 
 ## Goal
 
-Implement the guest-facing API flow for a link created by spec 003. An unauthenticated guest with an active link can obtain that link's signed URL for Quinten's current vCard 4.0 and submit their own required contact details. A successful submission stores the guest record, consumes the link, and triggers a privacy-safe notification.
+Implement the guest-facing API flow for a link created by spec 003. An unauthenticated guest with an active link can obtain that link's signed URL for Quinten's current vCard 3.0 and submit their own required contact details. A successful submission stores the guest record, consumes the link, and triggers a privacy-safe notification.
 
 ## Scope
 
@@ -40,7 +40,7 @@ All guest endpoints are unauthenticated in the account sense. The link token or 
 ### `GET /api/guest/vcard/{linkId}/{signature}`
 
 - Validates that the supplied signature matches the signature persisted for the link and that the link remains active and unconsumed.
-- Returns the owner's current stored vCard 4.0 as an attachment with `Content-Type: text/vcard; version=4.0; charset=utf-8` and a stable `.vcf` filename.
+- Returns the owner's current vCard 3.0 as an attachment with `Content-Type: text/vcard; version=3.0; charset=utf-8` and a stable `.vcf` filename.
 - Reads the current owner vCard at download time; it does not snapshot profile data when the guest link is created.
 - Does not consume the link.
 - Returns a stable unavailable response when the signature is invalid or the associated link is revoked or consumed. It must not disclose whether a link ID exists.
@@ -56,7 +56,7 @@ All guest endpoints are unauthenticated in the account sense. The link token or 
 
 ## Data and Behavior
 
-- Store only the guest fields needed for Quinten's owner review and vCard 4.0 download, plus timestamps required for the 30-day retention rule. Do not duplicate Quinten's profile or store the generated guest vCard unless separately required.
+- Store only the guest fields needed for Quinten's owner review and vCard 3.0 download, plus timestamps required for the 30-day retention rule. Do not duplicate Quinten's profile or store the generated guest vCard unless separately required.
 - Each guest submission is retained for 30 days from successful submission. Scheduled cleanup deletes expired guest records and any associated stored files.
 - Use a D1 transaction or equivalent conditional write so concurrent requests cannot both submit through the same link. Either the record and link consumption both succeed, or neither does.
 - On successful submission, send a webhook summary that says a submission was completed and contains no guest contact details. Webhook credentials remain Worker Secrets.
@@ -67,7 +67,7 @@ All guest endpoints are unauthenticated in the account sense. The link token or 
 ## Acceptance Criteria
 
 - An active token resolves to one link-scoped signed vCard URL; an unknown token receives the documented unavailable response.
-- A valid signed URL downloads the current owner vCard 4.0 only while its associated link is active. Invalid, cross-link, consumed, or revoked signatures do not return vCard data.
+- A valid signed URL downloads the current owner vCard 3.0 only while its associated link is active. Invalid, cross-link, consumed, or revoked signatures do not return vCard data.
 - vCard responses have the specified media type, attachment disposition, `Cache-Control: no-store`, and `Referrer-Policy: no-referrer` headers.
 - Missing or blank required fields, invalid email, invalid birthday, JSON requests, malformed multipart bodies, and unsupported fields are rejected without storing a submission or consuming a link.
 - One successful submission stores exactly one guest record, consumes its link, and sends the privacy-safe webhook summary. Repeated and concurrent submissions cannot store a second record.
