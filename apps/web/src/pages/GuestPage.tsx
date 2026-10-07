@@ -11,6 +11,14 @@ import { vCardFilename } from "../lib/api";
 import { useLanguage, type MessageKey } from "../lib/i18n";
 import type { FieldName, GuestPageState, ProfileFields } from "../types";
 
+const guestExampleKeys: Record<FieldName, MessageKey> = {
+  name: "guestExampleName",
+  email: "guestExampleEmail",
+  address: "guestExampleAddress",
+  birthday: "guestExampleBirthday",
+  phone: "guestExamplePhone"
+};
+
 export default function GuestPage() {
   const { token = "" } = useParams();
   const { t } = useLanguage();
@@ -342,35 +350,38 @@ export default function GuestPage() {
 
           <form id="guest-details-form" className="guest-form" onSubmit={handleGuestSubmit} noValidate>
             <div className="profile-form guest-profile-form">
-              {fields.map(({ name, labelKey, type, autoComplete, hintKey, placeholder }) => (
-                <div className="field" key={name}>
-                  <label htmlFor={`guest-${name}`}>{t(labelKey)}<span aria-hidden="true"> *</span></label>
-                  <input
-                    id={`guest-${name}`}
-                    name={name}
-                    type={type}
-                    autoComplete={autoComplete}
-                    placeholder={placeholder}
-                    inputMode={name === "phone" ? "tel" : undefined}
-                    value={guestValues[name]}
-                    required
-                    aria-invalid={Boolean(guestFieldErrors[name])}
-                    aria-describedby={[
-                      hintKey ? `guest-${name}-hint` : undefined,
-                      guestFieldErrors[name] ? `guest-${name}-error` : undefined
-                    ].filter(Boolean).join(" ") || undefined}
-                    onChange={(event) => {
-                      setGuestValues((current) => ({ ...current, [name]: event.target.value }));
-                      setGuestFieldErrors((current) => ({ ...current, [name]: undefined }));
-                      setGuestMessage("");
-                    }}
-                  />
-                  {hintKey && <span className="field-hint" id={`guest-${name}-hint`}>{t(hintKey)} Example: {placeholder}</span>}
-                  {guestFieldErrors[name] && (
-                    <span className="field-error" id={`guest-${name}-error`}>{t(guestFieldErrors[name])}</span>
-                  )}
-                </div>
-              ))}
+              {fields.map(({ name, labelKey, type, autoComplete, hintKey }) => {
+                const example = t(guestExampleKeys[name]);
+                return (
+                  <div className="field" key={name}>
+                    <label htmlFor={`guest-${name}`}>{t(labelKey)}<span aria-hidden="true"> *</span></label>
+                    <input
+                      id={`guest-${name}`}
+                      name={name}
+                      type={type}
+                      autoComplete={autoComplete}
+                      placeholder={example}
+                      inputMode={name === "phone" ? "tel" : undefined}
+                      value={guestValues[name]}
+                      required
+                      aria-invalid={Boolean(guestFieldErrors[name])}
+                      aria-describedby={[
+                        hintKey ? `guest-${name}-hint` : undefined,
+                        guestFieldErrors[name] ? `guest-${name}-error` : undefined
+                      ].filter(Boolean).join(" ") || undefined}
+                      onChange={(event) => {
+                        setGuestValues((current) => ({ ...current, [name]: event.target.value }));
+                        setGuestFieldErrors((current) => ({ ...current, [name]: undefined }));
+                        setGuestMessage("");
+                      }}
+                    />
+                    {hintKey && <span className="field-hint" id={`guest-${name}-hint`}>{t("guestPhoneHint", { example })}</span>}
+                    {guestFieldErrors[name] && (
+                      <span className="field-error" id={`guest-${name}-error`}>{t(guestFieldErrors[name])}</span>
+                    )}
+                  </div>
+                );
+              })}
             </div>
 
             <div className="field guest-picture-field">

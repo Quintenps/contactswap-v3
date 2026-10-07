@@ -21,6 +21,7 @@ Let ContactSwap's owner and guests use the frontend in Dutch or English, with Du
 
 - Provide a language selector on all frontend routes, including owner pages, guest pages, login/token entry, success and error states, and not-found pages.
 - Translate all frontend-authored user-facing text into Dutch and English. This includes navigation, headings, field labels, helper text, validation feedback, loading and empty states, confirmation and error messages, and accessibility labels and announcements.
+- Show language-matched example placeholders in the guest form, including Dutch names, addresses, and a `+31` phone number.
 - Format frontend-generated dates and times using the selected language's locale while preserving the underlying values and API data.
 - Add focused tests for default language, switching, persistence, translation coverage, locale-aware formatting, and the existing owner and guest flows in both languages.
 
@@ -48,6 +49,7 @@ Let ContactSwap's owner and guests use the frontend in Dutch or English, with Du
 - Translate all frontend-owned copy, including text shown for known API outcomes. Keep API behavior unchanged and map errors to safe, localized frontend messages; do not display raw response bodies, contact data, credentials, or server internals.
 - Use locale-aware formatting for dates and times displayed by the frontend. Keep machine-readable form values, API payloads, phone numbers, and vCard data unchanged by the selected language.
 - Keep phone-number validation unchanged: accept valid international E.164 numbers, and retain the existing Dutch `+31` example where used. Translate surrounding labels and guidance without implying that only Dutch numbers are accepted.
+- Localize guest-form examples with the selected language, using realistic Dutch-format values in Dutch and English-format values in English. Keep examples out of submitted data unless the guest enters them.
 - Use semantic controls, a visible focus state, and an accessible label for the language selector. Expose the selected language programmatically and announce language changes where appropriate.
 
 ## Functional and Privacy Requirements
@@ -65,6 +67,7 @@ Let ContactSwap's owner and guests use the frontend in Dutch or English, with Du
 - The selected language takes effect immediately without a page reload, lost form state, or unintended network request.
 - A valid saved selection is restored after reload and on later visits in the same browser. Missing or invalid stored values result in Dutch.
 - All frontend-authored visible text, form validation and feedback, and accessible labels/announcements are available in both languages; no missing key, untranslated frontend copy, or raw backend error is shown.
+- Guest-form placeholders match the selected language, and switching languages preserves any entered values.
 - Frontend-generated dates and times use the selected language's locale, while form values, API payloads, phone validation, and vCard contents remain unchanged.
 - The language preference is the only new value persisted by this feature; it is not sent to the server or included in URLs.
 - Owner authentication, profile editing, link management, submissions and downloads, guest submission, and error handling continue to work in both languages.

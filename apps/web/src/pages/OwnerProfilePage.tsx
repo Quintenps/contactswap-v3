@@ -284,7 +284,7 @@ export default function OwnerProfilePage() {
                   setMessage("");
                 }}
               />
-              {hintKey && <span className="field-hint" id={`${name}-hint`}>{t(hintKey)} Example: {placeholder}</span>}
+              {hintKey && <span className="field-hint" id={`${name}-hint`}>{t(hintKey)} {t("exampleWithValue", { example: placeholder ?? "" })}</span>}
               {fieldErrors[name] && <span className="field-error" id={`${name}-error`}>{t(fieldErrors[name])}</span>}
             </div>
           ))}

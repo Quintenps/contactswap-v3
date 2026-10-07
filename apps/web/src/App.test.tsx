@@ -39,8 +39,8 @@ function button(text: string): HTMLButtonElement {
     "Generate new link": "Make a link",
     "Revoke": "Delete",
     "Log out": "Sign out",
-    "Download my card & share your details": "Get my card & share your details",
-    "Download card only": "Just get my card"
+    "Download my card & share your details": "Download the card & share my details",
+    "Download card only": "Download the card only"
   };
   const expectedText = updatedCopy[text] ?? text;
   const element = [...document.querySelectorAll("button")].find((item) => item.textContent?.includes(expectedText));
@@ -645,6 +645,19 @@ describe("owner profile frontend", () => {
     await renderApp();
 
     expect(await screenText()).toContain("My details");
+    expect(document.querySelector("#phone-hint")?.textContent).toContain("Example: +31600000000");
+    const requestCount = fetchMock.mock.calls.length;
+    const languageToggle = document.querySelector<HTMLButtonElement>("#contactswap-language-toggle");
+    if (!languageToggle) throw new Error("Missing language selector.");
+    await click(languageToggle);
+    const dutchOption = document.querySelector<HTMLButtonElement>(
+      '#contactswap-language-menu [data-language="nl"]'
+    );
+    if (!dutchOption) throw new Error("Missing Dutch language option.");
+    await click(dutchOption);
+
+    expect(document.querySelector("#phone-hint")?.textContent).toContain("Bijvoorbeeld: +31600000000");
+    expect(fetchMock).toHaveBeenCalledTimes(requestCount);
     expect([...document.querySelectorAll(".profile-shell > section.panel")].map((panel) =>
       panel.getAttribute("aria-labelledby")
     )).toEqual(["photo-heading", "profile-heading"]);
@@ -879,9 +892,45 @@ describe("guest frontend", () => {
     expect(document.querySelector("#guest-details-form")).toBeNull();
     expect(document.querySelector(".guest-owner-name")?.textContent).toBe("Quinten Example");
     expect(document.querySelector(".guest-owner-avatar")?.textContent).toBe("QE");
-    expect(document.querySelector("h1")?.textContent).toBe("Here's my contact card");
+    expect(document.querySelector("h1")?.textContent).toBe("Here's the contact card");
     expect(document.body.textContent).toContain("Nothing gets sent until you tap “Share my details.”");
     expect(document.body.textContent).not.toContain("My latest details, ready for your phone.");
+  });
+
+  it("shows guest form examples in the selected language without losing entered values", async () => {
+    const fetchMock = installActiveGuestLink();
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    await renderGuestPage(guestToken);
+    await click(button("Download my card & share your details"));
+
+    expect(input("guest-name").placeholder).toBe("Alex Morgan");
+    expect(input("guest-email").placeholder).toBe("alex@example.com");
+    expect(input("guest-address").placeholder).toBe("42 Example Street, London SW1A 1AA");
+    expect(input("guest-birthday").placeholder).toBe("1990-06-15");
+    expect(document.querySelector("#guest-birthday-hint")).toBeNull();
+    expect(input("guest-phone").placeholder).toBe("+447700900123");
+    expect(document.querySelector("#guest-phone-hint")?.textContent).toContain("For example: +447700900123.");
+
+    changeValue(input("guest-name"), "A name in progress");
+    const requestCount = fetchMock.mock.calls.length;
+    const languageToggle = document.querySelector<HTMLButtonElement>("#contactswap-language-toggle");
+    if (!languageToggle) throw new Error("Missing language selector.");
+    await click(languageToggle);
+    const dutchOption = document.querySelector<HTMLButtonElement>(
+      '#contactswap-language-menu [data-language="nl"]'
+    );
+    if (!dutchOption) throw new Error("Missing Dutch language option.");
+    await click(dutchOption);
+
+    expect(input("guest-name").placeholder).toBe("Lotte de Vries");
+    expect(input("guest-email").placeholder).toBe("lotte.devries@gmail.com");
+    expect(input("guest-address").placeholder).toBe("Kerkstraat 12, 1015 AB Amsterdam");
+    expect(input("guest-birthday").placeholder).toBe("1990-06-15");
+    expect(document.querySelector("#guest-birthday-hint")).toBeNull();
+    expect(input("guest-phone").placeholder).toBe("+31612345678");
+    expect(document.querySelector("#guest-phone-hint")?.textContent).toContain("Bijvoorbeeld: +31612345678.");
+    expect(input("guest-name").value).toBe("A name in progress");
+    expect(fetchMock).toHaveBeenCalledTimes(requestCount);
   });
 
   it("previews the owner's picture without a referrer and falls back to initials if it fails", async () => {
