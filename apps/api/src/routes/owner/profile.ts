@@ -8,7 +8,7 @@ const routes = new Hono<{ Bindings: Env }>();
 
 routes.get("/profile", async (context) => {
   const profile = await context.env.DB.prepare(
-    "SELECT name, email, address, birthday, phone, photo_key FROM owner_profile WHERE id = 1"
+    "SELECT name, email, address, birthday, phone, org, title, photo_key FROM owner_profile WHERE id = 1"
   ).first<StoredOwnerProfile>();
 
   if (!profile) {
@@ -42,14 +42,16 @@ routes.put("/profile", async (context) => {
   }
 
   await context.env.DB.prepare(
-    `INSERT INTO owner_profile (id, name, email, address, birthday, phone, updated_at)
-     VALUES (1, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO owner_profile (id, name, email, address, birthday, phone, org, title, updated_at)
+     VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        name = excluded.name,
        email = excluded.email,
        address = excluded.address,
        birthday = excluded.birthday,
        phone = excluded.phone,
+       org = excluded.org,
+       title = excluded.title,
        updated_at = excluded.updated_at`
   )
     .bind(
@@ -58,6 +60,8 @@ routes.put("/profile", async (context) => {
       profile.address,
       profile.birthday,
       profile.phone,
+      profile.org,
+      profile.title,
       new Date().toISOString()
     )
     .run();
@@ -70,7 +74,7 @@ routes.put("/profile", async (context) => {
 
 routes.get("/profile/vcard", async (context) => {
   const profile = await context.env.DB.prepare(
-    "SELECT name, email, address, birthday, phone, photo_key FROM owner_profile WHERE id = 1"
+    "SELECT name, email, address, birthday, phone, org, title, photo_key FROM owner_profile WHERE id = 1"
   ).first<StoredOwnerProfile>();
 
   if (!profile) {
@@ -98,7 +102,7 @@ routes.get("/profile/vcard", async (context) => {
 
 routes.put("/profile/photo", async (context) => {
   const profile = await context.env.DB.prepare(
-    "SELECT name, email, address, birthday, phone, photo_key FROM owner_profile WHERE id = 1"
+    "SELECT name, email, address, birthday, phone, org, title, photo_key FROM owner_profile WHERE id = 1"
   ).first<StoredOwnerProfile>();
   if (!profile) {
     return context.json(

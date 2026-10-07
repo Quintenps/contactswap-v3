@@ -10,7 +10,9 @@ const baseProfile = {
   email: "quinten@example.invalid",
   address: "123 Example Street",
   birthday: "1990-02-28",
-  phone: "+31600000000"
+  phone: "+31600000000",
+  org: null,
+  title: null
 };
 const inputPng = createPng();
 const photoWithMetadata = new Uint8Array([

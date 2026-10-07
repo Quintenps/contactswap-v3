@@ -177,7 +177,14 @@ describe("guest photo API", () => {
     expect(await unauthorized.text()).not.toContain(toBase64(optimizedPhoto));
 
     const detail = await call(`/api/owner/submissions/${stored!.id}`);
-    expect(await detail.json()).toEqual({ id: stored!.id, ...guest, createdAt: expect.any(String), expiresAt: expect.any(String) });
+    expect(await detail.json()).toEqual({
+      id: stored!.id,
+      ...guest,
+      org: null,
+      title: null,
+      createdAt: expect.any(String),
+      expiresAt: expect.any(String)
+    });
 
     const cardResponse = await call(`/api/owner/submissions/${stored!.id}/vcard`);
     const card = await cardResponse.text();

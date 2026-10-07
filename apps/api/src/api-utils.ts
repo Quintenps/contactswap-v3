@@ -89,13 +89,25 @@ export function parseProfile(value: unknown): OwnerProfile | null {
   if (["name", "email", "address", "birthday", "phone"].some((field) => typeof fields[field] !== "string")) {
     return null;
   }
+  if (
+    ["org", "title"].some(
+      (field) =>
+        Object.hasOwn(fields, field) &&
+        fields[field] !== null &&
+        typeof fields[field] !== "string"
+    )
+  ) {
+    return null;
+  }
 
   const profile = {
     name: (fields.name as string).trim(),
     email: (fields.email as string).trim(),
     address: (fields.address as string).trim(),
     birthday: (fields.birthday as string).trim(),
-    phone: (fields.phone as string).trim()
+    phone: (fields.phone as string).trim(),
+    org: typeof fields.org === "string" ? fields.org.trim() || null : null,
+    title: typeof fields.title === "string" ? fields.title.trim() || null : null
   };
 
   if (
@@ -118,7 +130,7 @@ export function parseGuestSubmission(value: unknown): GuestSubmission | null {
   }
 
   const fields = value as Record<string, unknown>;
-  const allowedFields = new Set(["name", "email", "address", "birthday", "phone"]);
+  const allowedFields = new Set(["name", "email", "address", "birthday", "phone", "org", "title"]);
   if (Object.keys(fields).some((field) => !allowedFields.has(field))) {
     return null;
   }

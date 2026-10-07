@@ -16,7 +16,9 @@ Content-Type: application/json
   "email": "quinten@example.invalid",
   "address": "123 Example Street",
   "birthday": "1990-02-28",
-  "phone": "+31600000000"
+  "phone": "+31600000000",
+  "org": "Larkspur Creative Studio",
+  "title": "Senior Product Designer"
 }
 
 ### Download current owner vCard

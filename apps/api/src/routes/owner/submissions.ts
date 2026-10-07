@@ -22,7 +22,7 @@ routes.get("/submissions", async (context) => {
 routes.get("/submissions/:id", async (context) => {
   const now = new Date().toISOString();
   const submission = await context.env.DB.prepare(
-    `SELECT id, name, email, address, birthday, phone,
+    `SELECT id, name, email, address, birthday, phone, org, title,
             created_at AS createdAt, expires_at AS expiresAt
      FROM guest_submissions
      WHERE id = ? AND expires_at > ?`
@@ -43,7 +43,7 @@ routes.get("/submissions/:id", async (context) => {
 routes.get("/submissions/:id/vcard", async (context) => {
   const now = new Date().toISOString();
   const submission = await context.env.DB.prepare(
-    `SELECT name, email, address, birthday, phone, photo_key
+    `SELECT name, email, address, birthday, phone, org, title, photo_key
      FROM guest_submissions
      WHERE id = ? AND expires_at > ?`
   )

@@ -14,6 +14,8 @@ type Submission = {
   address: string;
   birthday: string;
   phone: string;
+  org: string | null;
+  title: string | null;
   createdAt: string;
   expiresAt: string;
 };
@@ -45,6 +47,8 @@ async function insertSubmission(
   const address = `${id} Guest Street`;
   const birthday = "1988-06-12";
   const phone = "+31600000001";
+  const org = "Example, Inc.; Europe";
+  const title = "Product designer";
 
   await env.DB.prepare(
     `INSERT INTO guest_links (id, token_hash, vcard_signature, created_at)
@@ -54,13 +58,13 @@ async function insertSubmission(
     .run();
   await env.DB.prepare(
     `INSERT INTO guest_submissions
-       (id, link_id, name, email, address, birthday, phone, created_at, expires_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       (id, link_id, name, email, address, birthday, phone, org, title, created_at, expires_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   )
-    .bind(id, linkId, name, email, address, birthday, phone, createdAt, expiresAt)
+    .bind(id, linkId, name, email, address, birthday, phone, org, title, createdAt, expiresAt)
     .run();
 
-  return { id, linkId, name, email, address, birthday, phone, createdAt, expiresAt };
+  return { id, linkId, name, email, address, birthday, phone, org, title, createdAt, expiresAt };
 }
 
 describe("owner submissions API", () => {
@@ -136,6 +140,8 @@ describe("owner submissions API", () => {
       address: submission.address,
       birthday: submission.birthday,
       phone: submission.phone,
+      org: submission.org,
+      title: submission.title,
       createdAt: submission.createdAt,
       expiresAt: submission.expiresAt
     });
@@ -171,6 +177,8 @@ describe("owner submissions API", () => {
     expect(vcard).toContain(`BDAY:${submission.birthday}\r\n`);
     expect(vcard).toContain(`TEL;TYPE=CELL,VOICE,PREF:${submission.phone}\r\n`);
     expect(vcard).toContain(`ADR;TYPE=home:;;${submission.address};;;;\r\n`);
+    expect(vcard).toContain("ORG:Example\\, Inc.\\; Europe\r\n");
+    expect(vcard).toContain("TITLE:Product designer\r\n");
     expect(vcard).not.toContain("PHOTO:");
 
     const expired = await insertSubmission(
@@ -181,5 +189,19 @@ describe("owner submissions API", () => {
     const expiredResponse = await call(`/api/owner/submissions/${expired.id}/vcard`);
     expect(expiredResponse.status).toBe(404);
     expect(await expiredResponse.text()).not.toContain(expired.email);
+  });
+
+  it("omits unset organization and title from the guest vCard", async () => {
+    const submission = await insertSubmission("Guest Without Optional Fields", "2026-10-01T12:00:00.000Z");
+    await env.DB.prepare("UPDATE guest_submissions SET org = NULL, title = NULL WHERE id = ?")
+      .bind(submission.id)
+      .run();
+
+    const response = await call(`/api/owner/submissions/${submission.id}/vcard`);
+    const vcard = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(vcard).not.toContain("ORG:");
+    expect(vcard).not.toContain("TITLE:");
   });
 });

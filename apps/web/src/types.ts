@@ -4,9 +4,15 @@ export type ProfileFields = {
   address: string;
   birthday: string;
   phone: string;
+  org: string;
+  title: string;
 };
 
-export type Profile = ProfileFields & { hasPhoto: boolean };
+export type Profile = Omit<ProfileFields, "org" | "title"> & {
+  org: string | null;
+  title: string | null;
+  hasPhoto: boolean;
+};
 export type FieldName = keyof ProfileFields;
 export type LinkStatus = "active" | "consumed" | "revoked";
 export type GuestLink = { id: string; createdAt: string; status: LinkStatus };

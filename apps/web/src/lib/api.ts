@@ -143,6 +143,8 @@ export function isProfile(value: unknown): value is Profile {
     typeof candidate.address === "string" &&
     typeof candidate.birthday === "string" &&
     typeof candidate.phone === "string" &&
+    (candidate.org === null || typeof candidate.org === "string") &&
+    (candidate.title === null || typeof candidate.title === "string") &&
     typeof candidate.hasPhoto === "boolean"
   );
 }

@@ -16,7 +16,9 @@ const guestExampleKeys: Record<FieldName, MessageKey> = {
   email: "guestExampleEmail",
   address: "guestExampleAddress",
   birthday: "guestExampleBirthday",
-  phone: "guestExamplePhone"
+  phone: "guestExamplePhone",
+  org: "guestExampleOrg",
+  title: "guestExampleTitle"
 };
 
 export default function GuestPage() {
@@ -183,7 +185,10 @@ export default function GuestPage() {
     setGuestSubmitting(true);
     setGuestMessage("");
     const formData = new FormData();
-    for (const field of fields) formData.append(field.name, guestValues[field.name].trim());
+    for (const field of fields) {
+      const value = guestValues[field.name].trim();
+      if (!field.optional || value) formData.append(field.name, value);
+    }
     if (picture) formData.append("picture", picture);
 
     try {
@@ -350,11 +355,14 @@ export default function GuestPage() {
 
           <form id="guest-details-form" className="guest-form" onSubmit={handleGuestSubmit} noValidate>
             <div className="profile-form guest-profile-form">
-              {fields.map(({ name, labelKey, type, autoComplete, hintKey }) => {
+              {fields.map(({ name, labelKey, type, autoComplete, hintKey, optional }) => {
                 const example = t(guestExampleKeys[name]);
                 return (
                   <div className="field" key={name}>
-                    <label htmlFor={`guest-${name}`}>{t(labelKey)}<span aria-hidden="true"> *</span></label>
+                    <label htmlFor={`guest-${name}`}>
+                      {t(labelKey)}{" "}
+                      {optional ? <span>({t("optional")})</span> : <span aria-hidden="true"> *</span>}
+                    </label>
                     <input
                       id={`guest-${name}`}
                       name={name}
@@ -363,7 +371,7 @@ export default function GuestPage() {
                       placeholder={example}
                       inputMode={name === "phone" ? "tel" : undefined}
                       value={guestValues[name]}
-                      required
+                      required={!optional}
                       aria-invalid={Boolean(guestFieldErrors[name])}
                       aria-describedby={[
                         hintKey ? `guest-${name}-hint` : undefined,

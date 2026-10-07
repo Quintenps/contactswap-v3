@@ -26,6 +26,14 @@ Content-Disposition: form-data; name="birthday"
 Content-Disposition: form-data; name="phone"
 
 +31600000001
+--ContactSwapGuestBoundary
+Content-Disposition: form-data; name="org"
+
+Larkspur Creative Studio
+--ContactSwapGuestBoundary
+Content-Disposition: form-data; name="title"
+
+Senior Product Designer
 --ContactSwapGuestBoundary--
 
 ### Submit synthetic guest contact details with a photo
@@ -52,6 +60,14 @@ Content-Disposition: form-data; name="birthday"
 Content-Disposition: form-data; name="phone"
 
 +31600000001
+--ContactSwapGuestPhotoBoundary
+Content-Disposition: form-data; name="org"
+
+Larkspur Creative Studio
+--ContactSwapGuestPhotoBoundary
+Content-Disposition: form-data; name="title"
+
+Senior Product Designer
 --ContactSwapGuestPhotoBoundary
 Content-Disposition: form-data; name="picture"; filename="sample-guest-profile.jpg"
 Content-Type: image/jpeg
