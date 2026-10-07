@@ -6,7 +6,11 @@ const routes = new Hono<{ Bindings: Env }>();
 routes.get("/links/:token", async (context) => {
   const tokenHash = await hashGuestToken(context.req.param("token"));
   const link = await context.env.DB.prepare(
-    "SELECT id, vcard_signature, consumed_at, revoked_at FROM guest_links WHERE token_hash = ?"
+    `SELECT guest_links.id, guest_links.vcard_signature, guest_links.consumed_at, guest_links.revoked_at,
+            owner_profile.name AS owner_name, owner_profile.photo_key
+     FROM guest_links
+     LEFT JOIN owner_profile ON owner_profile.id = 1
+     WHERE guest_links.token_hash = ?`
   )
     .bind(tokenHash)
     .first<{
@@ -14,6 +18,8 @@ routes.get("/links/:token", async (context) => {
       vcard_signature: string;
       consumed_at: string | null;
       revoked_at: string | null;
+      owner_name: string | null;
+      photo_key: string | null;
     }>();
 
   if (!link) {
@@ -29,7 +35,20 @@ routes.get("/links/:token", async (context) => {
     );
   }
 
-  return context.json({ vcardUrl: `/api/guest/vcard/${link.id}/${link.vcard_signature}` });
+  if (!link.owner_name) {
+    return context.json(
+      { error: { code: "owner_profile_unavailable", message: "The owner profile is unavailable." } },
+      404
+    );
+  }
+
+  return context.json({
+    ownerName: link.owner_name,
+    profilePhotoUrl: link.photo_key
+      ? `/api/guest/profile-photo/${link.id}/${link.vcard_signature}`
+      : null,
+    vcardUrl: `/api/guest/vcard/${link.id}/${link.vcard_signature}`
+  });
 });
 
 export default routes;

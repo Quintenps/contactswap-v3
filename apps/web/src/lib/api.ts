@@ -1,4 +1,4 @@
-import type { GuestLink, OwnerSubmission, Profile } from "../types";
+import type { GuestLink, GuestLinkResolution, OwnerSubmission, Profile } from "../types";
 
 export const tokenStorageKey = "contactswap-owner-token";
 
@@ -60,6 +60,32 @@ export function isGuestVCardPath(value: unknown): value is string {
   } catch {
     return false;
   }
+}
+
+export function isGuestProfilePhotoPath(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  try {
+    const url = new URL(value, window.location.origin);
+    return (
+      url.origin === window.location.origin &&
+      /^\/api\/guest\/profile-photo\/[\da-f-]{36}\/[A-Za-z\d_-]+$/i.test(url.pathname) &&
+      !url.search &&
+      !url.hash
+    );
+  } catch {
+    return false;
+  }
+}
+
+export function isGuestLinkResolution(value: unknown): value is GuestLinkResolution {
+  if (typeof value !== "object" || value === null) return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    typeof candidate.ownerName === "string" &&
+    candidate.ownerName.trim().length > 0 &&
+    (candidate.profilePhotoUrl === null || isGuestProfilePhotoPath(candidate.profilePhotoUrl)) &&
+    isGuestVCardPath(candidate.vcardUrl)
+  );
 }
 
 export function isGuestSubmissionSuccess(value: unknown): value is { success: true } {
