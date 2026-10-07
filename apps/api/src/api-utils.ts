@@ -76,13 +76,17 @@ function isValidBirthday(value: string): boolean {
   return Number.isFinite(date.valueOf()) && date.toISOString().slice(0, 10) === value;
 }
 
+export function isValidPhone(value: string): boolean {
+  return /^\+[1-9]\d{1,14}$/.test(value);
+}
+
 export function parseProfile(value: unknown): OwnerProfile | null {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     return null;
   }
 
   const fields = value as Record<string, unknown>;
-  if (["name", "email", "address", "birthday"].some((field) => typeof fields[field] !== "string")) {
+  if (["name", "email", "address", "birthday", "phone"].some((field) => typeof fields[field] !== "string")) {
     return null;
   }
 
@@ -90,7 +94,8 @@ export function parseProfile(value: unknown): OwnerProfile | null {
     name: (fields.name as string).trim(),
     email: (fields.email as string).trim(),
     address: (fields.address as string).trim(),
-    birthday: (fields.birthday as string).trim()
+    birthday: (fields.birthday as string).trim(),
+    phone: (fields.phone as string).trim()
   };
 
   if (
@@ -98,6 +103,7 @@ export function parseProfile(value: unknown): OwnerProfile | null {
     !profile.address ||
     !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(profile.email) ||
     !isValidBirthday(profile.birthday) ||
+    !isValidPhone(profile.phone) ||
     Object.hasOwn(fields, "picture")
   ) {
     return null;
@@ -112,7 +118,7 @@ export function parseGuestSubmission(value: unknown): GuestSubmission | null {
   }
 
   const fields = value as Record<string, unknown>;
-  const allowedFields = new Set(["name", "email", "address", "birthday"]);
+  const allowedFields = new Set(["name", "email", "address", "birthday", "phone"]);
   if (Object.keys(fields).some((field) => !allowedFields.has(field))) {
     return null;
   }

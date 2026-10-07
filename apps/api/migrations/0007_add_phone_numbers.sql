@@ -1,0 +1,2 @@
+ALTER TABLE owner_profile ADD COLUMN phone TEXT NOT NULL DEFAULT '';
+ALTER TABLE guest_submissions ADD COLUMN phone TEXT NOT NULL DEFAULT '';

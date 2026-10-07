@@ -11,6 +11,7 @@ const profile = {
   email: "quinten@example.invalid",
   address: "12 Main Street",
   birthday: "1990-02-28",
+  phone: "+31600000000",
   hasPhoto: false
 };
 const tokenStorageKey = "contactswap-owner-token";
@@ -582,6 +583,7 @@ describe("owner profile frontend", () => {
     changeValue(input("email"), " quinten@example.invalid ");
     changeValue(input("address"), " 12 Main Street ");
     changeValue(input("birthday"), "1990-02-28");
+    changeValue(input("phone"), " +31600000000 ");
     await submit(input("name").form!);
 
     const saveCall = fetchMock.mock.calls.find(([, init]) => init?.method === "PUT");
@@ -594,7 +596,8 @@ describe("owner profile frontend", () => {
       name: profile.name,
       email: profile.email,
       address: profile.address,
-      birthday: profile.birthday
+      birthday: profile.birthday,
+      phone: profile.phone
     });
     expect(document.body.textContent).toContain("Saved.");
     expect([...document.querySelectorAll(".profile-shell > .page-notice, .profile-shell > section.panel")].map((element) =>
@@ -608,7 +611,8 @@ describe("owner profile frontend", () => {
       name: profile.name,
       email: profile.email,
       address: "99 New Street",
-      birthday: profile.birthday
+      birthday: profile.birthday,
+      phone: profile.phone
     });
     expect(document.body.textContent).toContain("Saved.");
   });
@@ -623,6 +627,19 @@ describe("owner profile frontend", () => {
     expect(document.body.textContent).not.toContain(profile.email);
     expect(document.querySelector("#name")).toBeNull();
     expect(document.body.textContent).toContain("Unauthorized.");
+  });
+
+  it("requires an international phone number before saving the owner profile", async () => {
+    window.localStorage.setItem(tokenStorageKey, token);
+    const fetchMock = installFetch(async () => response(profile));
+    await renderApp();
+
+    changeValue(input("phone"), "+31 6 0000 0000");
+    await submit(input("phone").form!);
+
+    expect(document.body.textContent).toContain("Use international E.164 format");
+    expect(input("phone").getAttribute("aria-invalid")).toBe("true");
+    expect(fetchMock.mock.calls.some(([, init]) => init?.method === "PUT")).toBe(false);
   });
 
   it("shows field errors without sending an invalid profile and preserves edits after a service error", async () => {
@@ -643,7 +660,7 @@ describe("owner profile frontend", () => {
     changeValue(input("email"), "correct@example.invalid");
     changeValue(input("name"), "Edited name");
     await submit(input("email").form!);
-    expect(document.body.textContent).toContain("Check required fields, email, and birthday.");
+    expect(document.body.textContent).toContain("Check required fields, email, birthday, and phone number.");
     expect(input("name").value).toBe("Edited name");
     expect(document.body.textContent).toContain("Unsaved");
   });
@@ -812,6 +829,7 @@ describe("guest frontend", () => {
     changeValue(input("guest-email"), "guest@example.invalid");
     changeValue(input("guest-address"), "34 Example Street");
     changeValue(input("guest-birthday"), "1992-06-17");
+    changeValue(input("guest-phone"), "+31600000001");
     await submit(document.querySelector<HTMLFormElement>("#guest-details-form")!);
 
     const submission = fetchMock.mock.calls.find(([url]) => url === `/api/guest/links/${guestToken}/submissions`);
@@ -820,6 +838,7 @@ describe("guest frontend", () => {
     expect(submission?.[1]?.referrerPolicy).toBe("no-referrer");
     expect(submission?.[1]?.body).toBeInstanceOf(FormData);
     expect((submission?.[1]?.body as FormData).get("picture")).toBeNull();
+    expect((submission?.[1]?.body as FormData).get("phone")).toBe("+31600000001");
     expect(document.body.textContent).toContain("Your details have been shared.");
     expect(document.body.textContent).not.toContain("Guest Example");
     expect(document.querySelector("#guest-details-form")).toBeNull();
@@ -840,6 +859,7 @@ describe("guest frontend", () => {
     changeValue(input("guest-email"), "guest@example.invalid");
     changeValue(input("guest-address"), "34 Example Street");
     changeValue(input("guest-birthday"), "1992-06-17");
+    changeValue(input("guest-phone"), "+31600000001");
 
     const pictureInput = input("guest-picture");
     const picture = new File(["synthetic image"], "guest.png", { type: "image/png" });
@@ -850,6 +870,7 @@ describe("guest frontend", () => {
     const request = fetchMock.mock.calls.find(([url]) => url === `/api/guest/links/${guestToken}/submissions`);
     const formData = request?.[1]?.body;
     expect(formData).toBeInstanceOf(FormData);
+    expect((formData as FormData).get("phone")).toBe("+31600000001");
     expect((formData as FormData).get("picture")).toMatchObject({ name: "guest.png", type: "image/png" });
     expect(document.body.textContent).toContain("Your details have been shared.");
   });
@@ -863,7 +884,28 @@ describe("guest frontend", () => {
 
     expect(fetchMock.mock.calls.some(([url]) => url === `/api/guest/links/${guestToken}/submissions`)).toBe(false);
     expect(input("guest-name").getAttribute("aria-invalid")).toBe("true");
+    expect(input("guest-phone").getAttribute("aria-invalid")).toBe("true");
     expect(document.body.textContent).toContain("Check the required details.");
+  });
+
+  it("requires an E.164 phone number in the guest form and preserves invalid input", async () => {
+    const fetchMock = installActiveGuestLink();
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    await renderGuestPage(guestToken);
+    await click(button("Download and share your details"));
+
+    changeValue(input("guest-name"), "Guest Example");
+    changeValue(input("guest-email"), "guest@example.invalid");
+    changeValue(input("guest-address"), "34 Example Street");
+    changeValue(input("guest-birthday"), "1992-06-17");
+    changeValue(input("guest-phone"), "+31 6 0000 0000");
+    await submit(document.querySelector<HTMLFormElement>("#guest-details-form")!);
+
+    expect(input("guest-phone").type).toBe("tel");
+    expect(input("guest-phone").value).toBe("+31 6 0000 0000");
+    expect(input("guest-phone").getAttribute("aria-invalid")).toBe("true");
+    expect(document.body.textContent).toContain("Use international E.164 format");
+    expect(fetchMock.mock.calls.some(([url]) => url === `/api/guest/links/${guestToken}/submissions`)).toBe(false);
   });
 
   it("preserves entered values when the API rejects a submission", async () => {
@@ -881,6 +923,7 @@ describe("guest frontend", () => {
     changeValue(input("guest-email"), "guest@example.invalid");
     changeValue(input("guest-address"), "34 Example Street");
     changeValue(input("guest-birthday"), "1992-06-17");
+    changeValue(input("guest-phone"), "+31600000001");
     await submit(document.querySelector<HTMLFormElement>("#guest-details-form")!);
 
     expect(input("guest-name").value).toBe("Guest Example");

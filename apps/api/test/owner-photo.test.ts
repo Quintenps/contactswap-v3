@@ -9,7 +9,8 @@ const baseProfile = {
   name: "Quinten Example",
   email: "quinten@example.invalid",
   address: "123 Example Street",
-  birthday: "1990-02-28"
+  birthday: "1990-02-28",
+  phone: "+31600000000"
 };
 const inputPng = createPng();
 const photoWithMetadata = new Uint8Array([

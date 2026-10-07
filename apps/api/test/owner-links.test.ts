@@ -15,7 +15,8 @@ const profile = {
   name: "Quinten Example",
   email: "quinten@example.invalid",
   address: "123 Example Street",
-  birthday: "1990-02-28"
+  birthday: "1990-02-28",
+  phone: "+31600000000"
 };
 
 async function call(
@@ -72,6 +73,7 @@ function guestSubmissionForm(): FormData {
   form.append("email", "guest@example.invalid");
   form.append("address", "456 Guest Street");
   form.append("birthday", "1988-06-12");
+  form.append("phone", "+31600000001");
   return form;
 }
 

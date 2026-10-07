@@ -1,14 +1,14 @@
 import { Hono } from "hono";
 import { optimizeProfilePhoto, PhotoRequestError, photoLimits, readPhotoBody } from "../../photo";
 import type { StoredOwnerProfile } from "../../api-types";
-import { getPhoto, parseProfile } from "../../api-utils";
+import { getPhoto, isValidPhone, parseProfile } from "../../api-utils";
 import { renderVCard } from "../../vcard";
 
 const routes = new Hono<{ Bindings: Env }>();
 
 routes.get("/profile", async (context) => {
   const profile = await context.env.DB.prepare(
-    "SELECT name, email, address, birthday, photo_key FROM owner_profile WHERE id = 1"
+    "SELECT name, email, address, birthday, phone, photo_key FROM owner_profile WHERE id = 1"
   ).first<StoredOwnerProfile>();
 
   if (!profile) {
@@ -42,13 +42,14 @@ routes.put("/profile", async (context) => {
   }
 
   await context.env.DB.prepare(
-    `INSERT INTO owner_profile (id, name, email, address, birthday, updated_at)
-     VALUES (1, ?, ?, ?, ?, ?)
+    `INSERT INTO owner_profile (id, name, email, address, birthday, phone, updated_at)
+     VALUES (1, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        name = excluded.name,
        email = excluded.email,
        address = excluded.address,
        birthday = excluded.birthday,
+       phone = excluded.phone,
        updated_at = excluded.updated_at`
   )
     .bind(
@@ -56,6 +57,7 @@ routes.put("/profile", async (context) => {
       profile.email,
       profile.address,
       profile.birthday,
+      profile.phone,
       new Date().toISOString()
     )
     .run();
@@ -68,13 +70,20 @@ routes.put("/profile", async (context) => {
 
 routes.get("/profile/vcard", async (context) => {
   const profile = await context.env.DB.prepare(
-    "SELECT name, email, address, birthday, photo_key FROM owner_profile WHERE id = 1"
+    "SELECT name, email, address, birthday, phone, photo_key FROM owner_profile WHERE id = 1"
   ).first<StoredOwnerProfile>();
 
   if (!profile) {
     return context.json(
       { error: { code: "profile_not_found", message: "No owner profile has been saved." } },
       404
+    );
+  }
+
+  if (!isValidPhone(profile.phone)) {
+    return context.json(
+      { error: { code: "profile_phone_required", message: "A valid phone number is required." } },
+      409
     );
   }
 
@@ -86,7 +95,7 @@ routes.get("/profile/vcard", async (context) => {
 
 routes.put("/profile/photo", async (context) => {
   const profile = await context.env.DB.prepare(
-    "SELECT name, email, address, birthday, photo_key FROM owner_profile WHERE id = 1"
+    "SELECT name, email, address, birthday, phone, photo_key FROM owner_profile WHERE id = 1"
   ).first<StoredOwnerProfile>();
   if (!profile) {
     return context.json(

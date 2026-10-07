@@ -8,13 +8,15 @@ const profile = {
   name: "Quinten Example",
   email: "quinten@example.invalid",
   address: "123 Owner Street",
-  birthday: "1990-02-28"
+  birthday: "1990-02-28",
+  phone: "+31600000000"
 };
 const guest = {
   name: "Morgan Rivera",
   email: "morgan.rivera@example.invalid",
   address: "42 Example Avenue",
-  birthday: "1992-07-14"
+  birthday: "1992-07-14",
+  phone: "+31600000001"
 };
 const inputPng = createPng();
 const optimizedPhoto = new Uint8Array([

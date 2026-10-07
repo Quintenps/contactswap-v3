@@ -472,6 +472,11 @@ input[aria-invalid="true"] {
   font-size: 0.83rem;
 }
 
+.field-hint {
+  color: var(--muted);
+  font-size: 0.83rem;
+}
+
 .form-actions {
   grid-column: 1 / -1;
   padding-top: 3px;
