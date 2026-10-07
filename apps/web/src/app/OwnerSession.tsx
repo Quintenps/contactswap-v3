@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type Dispatch, type FormEvent, type ReactNode, type SetStateAction } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { errorCode, isProfile, ownerAuthorization, tokenStorageKey } from "../lib/api";
+import { useLanguage, type MessageKey } from "../lib/i18n";
 import type { Profile } from "../types";
 
 type OwnerSession = {
@@ -11,7 +12,7 @@ type OwnerSession = {
   authenticate: (token: string) => Promise<void>;
   unauthorized: () => void;
   logout: () => void;
-  loginMessage: string;
+  loginMessage: MessageKey | "";
 };
 
 const OwnerSessionContext = createContext<OwnerSession | null>(null);
@@ -26,9 +27,9 @@ export function OwnerSessionProvider() {
   const [status, setStatus] = useState<OwnerSession["status"]>("checking");
   const [token, setToken] = useState<string | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [loginMessage, setLoginMessage] = useState("");
+  const [loginMessage, setLoginMessage] = useState<MessageKey | "">("");
 
-  function clearSession(message: string) {
+  function clearSession(message: MessageKey) {
     let storageCleared = true;
     try {
       window.localStorage.removeItem(tokenStorageKey);
@@ -38,11 +39,17 @@ export function OwnerSessionProvider() {
     setToken(null);
     setProfile(null);
     setStatus("unauthenticated");
-    setLoginMessage(storageCleared ? message : `${message} Clear this site's storage.`);
+    setLoginMessage(
+      storageCleared
+        ? message
+        : message === "loggedOut"
+          ? "logoutStorageFailure"
+          : "unauthorizedStorageFailure"
+    );
   }
 
   function unauthorized() {
-    clearSession("Unauthorized. Enter token.");
+    clearSession("unauthorizedEnterToken");
   }
 
   async function authenticate(value: string) {
@@ -54,7 +61,7 @@ export function OwnerSessionProvider() {
         cache: "no-store"
       });
       if (response.status === 401) {
-        clearSession("Unauthorized. Enter token.");
+        clearSession("unauthorizedEnterToken");
         return;
       }
       if (response.status === 404 && (await errorCode(response)) === "profile_not_found") {
@@ -63,19 +70,19 @@ export function OwnerSessionProvider() {
       }
       if (!response.ok) {
         setStatus("unauthenticated");
-        setLoginMessage("Profile load failed. Try again.");
+        setLoginMessage("profileLoadFailed");
         return;
       }
       const data: unknown = await response.json();
       if (!isProfile(data)) {
         setStatus("unauthenticated");
-        setLoginMessage("Invalid profile response.");
+        setLoginMessage("invalidProfileResponse");
         return;
       }
       acceptSession(data, value);
     } catch {
       setStatus("unauthenticated");
-      setLoginMessage("Connection failed. Try again.");
+      setLoginMessage("connectionFailed");
     }
   }
 
@@ -89,11 +96,11 @@ export function OwnerSessionProvider() {
     setToken(value);
     setProfile(data);
     setStatus("authenticated");
-    setLoginMessage(tokenRemembered ? "" : "Signed in. Token not remembered.");
+    setLoginMessage(tokenRemembered ? "" : "signedInTokenNotRemembered");
   }
 
   function logout() {
-    clearSession("Logged out.");
+    clearSession("loggedOut");
   }
 
   useEffect(() => {
@@ -102,7 +109,7 @@ export function OwnerSessionProvider() {
       rememberedToken = window.localStorage.getItem(tokenStorageKey);
     } catch {
       setStatus("unauthenticated");
-      setLoginMessage("Browser storage unavailable. Enter token.");
+      setLoginMessage("browserStorageUnavailable");
       return;
     }
     if (rememberedToken) void authenticate(rememberedToken);
@@ -120,13 +127,14 @@ export function OwnerSessionProvider() {
 
 export function OwnerSessionGate() {
   const session = useOwnerSession();
+  const { t } = useLanguage();
 
   if (session.status === "checking") {
     return (
       <main className="shell" aria-busy="true">
         <section className="panel loading-panel" aria-live="polite">
           <p className="eyebrow">ContactSwap</p>
-          <h1>Loading…</h1>
+          <h1>{t("loading")}</h1>
         </section>
       </main>
     );
@@ -141,6 +149,7 @@ export function OwnerSessionGate() {
 
 function OwnerLoginPage() {
   const { authenticate, loginMessage } = useOwnerSession();
+  const { t } = useLanguage();
   const [tokenInput, setTokenInput] = useState("");
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -155,9 +164,9 @@ function OwnerLoginPage() {
     <main className="shell">
       <section className="panel login-panel" aria-labelledby="login-title">
         <p className="eyebrow">ContactSwap</p>
-        <h1 id="login-title">Owner</h1>
+        <h1 id="login-title">{t("owner")}</h1>
         <form onSubmit={handleSubmit} className="stack">
-          <label htmlFor="owner-token">Token</label>
+          <label htmlFor="owner-token">{t("token")}</label>
           <input
             id="owner-token"
             type="password"
@@ -167,10 +176,10 @@ function OwnerLoginPage() {
             required
           />
           <button className="primary-button" type="submit">
-            Continue
+            {t("continue")}
           </button>
         </form>
-        {loginMessage && <p className="notice" role="alert">{loginMessage}</p>}
+        {loginMessage && <p className="notice" role="alert">{t(loginMessage)}</p>}
       </section>
     </main>
   );
@@ -178,6 +187,7 @@ function OwnerLoginPage() {
 
 export function OwnerPageHeader({ title }: { title: string }) {
   const { logout } = useOwnerSession();
+  const { t } = useLanguage();
   return (
     <header className="page-header">
       <div>
@@ -185,11 +195,11 @@ export function OwnerPageHeader({ title }: { title: string }) {
         <h1>{title}</h1>
       </div>
       <div className="page-actions">
-        <nav className="owner-navigation" aria-label="Owner navigation">
-          <OwnerNavLink to="/" end>Profile</OwnerNavLink>
-          <OwnerNavLink to="/owner/links">Guest links</OwnerNavLink>
-          <OwnerNavLink to="/owner/submissions">Submissions</OwnerNavLink>
-          <button className="nav-button owner-nav-logout" type="button" onClick={logout}>Log out</button>
+        <nav className="owner-navigation" aria-label={t("navLabel")}>
+          <OwnerNavLink to="/" end>{t("profile")}</OwnerNavLink>
+          <OwnerNavLink to="/owner/links">{t("guestLinks")}</OwnerNavLink>
+          <OwnerNavLink to="/owner/submissions">{t("submissions")}</OwnerNavLink>
+          <button className="nav-button owner-nav-logout" type="button" onClick={logout}>{t("logOut")}</button>
         </nav>
       </div>
     </header>

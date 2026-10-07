@@ -4,19 +4,20 @@ import { OwnerPageHeader, useOwnerSession } from "../app/OwnerSession";
 import {
   errorCode,
   fetchOwnerLinks,
-  formatCreatedAt,
   isGuestUrl,
   OwnerApiError,
   ownerAuthorization
 } from "../lib/api";
+import { formatDateTime, useLanguage, type MessageKey } from "../lib/i18n";
 import type { GuestLink } from "../types";
 
 export default function OwnerLinksPage() {
   const { token, profile, unauthorized } = useOwnerSession();
+  const { language, t } = useLanguage();
   const [guestLinks, setGuestLinks] = useState<GuestLink[]>([]);
   const [linksLoading, setLinksLoading] = useState(false);
   const [linkActionBusy, setLinkActionBusy] = useState<"create" | string | null>(null);
-  const [linkMessage, setLinkMessage] = useState("");
+  const [linkMessage, setLinkMessage] = useState<MessageKey | "">("");
   const [generatedGuestUrl, setGeneratedGuestUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -35,7 +36,7 @@ export default function OwnerLinksPage() {
           unauthorized();
           return;
         }
-        setLinkMessage("Links could not be loaded. Try again.");
+        setLinkMessage("linksCouldNotLoad");
       } finally {
         if (!controller.signal.aborted) setLinksLoading(false);
       }
@@ -47,7 +48,7 @@ export default function OwnerLinksPage() {
   async function handleCreateGuestLink() {
     if (!token || linkActionBusy) return;
     if (!profile) {
-      setLinkMessage("Save your owner profile before creating a link.");
+      setLinkMessage("saveProfileBeforeLinkAction");
       return;
     }
 
@@ -64,33 +65,33 @@ export default function OwnerLinksPage() {
         return;
       }
       if (response.status === 404 && (await errorCode(response)) === "profile_not_found") {
-        setLinkMessage("Save your owner profile before creating a link.");
+        setLinkMessage("saveProfileBeforeLinkAction");
         return;
       }
       if (!response.ok) {
-        setLinkMessage("Link creation failed. Try again.");
+        setLinkMessage("linkCreationFailed");
         return;
       }
 
       const payload: unknown = await response.json();
       if (typeof payload !== "object" || payload === null || !("guestUrl" in payload) || !isGuestUrl(payload.guestUrl)) {
-        setLinkMessage("The link was created, but its URL could not be displayed. Check the overview before retrying.");
+        setLinkMessage("createdUrlCouldNotDisplay");
         return;
       }
 
       setGeneratedGuestUrl(payload.guestUrl);
       try {
         setGuestLinks(await fetchOwnerLinks(token));
-        setLinkMessage("Link created. Copy the URL now; it cannot be retrieved from this overview later.");
+        setLinkMessage("linkCreatedCopyNow");
       } catch (error) {
         if (error instanceof OwnerApiError && error.status === 401) {
           unauthorized();
           return;
         }
-        setLinkMessage("Link created, but the overview could not be refreshed. Your URL is still available to copy.");
+        setLinkMessage("linkOverviewRefreshFailed");
       }
     } catch {
-      setLinkMessage("Link creation failed. Try again.");
+      setLinkMessage("linkCreationFailed");
     } finally {
       setLinkActionBusy(null);
     }
@@ -101,18 +102,18 @@ export default function OwnerLinksPage() {
     try {
       if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable.");
       await navigator.clipboard.writeText(generatedGuestUrl);
-      setLinkMessage("Guest link copied.");
+      setLinkMessage("guestLinkCopied");
     } catch {
       const input = document.querySelector<HTMLInputElement>("#generated-guest-url");
       input?.focus();
       input?.select();
-      setLinkMessage("Copy is unavailable. Select and copy the link below.");
+      setLinkMessage("clipboardUnavailable");
     }
   }
 
   async function handleRevokeGuestLink(linkId: string) {
     if (!token || linkActionBusy) return;
-    if (!window.confirm("Revoke this link? It will stop working for guests, including its vCard link.")) return;
+    if (!window.confirm(t("revokeLinkConfirmation"))) return;
 
     setLinkActionBusy(linkId);
     setLinkMessage("");
@@ -127,21 +128,21 @@ export default function OwnerLinksPage() {
         return;
       }
       if (!response.ok) {
-        setLinkMessage("Link revocation failed. Try again.");
+        setLinkMessage("linkRevocationFailed");
         return;
       }
       try {
         setGuestLinks(await fetchOwnerLinks(token));
-        setLinkMessage("Link status updated.");
+        setLinkMessage("linkStatusUpdated");
       } catch (error) {
         if (error instanceof OwnerApiError && error.status === 401) {
           unauthorized();
           return;
         }
-        setLinkMessage("Revocation request succeeded, but the link status could not be refreshed.");
+        setLinkMessage("revocationRefreshFailed");
       }
     } catch {
-      setLinkMessage("Link revocation could not be confirmed. Refresh the overview before trying again.");
+      setLinkMessage("revocationNotConfirmed");
     } finally {
       setLinkActionBusy(null);
     }
@@ -149,18 +150,18 @@ export default function OwnerLinksPage() {
 
   return (
     <main className="shell profile-shell">
-      <OwnerPageHeader title="Guest links" />
-      {linkMessage && <p className="notice page-notice" role="status" aria-live="polite">{linkMessage}</p>}
+      <OwnerPageHeader title={t("guestLinks")} />
+      {linkMessage && <p className="notice page-notice" role="status" aria-live="polite">{t(linkMessage)}</p>}
       <section className="panel links-panel" aria-labelledby="links-heading">
         <div className="section-heading">
           <div>
-            <h2 id="links-heading">Your links</h2>
-            <p className="section-description">Active links do not expire by age. Each link can be used for one successful submission.</p>
+            <h2 id="links-heading">{t("yourLinks")}</h2>
+            <p className="section-description">{t("linksDescription")}</p>
           </div>
         </div>
         {!profile && (
           <p className="notice" role="status">
-            Save your owner profile before creating a guest link. <Link to="/">Go to your profile</Link>
+            {t("saveProfileBeforeLink")} <Link to="/">{t("goToProfile")}</Link>
           </p>
         )}
         <button
@@ -169,34 +170,34 @@ export default function OwnerLinksPage() {
           onClick={() => void handleCreateGuestLink()}
           disabled={!profile || linkActionBusy !== null}
         >
-          {linkActionBusy === "create" ? "Creating…" : "Generate new link"}
+          {linkActionBusy === "create" ? t("creating") : t("generateNewLink")}
         </button>
 
         {generatedGuestUrl && (
           <div className="generated-link" aria-labelledby="generated-link-heading">
-            <h3 id="generated-link-heading">Your new guest link</h3>
-            <p>Copy and share this URL now. It will not be available from the overview later.</p>
-            <label className="visually-hidden" htmlFor="generated-guest-url">New guest link URL</label>
+            <h3 id="generated-link-heading">{t("newGuestLink")}</h3>
+            <p>{t("guestLinkCopyDescription")}</p>
+            <label className="visually-hidden" htmlFor="generated-guest-url">{t("newGuestLinkUrl")}</label>
             <input id="generated-guest-url" type="text" value={generatedGuestUrl} readOnly />
             <button className="secondary-button" type="button" onClick={() => void handleCopyGuestUrl()}>
-              Copy link
+              {t("copyLink")}
             </button>
           </div>
         )}
 
-        <h3 className="links-subheading">Overview</h3>
+        <h3 className="links-subheading">{t("overview")}</h3>
         {linksLoading ? (
-          <p aria-live="polite">Loading links…</p>
+          <p aria-live="polite">{t("loadingLinks")}</p>
         ) : guestLinks.length === 0 ? (
-          <p>No guest links yet. Generate one when you are ready to share your contact card.</p>
+          <p>{t("noGuestLinks")}</p>
         ) : (
           <ul className="link-list">
             {guestLinks.map((link) => (
               <li className="link-card" key={link.id}>
                 <div className="link-card-content">
-                  <p><span className="link-label">Created</span> {formatCreatedAt(link.createdAt)}</p>
-                  <p><span className="link-label">Link ID</span> <code>{link.id}</code></p>
-                  <span className={`state-pill link-status status-${link.status}`}>{link.status}</span>
+                  <p><span className="link-label">{t("created")}</span> {formatDateTime(link.createdAt, language, t("dateUnavailable"))}</p>
+                  <p><span className="link-label">{t("linkId")}</span> <code>{link.id}</code></p>
+                  <span className={`state-pill link-status status-${link.status}`}>{t(link.status)}</span>
                 </div>
                 {link.status === "active" && (
                   <button
@@ -205,7 +206,7 @@ export default function OwnerLinksPage() {
                     onClick={() => void handleRevokeGuestLink(link.id)}
                     disabled={linkActionBusy !== null}
                   >
-                    {linkActionBusy === link.id ? "Revoking…" : "Revoke"}
+                    {linkActionBusy === link.id ? t("revoking") : t("revoke")}
                   </button>
                 )}
               </li>

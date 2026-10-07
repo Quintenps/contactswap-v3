@@ -2,19 +2,20 @@ import { useEffect, useState } from "react";
 import { OwnerPageHeader, useOwnerSession } from "../app/OwnerSession";
 import {
   fetchOwnerSubmissions,
-  formatCreatedAt,
   OwnerApiError,
   ownerAuthorization,
   submissionVCardFilename
 } from "../lib/api";
+import { formatDateTime, useLanguage, type MessageKey } from "../lib/i18n";
 import type { OwnerSubmission } from "../types";
 
 export default function OwnerSubmissionsPage() {
   const { token, unauthorized } = useOwnerSession();
+  const { language, t } = useLanguage();
   const [submissions, setSubmissions] = useState<OwnerSubmission[]>([]);
   const [submissionsLoading, setSubmissionsLoading] = useState(false);
   const [submissionBusy, setSubmissionBusy] = useState<string[]>([]);
-  const [submissionMessage, setSubmissionMessage] = useState("");
+  const [submissionMessage, setSubmissionMessage] = useState<MessageKey | "">("");
   const [submissionRetry, setSubmissionRetry] = useState(0);
 
   useEffect(() => {
@@ -33,7 +34,7 @@ export default function OwnerSubmissionsPage() {
           unauthorized();
           return;
         }
-        setSubmissionMessage("Submissions could not be loaded. Try again.");
+        setSubmissionMessage("submissionsCouldNotLoad");
       } finally {
         if (!controller.signal.aborted) setSubmissionsLoading(false);
       }
@@ -63,25 +64,25 @@ export default function OwnerSubmissionsPage() {
       if (response.status === 404) {
         try {
           setSubmissions(await fetchOwnerSubmissions(token));
-          setSubmissionMessage("This submission is no longer available.");
+          setSubmissionMessage("submissionUnavailable");
         } catch (error) {
           if (error instanceof OwnerApiError && error.status === 401) {
             unauthorized();
             return;
           }
-          setSubmissionMessage("This submission is no longer available. The list could not be refreshed.");
+          setSubmissionMessage("submissionUnavailableRefreshFailed");
         }
         return;
       }
       if (!response.ok) {
-        setSubmissionMessage("The contact card could not be downloaded. Try again.");
+        setSubmissionMessage("cardCouldNotDownload");
         return;
       }
 
       const contentType = response.headers.get("Content-Type")?.toLowerCase() ?? "";
       const blob = await response.blob();
       if (!/^text\/vcard(?:\s*;|$)/.test(contentType) || blob.size === 0) {
-        setSubmissionMessage("The contact card could not be downloaded. Try again.");
+        setSubmissionMessage("cardCouldNotDownload");
         return;
       }
 
@@ -101,9 +102,9 @@ export default function OwnerSubmissionsPage() {
       const completedDownloadUrl = downloadUrl;
       window.setTimeout(() => URL.revokeObjectURL(completedDownloadUrl), 1000);
       downloadUrl = undefined;
-      setSubmissionMessage("Contact card downloaded.");
+      setSubmissionMessage("contactCardDownloaded");
     } catch {
-      setSubmissionMessage("The contact card could not be downloaded. Check your connection and try again.");
+      setSubmissionMessage("cardDownloadConnectionFailed");
     } finally {
       if (downloadUrl) URL.revokeObjectURL(downloadUrl);
       setSubmissionBusy((current) => current.filter((id) => id !== submission.id));
@@ -112,30 +113,30 @@ export default function OwnerSubmissionsPage() {
 
   return (
     <main className="shell profile-shell">
-      <OwnerPageHeader title="Submitted contacts" />
-      {submissionMessage && <p className="notice page-notice" role="status" aria-live="polite">{submissionMessage}</p>}
+      <OwnerPageHeader title={t("submittedContacts")} />
+      {submissionMessage && <p className="notice page-notice" role="status" aria-live="polite">{t(submissionMessage)}</p>}
       <section className="panel links-panel" aria-labelledby="submissions-heading" aria-busy={submissionsLoading}>
         <div className="section-heading">
           <div>
-            <h2 id="submissions-heading">Guest submissions</h2>
-            <p className="section-description">Download each guest's contact card as a vCard.</p>
+            <h2 id="submissions-heading">{t("guestSubmissions")}</h2>
+            <p className="section-description">{t("downloadEachCard")}</p>
           </div>
         </div>
         {submissionsLoading ? (
-          <p aria-live="polite">Loading submissions…</p>
-        ) : submissionMessage.startsWith("Submissions could not be loaded") ? (
+          <p aria-live="polite">{t("loadingSubmissions")}</p>
+        ) : submissionMessage === "submissionsCouldNotLoad" ? (
           <button className="secondary-button" type="button" onClick={() => setSubmissionRetry((current) => current + 1)}>
-            Try again
+            {t("retry")}
           </button>
         ) : submissions.length === 0 ? (
-          <p>No guest submissions yet.</p>
+          <p>{t("noGuestSubmissions")}</p>
         ) : (
           <ul className="link-list">
             {submissions.map((submission) => (
               <li className="link-card submission-card" key={submission.id}>
                 <div className="link-card-content">
                   <p>{submission.name}</p>
-                  <p><span className="link-label">Submitted</span> {formatCreatedAt(submission.createdAt)}</p>
+                  <p><span className="link-label">{t("submitted")}</span> {formatDateTime(submission.createdAt, language, t("dateUnavailable"))}</p>
                 </div>
                 <button
                   className="secondary-button"
@@ -143,7 +144,7 @@ export default function OwnerSubmissionsPage() {
                   onClick={() => void handleDownloadSubmission(submission)}
                   disabled={submissionBusy.includes(submission.id)}
                 >
-                  {submissionBusy.includes(submission.id) ? "Downloading…" : "Download"}
+                  {submissionBusy.includes(submission.id) ? t("downloading") : t("download")}
                 </button>
               </li>
             ))}

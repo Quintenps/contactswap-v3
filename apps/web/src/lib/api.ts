@@ -1,4 +1,5 @@
 import type { GuestLink, GuestLinkResolution, OwnerSubmission, Profile } from "../types";
+import type { Language, MessageKey } from "./i18n";
 
 export const tokenStorageKey = "contactswap-owner-token";
 
@@ -166,12 +167,6 @@ export async function errorCode(response: Response): Promise<string | undefined>
   return undefined;
 }
 
-export function formatCreatedAt(value: string): string {
-  const date = new Date(value);
-  if (!Number.isFinite(date.valueOf())) return "Date unavailable";
-  return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(date);
-}
-
 export function submissionVCardFilename(contentDisposition: string | null): string {
   const match = contentDisposition?.match(/filename="([^"]+)"|filename=([^;]+)/i);
   const filename = match?.[1] ?? match?.[2]?.trim();
@@ -180,34 +175,34 @@ export function submissionVCardFilename(contentDisposition: string | null): stri
     : "contactswap-submission.vcf";
 }
 
-export function guestSubmissionErrorMessage(code: string | undefined): string {
+export function guestSubmissionErrorKey(code: string | undefined): MessageKey {
   switch (code) {
     case "invalid_submission":
-      return "Check the required details and try again.";
+      return "guestInvalidSubmission";
     case "unsupported_photo_type":
-      return "Use a JPEG, PNG, or WebP picture.";
+      return "guestPictureTypeError";
     case "photo_too_large":
-      return "That picture is too large. Choose a smaller one.";
+      return "guestPictureTooLarge";
     case "invalid_photo":
-      return "That picture could not be used. Choose another image.";
+      return "guestInvalidPicture";
     default:
-      return "Your details could not be submitted. Try again.";
+      return "guestSubmissionFallback";
   }
 }
 
-export function photoErrorMessage(code: string | undefined): string {
+export function photoErrorKey(code: string | undefined): MessageKey {
   switch (code) {
     case "unsupported_photo_type":
-      return "Use JPEG, PNG, or WebP.";
+      return "photoUseTypes";
     case "photo_too_large":
-      return "Image too large. Choose a smaller one.";
+      return "photoTooLarge";
     case "invalid_photo":
-      return "Invalid image. Choose JPEG, PNG, or WebP.";
+      return "invalidPhoto";
     case "photo_changed":
-      return "Photo changed. Reload and retry.";
+      return "photoChanged";
     case "profile_not_found":
-      return "Save profile first.";
+      return "saveProfileFirst";
     default:
-      return "Photo update failed. Try again.";
+      return "photoUpdateFailed";
   }
 }
