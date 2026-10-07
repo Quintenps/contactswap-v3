@@ -9,7 +9,7 @@ import { formatDateTime, languageStorageKey, translate, type Language } from "./
 let root: Root | undefined;
 let container: HTMLDivElement;
 
-async function renderApp(path = "/") {
+async function renderApp(path = "/quinten") {
   window.history.replaceState({}, "", path);
   container = document.createElement("div");
   document.body.append(container);
@@ -58,7 +58,7 @@ describe("frontend language support", () => {
     expect(document.documentElement.lang).toBe("nl");
     expect(document.querySelector<HTMLButtonElement>("#contactswap-language-toggle")?.dataset.language).toBe("nl");
     expect(document.querySelector<HTMLButtonElement>("#contactswap-language-toggle")?.textContent).toContain("🇳🇱");
-    expect(document.body.textContent).toContain("Mijn profiel");
+    expect(document.querySelector<HTMLInputElement>("#owner-token")?.placeholder).toBe("Vul je wachtwoord in");
     await setLanguage("en");
     const languageTrigger = document.querySelector<HTMLButtonElement>("#contactswap-language-toggle");
     if (!languageTrigger) throw new Error("Missing language selector.");
@@ -78,11 +78,19 @@ describe("frontend language support", () => {
     await setLanguage("en");
 
     expect(document.documentElement.lang).toBe("en");
-    expect(document.body.textContent).toContain("Your profile");
+    expect(document.querySelector<HTMLInputElement>("#owner-token")?.placeholder).toBe("Enter password");
     expect(document.querySelector<HTMLInputElement>("#owner-token")?.value).toBe("not-submitted-token");
     expect(fetch).not.toHaveBeenCalled();
     expect(window.localStorage.getItem(languageStorageKey)).toBe("en");
     expect(window.localStorage.getItem("contactswap-owner-token")).toBeNull();
+  });
+
+  it("shows a localized welcome page without an owner-dashboard link or API requests", async () => {
+    await renderApp("/");
+
+    expect(document.body.textContent).toContain("Een hallo brengt je dichter bij elkaar.");
+    expect(document.querySelector(".welcome-hero a, .welcome-hero button")).toBeNull();
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it("remembers the selected language and falls back to Dutch for an invalid saved value", async () => {
@@ -94,7 +102,7 @@ describe("frontend language support", () => {
 
     await renderApp();
     expect(document.querySelector<HTMLButtonElement>("#contactswap-language-toggle")?.dataset.language).toBe("en");
-    expect(document.body.textContent).toContain("Your profile");
+    expect(document.querySelector<HTMLInputElement>("#owner-token")?.placeholder).toBe("Enter password");
 
     await act(async () => root?.unmount());
     root = undefined;
@@ -103,11 +111,11 @@ describe("frontend language support", () => {
     await renderApp();
 
     expect(document.querySelector<HTMLButtonElement>("#contactswap-language-toggle")?.dataset.language).toBe("nl");
-    expect(document.body.textContent).toContain("Mijn profiel");
+    expect(document.querySelector<HTMLInputElement>("#owner-token")?.placeholder).toBe("Vul je wachtwoord in");
   });
 
   it("updates guest error copy in place without repeating the request", async () => {
-    await renderApp("/guest/guest-token");
+    await renderApp("/token/guest-token");
     await act(async () => Promise.resolve());
     expect(document.body.textContent).toContain("Oeps, dat ging niet goed");
     expect(document.body.textContent).toContain("Geen verbinding.");
