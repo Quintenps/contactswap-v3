@@ -57,6 +57,10 @@ async function click(element: HTMLButtonElement) {
   await act(async () => element.click());
 }
 
+async function clickLink(element: HTMLAnchorElement) {
+  await act(async () => element.click());
+}
+
 async function renderApp() {
   container = document.createElement("div");
   document.body.append(container);
@@ -96,6 +100,53 @@ function installFetch(handler: (input: RequestInfo | URL, init?: RequestInit) =>
   vi.stubGlobal("fetch", vi.fn(handler));
   return vi.mocked(fetch);
 }
+
+describe("frontend routes", () => {
+  it("navigates between owner pages without a full page load and responds to history changes", async () => {
+    window.localStorage.setItem(tokenStorageKey, token);
+    const fetchMock = installFetch(async (url) => {
+      if (url === "/api/owner/links") return response({ links: [] });
+      if (url === "/api/owner/submissions") return response({ submissions: [] });
+      return response(profile);
+    });
+    await renderLinksPage();
+
+    const submissionsLink = document.querySelector<HTMLAnchorElement>('nav[aria-label="Owner navigation"] a[href="/owner/submissions"]');
+    if (!submissionsLink) throw new Error("Missing submissions navigation link.");
+    await clickLink(submissionsLink);
+
+    expect(window.location.pathname).toBe("/owner/submissions");
+    expect(document.body.textContent).toContain("Submitted contacts");
+    expect(document.querySelector('nav[aria-label="Owner navigation"] a[aria-current="page"]')?.textContent)
+      .toBe("Submissions");
+    expect(fetchMock.mock.calls.some(([url]) => url === "/api/owner/submissions")).toBe(true);
+
+    await act(async () => {
+      window.history.pushState({}, "", "/owner/links");
+      window.dispatchEvent(new PopStateEvent("popstate", { state: window.history.state }));
+      await Promise.resolve();
+    });
+    expect(window.location.pathname).toBe("/owner/links");
+    expect(document.body.textContent).toContain("Your links");
+  });
+
+  it("shows a safe not-found state for unknown and malformed guest routes", async () => {
+    const fetchMock = installFetch(async () => response(profile));
+    window.history.pushState({}, "", "/guest/");
+    await renderApp();
+
+    expect(document.body.textContent).toContain("Page not found");
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    await act(async () => root?.unmount());
+    root = undefined;
+    container.remove();
+    window.history.replaceState({}, "", "/not-a-route");
+    await renderApp();
+    expect(document.body.textContent).toContain("Page not found");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
 
 beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
