@@ -9,7 +9,15 @@ export default function OwnerProfilePage() {
   const { token, profile, setProfile, unauthorized } = useOwnerSession();
   const { t } = useLanguage();
   const [values, setValues] = useState<ProfileFields>(() => profile
-    ? { name: profile.name, email: profile.email, address: profile.address, birthday: profile.birthday, phone: profile.phone }
+    ? {
+        name: profile.name,
+        email: profile.email,
+        address: profile.address,
+        birthday: profile.birthday,
+        phone: profile.phone,
+        org: profile.org ?? "",
+        title: profile.title ?? ""
+      }
     : emptyFields);
   const [hasPhoto, setHasPhoto] = useState(profile?.hasPhoto ?? false);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
@@ -26,7 +34,9 @@ export default function OwnerProfilePage() {
         email: profile.email,
         address: profile.address,
         birthday: profile.birthday,
-        phone: profile.phone
+        phone: profile.phone,
+        org: profile.org ?? "",
+        title: profile.title ?? ""
       });
       setHasPhoto(profile.hasPhoto);
     } else {
@@ -97,7 +107,9 @@ export default function OwnerProfilePage() {
       email: values.email.trim(),
       address: values.address.trim(),
       birthday: values.birthday.trim(),
-      phone: values.phone.trim()
+      phone: values.phone.trim(),
+      org: values.org.trim() || null,
+      title: values.title.trim() || null
     };
     try {
       const response = await fetch("/api/owner/profile", {
@@ -212,7 +224,9 @@ export default function OwnerProfilePage() {
     }
   }
 
-  const hasUnsavedChanges = profile !== null && fields.some(({ name }) => values[name] !== profile[name]);
+  const hasUnsavedChanges = profile !== null && fields.some(
+    ({ name }) => values[name] !== (profile[name] ?? "")
+  );
 
   return (
     <main className="shell profile-shell">
@@ -261,18 +275,21 @@ export default function OwnerProfilePage() {
           </span>
         </div>
         <form onSubmit={handleSave} className="profile-form" noValidate>
-          {fields.map(({ name, labelKey, type, autoComplete, hintKey, placeholder }) => (
+          {fields.map(({ name, labelKey, type, autoComplete, hintKey, placeholder, placeholderKey, optional }) => (
             <div className="field" key={name}>
-              <label htmlFor={name}>{t(labelKey)}<span aria-hidden="true"> *</span></label>
+              <label htmlFor={name}>
+                {t(labelKey)}{" "}
+                {optional ? <span>({t("optional")})</span> : <span aria-hidden="true"> *</span>}
+              </label>
               <input
                 id={name}
                 name={name}
                 type={type}
                 autoComplete={autoComplete}
-                placeholder={placeholder}
+                placeholder={placeholderKey ? t(placeholderKey) : placeholder}
                 inputMode={name === "phone" ? "tel" : undefined}
-                value={values[name]}
-                required
+                value={values[name] ?? ""}
+                required={!optional}
                 aria-invalid={Boolean(fieldErrors[name])}
                 aria-describedby={[
                   hintKey ? `${name}-hint` : undefined,

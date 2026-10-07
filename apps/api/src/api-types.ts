@@ -4,6 +4,8 @@ export type OwnerProfile = {
   address: string;
   birthday: string;
   phone: string;
+  org: string | null;
+  title: string | null;
 };
 
 export type StoredOwnerProfile = OwnerProfile & { photo_key: string | null };

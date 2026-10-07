@@ -139,6 +139,8 @@ describe("frontend language support", () => {
       address: "12 Main Street",
       birthday: "1990-02-28",
       phone: "+31600000000",
+      org: null,
+      title: null,
       hasPhoto: false
     };
     vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(profile), {

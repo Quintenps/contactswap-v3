@@ -10,7 +10,9 @@ const baseProfile = {
   email: "quinten@example.invalid",
   address: "12 Main St, Apt 3; East",
   birthday: "1990-02-28",
-  phone: "+31600000000"
+  phone: "+31600000000",
+  org: null,
+  title: null
 };
 
 async function call(
@@ -108,6 +110,8 @@ describe("owner profile API", () => {
     expect(initialVCard).toContain("BDAY:1990-02-28\r\n");
     expect(initialVCard).toContain("ADR;TYPE=home:;;12 Main St\\, Apt 3\\; East;;;;\r\n");
     expect(initialVCard).not.toContain("PHOTO:");
+    expect(initialVCard).not.toContain("ORG:");
+    expect(initialVCard).not.toContain("TITLE:");
 
     const updatedProfile = { ...baseProfile, address: "99 New Street" };
     const updateResponse = await call(
@@ -127,6 +131,37 @@ describe("owner profile API", () => {
     expect(count?.count).toBe(1);
   });
 
+  it("trims optional organization and title values and escapes them in the vCard", async () => {
+    const optionalProfile = {
+      ...baseProfile,
+      org: "  Example, Inc.; Europe\nMünchen  ",
+      title: "  Senior\\Architect  "
+    };
+    const saveResponse = await call("/api/owner/profile", profileRequest(optionalProfile));
+
+    expect(saveResponse.status).toBe(200);
+    expect(await saveResponse.json()).toEqual({
+      ...baseProfile,
+      org: "Example, Inc.; Europe\nMünchen",
+      title: "Senior\\Architect",
+      hasPhoto: false
+    });
+
+    const cardResponse = await call("/api/owner/profile/vcard");
+    const card = await cardResponse.text();
+    expect(card).toContain("ORG:Example\\, Inc.\\; Europe\\nMünchen\r\n");
+    expect(card).toContain("TITLE:Senior\\\\Architect\r\n");
+
+    const clearedResponse = await call(
+      "/api/owner/profile",
+      profileRequest({ ...baseProfile, org: "   ", title: null })
+    );
+    expect(await clearedResponse.json()).toEqual({ ...baseProfile, hasPhoto: false });
+    const clearedCard = await (await call("/api/owner/profile/vcard")).text();
+    expect(clearedCard).not.toContain("ORG:");
+    expect(clearedCard).not.toContain("TITLE:");
+  });
+
   it("rejects malformed and invalid profiles without changing saved data", async () => {
     await call("/api/owner/profile", profileRequest(baseProfile));
 
@@ -139,6 +174,8 @@ describe("owner profile API", () => {
       { ...profileRequest({ ...baseProfile, phone: "+31 6 0000 0000" }) },
       { ...profileRequest({ ...baseProfile, phone: "+3161234567890123" }) },
       { ...profileRequest({ ...baseProfile, phone: "" }) },
+      { ...profileRequest({ ...baseProfile, org: 42 }) },
+      { ...profileRequest({ ...baseProfile, title: {} }) },
       { ...profileRequest({ ...baseProfile, picture: "https://example.invalid/picture.jpg" }) },
       {
         method: "PUT",

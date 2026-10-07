@@ -43,7 +43,8 @@ routes.get("/profile-photo/:linkId/:signature", async (context) => {
 routes.get("/vcard/:linkId/:signature", async (context) => {
   const profile = await context.env.DB.prepare(
     `SELECT owner_profile.name, owner_profile.email, owner_profile.address,
-            owner_profile.birthday, owner_profile.phone, owner_profile.photo_key
+            owner_profile.birthday, owner_profile.phone, owner_profile.org,
+            owner_profile.title, owner_profile.photo_key
      FROM guest_links
      JOIN owner_profile ON owner_profile.id = 1
      WHERE guest_links.id = ?

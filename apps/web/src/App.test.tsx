@@ -13,6 +13,8 @@ const profile = {
   address: "12 Main Street",
   birthday: "1990-02-28",
   phone: "+31600000000",
+  org: null,
+  title: null,
   hasPhoto: false
 };
 const tokenStorageKey = "contactswap-owner-token";
@@ -647,6 +649,8 @@ describe("owner profile frontend", () => {
 
     expect(await screenText()).toContain("My details");
     expect(document.querySelector("#phone-hint")?.textContent).toContain("Example: +31600000000");
+    expect(input("org").placeholder).toBe("Larkspur Creative Studio");
+    expect(input("title").placeholder).toBe("Senior Product Designer");
     const requestCount = fetchMock.mock.calls.length;
     const languageToggle = document.querySelector<HTMLButtonElement>("#contactswap-language-toggle");
     if (!languageToggle) throw new Error("Missing language selector.");
@@ -688,6 +692,8 @@ describe("owner profile frontend", () => {
     changeValue(input("address"), " 12 Main Street ");
     changeValue(input("birthday"), "1990-02-28");
     changeValue(input("phone"), " +31600000000 ");
+    changeValue(input("org"), " ContactSwap ");
+    changeValue(input("title"), " Founder ");
     await submit(input("name").form!);
 
     const saveCall = fetchMock.mock.calls.find(([, init]) => init?.method === "PUT");
@@ -701,7 +707,9 @@ describe("owner profile frontend", () => {
       email: profile.email,
       address: profile.address,
       birthday: profile.birthday,
-      phone: profile.phone
+      phone: profile.phone,
+      org: "ContactSwap",
+      title: "Founder"
     });
     expect(document.body.textContent).toContain("Changes saved.");
     expect([...document.querySelectorAll(".profile-shell > .page-notice, .profile-shell > section.panel")].map((element) =>
@@ -716,9 +724,17 @@ describe("owner profile frontend", () => {
       email: profile.email,
       address: "99 New Street",
       birthday: profile.birthday,
-      phone: profile.phone
+      phone: profile.phone,
+      org: "ContactSwap",
+      title: "Founder"
     });
     expect(document.body.textContent).toContain("Changes saved.");
+
+    changeValue(input("org"), "");
+    changeValue(input("title"), "");
+    await submit(input("name").form!);
+    const clearedSave = fetchMock.mock.calls.filter(([, init]) => init?.method === "PUT")[2];
+    expect(JSON.parse(String(clearedSave?.[1]?.body))).toMatchObject({ org: null, title: null });
   });
 
   it("returns to login and clears a remembered token after a 401", async () => {
@@ -756,6 +772,8 @@ describe("owner profile frontend", () => {
     });
     await renderApp();
 
+    changeValue(input("org"), "Example Company");
+    changeValue(input("title"), "Product designer");
     changeValue(input("email"), "not-an-email");
     await submit(input("email").form!);
     expect(document.body.textContent).toContain("That email address doesn't look right.");
@@ -766,6 +784,8 @@ describe("owner profile frontend", () => {
     await submit(input("email").form!);
     expect(document.body.textContent).toContain("Check the required fields, email, birthday, and phone number.");
     expect(input("name").value).toBe("Edited name");
+    expect(input("org").value).toBe("Example Company");
+    expect(input("title").value).toBe("Product designer");
     expect(document.body.textContent).toContain("Not saved");
   });
 
@@ -911,6 +931,10 @@ describe("guest frontend", () => {
     expect(document.querySelector("#guest-birthday-hint")).toBeNull();
     expect(input("guest-phone").placeholder).toBe("+447700900123");
     expect(document.querySelector("#guest-phone-hint")?.textContent).toContain("For example: +447700900123.");
+    expect(input("guest-org").placeholder).toBe("Larkspur Creative Studio");
+    expect(input("guest-title").placeholder).toBe("Senior Product Designer");
+    expect(input("guest-org").required).toBe(false);
+    expect(input("guest-title").required).toBe(false);
 
     changeValue(input("guest-name"), "A name in progress");
     const requestCount = fetchMock.mock.calls.length;
@@ -930,6 +954,8 @@ describe("guest frontend", () => {
     expect(document.querySelector("#guest-birthday-hint")).toBeNull();
     expect(input("guest-phone").placeholder).toBe("+31612345678");
     expect(document.querySelector("#guest-phone-hint")?.textContent).toContain("Bijvoorbeeld: +31612345678.");
+    expect(input("guest-org").placeholder).toBe("Larkspur Ontwerpstudio");
+    expect(input("guest-title").placeholder).toBe("Senior productontwerper");
     expect(input("guest-name").value).toBe("A name in progress");
     expect(fetchMock).toHaveBeenCalledTimes(requestCount);
   });
@@ -1017,11 +1043,40 @@ describe("guest frontend", () => {
     expect(submission?.[1]?.body).toBeInstanceOf(FormData);
     expect((submission?.[1]?.body as FormData).get("picture")).toBeNull();
     expect((submission?.[1]?.body as FormData).get("phone")).toBe("+31600000001");
+    expect((submission?.[1]?.body as FormData).get("org")).toBeNull();
+    expect((submission?.[1]?.body as FormData).get("title")).toBeNull();
     expect(document.body.textContent).toContain("Your details are on their way.");
     expect(document.body.textContent).not.toContain("Guest Example");
     expect(document.querySelector("#guest-details-form")).toBeNull();
     expect(document.querySelector(".guest-state-thank-you")).not.toBeNull();
     expect(document.querySelector(".guest-state-emoji")?.textContent).toBe("🎉");
+  });
+
+  it("submits optional organization and title when provided", async () => {
+    const fetchMock = installActiveGuestLink(async (url) => {
+      if (url === vcardUrl) return vcardResponse();
+      if (url === `/api/guest/links/${guestToken}/submissions`) return response({ success: true }, 201);
+      return response({ error: { code: "not_found" } }, 404);
+    });
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    await renderGuestPage(guestToken);
+    await click(button("Download my card & share your details"));
+
+    changeValue(input("guest-name"), "Guest Example");
+    changeValue(input("guest-email"), "guest@example.invalid");
+    changeValue(input("guest-address"), "34 Example Street");
+    changeValue(input("guest-birthday"), "1992-06-17");
+    changeValue(input("guest-phone"), "+31600000001");
+    changeValue(input("guest-org"), "Larkspur Creative Studio");
+    changeValue(input("guest-title"), "Senior Product Designer");
+    await submit(document.querySelector<HTMLFormElement>("#guest-details-form")!);
+
+    const submission = fetchMock.mock.calls.find(
+      ([url]) => url === `/api/guest/links/${guestToken}/submissions`
+    );
+    const formData = submission?.[1]?.body as FormData;
+    expect(formData.get("org")).toBe("Larkspur Creative Studio");
+    expect(formData.get("title")).toBe("Senior Product Designer");
   });
 
   it("includes the optional picture only when one is selected", async () => {

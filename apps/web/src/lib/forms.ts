@@ -8,6 +8,8 @@ export const fields: {
   autoComplete: string;
   hintKey?: MessageKey;
   placeholder?: string;
+  placeholderKey?: MessageKey;
+  optional?: boolean;
 }[] = [
   { name: "name", labelKey: "fieldName", type: "text", autoComplete: "name" },
   { name: "email", labelKey: "fieldEmail", type: "email", autoComplete: "email" },
@@ -20,10 +22,34 @@ export const fields: {
     autoComplete: "tel",
     hintKey: "phoneHint",
     placeholder: "+31600000000"
+  },
+  {
+    name: "org",
+    labelKey: "fieldOrg",
+    type: "text",
+    autoComplete: "organization",
+    placeholderKey: "guestExampleOrg",
+    optional: true
+  },
+  {
+    name: "title",
+    labelKey: "fieldTitle",
+    type: "text",
+    autoComplete: "organization-title",
+    placeholderKey: "guestExampleTitle",
+    optional: true
   }
 ];
 
-export const emptyFields: ProfileFields = { name: "", email: "", address: "", birthday: "", phone: "" };
+export const emptyFields: ProfileFields = {
+  name: "",
+  email: "",
+  address: "",
+  birthday: "",
+  phone: "",
+  org: "",
+  title: ""
+};
 
 export function validateProfile(values: ProfileFields): Partial<Record<FieldName, MessageKey>> {
   const errors: Partial<Record<FieldName, MessageKey>> = {};

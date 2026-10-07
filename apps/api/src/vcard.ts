@@ -8,6 +8,8 @@ type VCardProfile = {
   address: string;
   birthday: string;
   phone: string;
+  org: string | null;
+  title: string | null;
 };
 
 function escapeText(value: string): string {
@@ -64,6 +66,12 @@ export function renderVCard(profile: VCardProfile, photo?: Uint8Array): string {
     `ADR;TYPE=home:;;${escapeText(profile.address)};;;;`
   ];
 
+  if (profile.org) {
+    lines.push(`ORG:${escapeText(profile.org)}`);
+  }
+  if (profile.title) {
+    lines.push(`TITLE:${escapeText(profile.title)}`);
+  }
   if (photo) {
     lines.push(`PHOTO;ENCODING=b;TYPE=JPEG:${encodePhotoBase64(photo)}`);
   }

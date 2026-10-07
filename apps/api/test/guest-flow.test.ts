@@ -16,14 +16,18 @@ const profile = {
   email: "quinten@example.invalid",
   address: "123 Owner Street",
   birthday: "1990-02-28",
-  phone: "+31600000000"
+  phone: "+31600000000",
+  org: "ContactSwap, Inc.",
+  title: "Founder"
 };
 const submission = {
   name: "Guest Example",
   email: "guest@example.invalid",
   address: "456 Guest Street",
   birthday: "1988-06-12",
-  phone: "+31600000001"
+  phone: "+31600000001",
+  org: "Guest Company",
+  title: "Designer"
 };
 
 async function call(path: string, init: RequestInit = {}): Promise<Response> {
@@ -100,6 +104,8 @@ describe("guest URL API flow", () => {
     expect(JSON.stringify(body)).not.toContain(profile.address);
     expect(JSON.stringify(body)).not.toContain(profile.birthday);
     expect(JSON.stringify(body)).not.toContain(profile.phone);
+    expect(JSON.stringify(body)).not.toContain(profile.org);
+    expect(JSON.stringify(body)).not.toContain(profile.title);
 
     const unknown = await call("/api/guest/links/unknown-token");
     expect(unknown.status).toBe(404);
@@ -169,6 +175,8 @@ describe("guest URL API flow", () => {
     expect(firstCardBody).toContain("FN:Quinten Example");
     expect(firstCardBody).toContain("VERSION:3.0\r\n");
     expect(firstCardBody).toContain("TEL;TYPE=CELL,VOICE,PREF:+31600000000\r\n");
+    expect(firstCardBody).toContain("ORG:ContactSwap\\, Inc.\r\n");
+    expect(firstCardBody).toContain("TITLE:Founder\r\n");
 
     await call("/api/owner/profile", {
       method: "PUT",
@@ -243,7 +251,7 @@ describe("guest URL API flow", () => {
     expect((await submit(token)).status).toBe(410);
 
     const stored = await env.DB.prepare(
-      "SELECT name, email, address, birthday, phone, created_at, expires_at FROM guest_submissions"
+      "SELECT name, email, address, birthday, phone, org, title, created_at, expires_at FROM guest_submissions"
     ).first<Record<string, string>>();
     expect(stored).toMatchObject(submission);
     expect(Date.parse(stored!.expires_at) - Date.parse(stored!.created_at)).toBe(
@@ -255,6 +263,36 @@ describe("guest URL API flow", () => {
     expect(await env.DB.prepare("SELECT id FROM notification_outbox").all()).toMatchObject({
       results: [{ id: expect.any(String) }]
     });
+  });
+
+  it("accepts omitted or blank optional organization and title values", async () => {
+    const omittedLink = await createGuestLink();
+    const withoutOptionalFields = {
+      name: submission.name,
+      email: submission.email,
+      address: submission.address,
+      birthday: submission.birthday,
+      phone: submission.phone
+    };
+    const omittedResponse = await submit(omittedLink.token, withoutOptionalFields);
+
+    expect(omittedResponse.status).toBe(201);
+    const omittedStored = await env.DB.prepare(
+      "SELECT org, title FROM guest_submissions WHERE link_id = ?"
+    )
+      .bind(omittedLink.linkId)
+      .first<{ org: string | null; title: string | null }>();
+    expect(omittedStored).toEqual({ org: null, title: null });
+
+    const blankLink = await createGuestLink();
+    const blankResponse = await submit(blankLink.token, { ...submission, org: "  ", title: "" });
+    expect(blankResponse.status).toBe(201);
+    const blankStored = await env.DB.prepare(
+      "SELECT org, title FROM guest_submissions WHERE link_id = ?"
+    )
+      .bind(blankLink.linkId)
+      .first<{ org: string | null; title: string | null }>();
+    expect(blankStored).toEqual({ org: null, title: null });
   });
 
   it("allows only one of two concurrent submissions", async () => {

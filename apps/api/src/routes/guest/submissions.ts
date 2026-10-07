@@ -21,7 +21,7 @@ routes.post("/links/:token/submissions", async (context) => {
       );
     }
 
-    const allowedFields = new Set(["name", "email", "address", "birthday", "phone", "picture"]);
+    const allowedFields = new Set(["name", "email", "address", "birthday", "phone", "org", "title", "picture"]);
     let invalid = false;
     form.forEach((_value, field) => {
       if (!allowedFields.has(field)) {
@@ -36,6 +36,19 @@ routes.post("/links/:token/submissions", async (context) => {
         invalid = true;
       } else {
         values[field] = entries[0];
+      }
+    }
+    for (const field of ["org", "title"]) {
+      const entries = form.getAll(field);
+      if (entries.length > 1) {
+        invalid = true;
+      } else if (entries.length === 1) {
+        const entry = entries[0];
+        if (typeof entry !== "string") {
+          invalid = true;
+        } else {
+          values[field] = entry;
+        }
       }
     }
 
@@ -141,8 +154,8 @@ routes.post("/links/:token/submissions", async (context) => {
     const results = await context.env.DB.batch([
       context.env.DB.prepare(
         `INSERT INTO guest_submissions
-           (id, link_id, name, email, address, birthday, phone, photo_key, created_at, expires_at)
-         SELECT ?, id, ?, ?, ?, ?, ?, ?, ?, ?
+           (id, link_id, name, email, address, birthday, phone, org, title, photo_key, created_at, expires_at)
+         SELECT ?, id, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
          FROM guest_links
          WHERE token_hash = ? AND consumed_at IS NULL AND revoked_at IS NULL`
       ).bind(
@@ -152,6 +165,8 @@ routes.post("/links/:token/submissions", async (context) => {
         submission.address,
         submission.birthday,
         submission.phone,
+        submission.org,
+        submission.title,
         photoKey,
         now,
         expiresAt,
