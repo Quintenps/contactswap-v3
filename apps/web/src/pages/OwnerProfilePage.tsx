@@ -264,67 +264,69 @@ export default function OwnerProfilePage() {
       <OwnerPageHeader title={t("profile")} />
       {message && <p className="notice page-notice" role="status" aria-live="polite">{t(message)}</p>}
 
-      <section className="panel photo-panel" aria-labelledby="photo-heading">
-        <div className="section-heading">
-          <div><h2 id="photo-heading">{t("photo")}</h2></div>
-          <span className="state-pill">{hasPhoto ? t("photoAdded") : t("photoNone")}</span>
-        </div>
-        {hasPhoto && (
-          <div className="photo-preview">
-            {photoUrl
-              ? <img src={photoUrl} alt={t("profilePhotoAlt")} />
-              : <span className="preview-placeholder" aria-live="polite">{t("uploadingPreview")}</span>}
+      <div className="profile-layout">
+        <section className="panel profile-panel" aria-labelledby="profile-heading">
+          <div className="section-heading">
+            <div><h2 id="profile-heading">{t("contactDetails")}</h2></div>
+            <span className={`state-pill ${hasUnsavedChanges ? "state-unsaved" : ""}`}>
+              {!profile ? t("new") : hasUnsavedChanges ? t("unsaved") : t("saved")}
+            </span>
           </div>
-        )}
-        <form className="photo-form" onSubmit={handlePhotoUpload}>
-          <input
-            id="profile-photo"
-            ref={fileInput}
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            aria-label={t("profilePhotoAlt")}
-            disabled={!profile || busy !== null}
-          />
-          <div className="photo-actions">
-            <button className="secondary-button" type="submit" disabled={!profile || busy !== null}>
-              {busy === "upload" ? t("uploading") : hasPhoto ? t("replacing") : t("upload")}
-            </button>
-            {hasPhoto && (
-              <button className="danger-button" type="button" onClick={handlePhotoRemoval} disabled={busy !== null}>
-                {busy === "remove" ? t("removing") : t("remove")}
+          <form onSubmit={handleSave} className="profile-form" noValidate>
+            <fieldset className="profile-form-section">
+              <legend>{t("profileContactSection")}</legend>
+              <div className="profile-form-fields">
+                {fields.filter(({ optional }) => !optional).map(renderField)}
+              </div>
+            </fieldset>
+            <fieldset className="profile-form-section">
+              <legend>{t("profileWorkSection")}</legend>
+              <div className="profile-form-fields">
+                {fields.filter(({ optional }) => optional).map(renderField)}
+              </div>
+            </fieldset>
+            <div className="form-actions">
+              <button className="primary-button" type="submit" disabled={busy !== null}>
+                {busy === "save" ? t("saving") : t("save")}
               </button>
-            )}
-          </div>
-        </form>
-      </section>
+            </div>
+          </form>
+        </section>
 
-      <section className="panel profile-panel" aria-labelledby="profile-heading">
-        <div className="section-heading">
-          <div><h2 id="profile-heading">{t("contactDetails")}</h2></div>
-          <span className={`state-pill ${hasUnsavedChanges ? "state-unsaved" : ""}`}>
-            {!profile ? t("new") : hasUnsavedChanges ? t("unsaved") : t("saved")}
-          </span>
-        </div>
-        <form onSubmit={handleSave} className="profile-form" noValidate>
-          <fieldset className="profile-form-section">
-            <legend>{t("profileContactSection")}</legend>
-            <div className="profile-form-fields">
-              {fields.filter(({ optional }) => !optional).map(renderField)}
-            </div>
-          </fieldset>
-          <fieldset className="profile-form-section">
-            <legend>{t("profileWorkSection")}</legend>
-            <div className="profile-form-fields">
-              {fields.filter(({ optional }) => optional).map(renderField)}
-            </div>
-          </fieldset>
-          <div className="form-actions">
-            <button className="primary-button" type="submit" disabled={busy !== null}>
-              {busy === "save" ? t("saving") : t("save")}
-            </button>
+        <section className="panel photo-panel" aria-labelledby="photo-heading">
+          <div className="section-heading">
+            <div><h2 id="photo-heading">{t("photo")}</h2></div>
+            <span className="state-pill">{hasPhoto ? t("photoAdded") : t("photoNone")}</span>
           </div>
-        </form>
-      </section>
+          {hasPhoto && (
+            <div className="photo-preview">
+              {photoUrl
+                ? <img src={photoUrl} alt={t("profilePhotoAlt")} />
+                : <span className="preview-placeholder" aria-live="polite">{t("uploadingPreview")}</span>}
+            </div>
+          )}
+          <form className="photo-form" onSubmit={handlePhotoUpload}>
+            <input
+              id="profile-photo"
+              ref={fileInput}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              aria-label={t("profilePhotoAlt")}
+              disabled={!profile || busy !== null}
+            />
+            <div className="photo-actions">
+              <button className="secondary-button" type="submit" disabled={!profile || busy !== null}>
+                {busy === "upload" ? t("uploading") : hasPhoto ? t("replacing") : t("upload")}
+              </button>
+              {hasPhoto && (
+                <button className="danger-button" type="button" onClick={handlePhotoRemoval} disabled={busy !== null}>
+                  {busy === "remove" ? t("removing") : t("remove")}
+                </button>
+              )}
+            </div>
+          </form>
+        </section>
+      </div>
     </main>
   );
 }

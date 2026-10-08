@@ -667,9 +667,9 @@ describe("owner profile frontend", () => {
 
     expect(document.querySelector("#phone-hint")?.textContent).toContain("Bijvoorbeeld: +31600000000");
     expect(fetchMock).toHaveBeenCalledTimes(requestCount);
-    expect([...document.querySelectorAll(".profile-shell > section.panel")].map((panel) =>
+    expect([...document.querySelectorAll(".profile-layout > section.panel")].map((panel) =>
       panel.getAttribute("aria-labelledby")
-    )).toEqual(["photo-heading", "profile-heading"]);
+    )).toEqual(["profile-heading", "photo-heading"]);
     expect(fetchMock).toHaveBeenCalledWith("/api/owner/profile", {
       headers: { Authorization: `Bearer ${token}` },
       cache: "no-store"
@@ -716,9 +716,9 @@ describe("owner profile frontend", () => {
       title: "Founder"
     });
     expect(document.body.textContent).toContain("Changes saved.");
-    expect([...document.querySelectorAll(".profile-shell > .page-notice, .profile-shell > section.panel")].map((element) =>
+    expect([...document.querySelectorAll(".profile-shell > .page-notice, .profile-layout > section.panel")].map((element) =>
       element.classList.contains("page-notice") ? "notice" : element.getAttribute("aria-labelledby")
-    )).toEqual(["notice", "photo-heading", "profile-heading"]);
+    )).toEqual(["notice", "profile-heading", "photo-heading"]);
 
     changeValue(input("address"), " 99 New Street ");
     await submit(input("address").form!);

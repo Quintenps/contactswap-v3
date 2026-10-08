@@ -372,9 +372,15 @@ a:focus-visible {
 }
 
 .profile-shell {
-  width: min(100% - 32px, 760px);
+  width: min(100% - 32px, 1120px);
   display: block;
   padding: 52px 0 40px;
+}
+
+.profile-layout {
+  display: grid;
+  align-items: start;
+  gap: 18px;
 }
 
 .guest-shell {
@@ -877,8 +883,15 @@ input[aria-invalid="true"] {
 
 .profile-panel,
 .photo-panel {
-  margin-bottom: 18px;
   padding: clamp(20px, 5vw, 32px);
+}
+
+.profile-panel {
+  min-width: 0;
+}
+
+.photo-panel {
+  min-width: 0;
 }
 
 .section-heading {
@@ -908,18 +921,18 @@ input[aria-invalid="true"] {
 
 .profile-form {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
 }
 
 .profile-panel .profile-form {
-  gap: 20px;
+  gap: 16px;
 }
 
 .profile-form-section {
   min-width: 0;
   margin: 0;
-  padding: 12px 20px 20px;
+  padding: 12px clamp(14px, 2.5vw, 20px) 20px;
   border: 1px solid var(--line);
   border-radius: 12px;
   background: #fbfdff;
@@ -935,7 +948,7 @@ input[aria-invalid="true"] {
 .profile-form-fields {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 22px 20px;
+  gap: 20px clamp(14px, 2vw, 20px);
 }
 
 .profile-field-wide {
@@ -1031,6 +1044,12 @@ input[type="file"]::file-selector-button {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+@media (min-width: 900px) {
+  .profile-layout {
+    grid-template-columns: minmax(0, 1.8fr) minmax(260px, 0.8fr);
+  }
 }
 
 .secondary-button,
@@ -1273,10 +1292,6 @@ input[type="file"]::file-selector-button {
 
   .page-header h1 {
     font-size: clamp(1.9rem, 10vw, 2.6rem);
-  }
-
-  .profile-form {
-    grid-template-columns: 1fr;
   }
 
   .profile-form-fields {
