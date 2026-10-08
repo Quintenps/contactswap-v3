@@ -211,6 +211,10 @@ describe("owner guest-link API", () => {
       method: "POST",
       body: guestSubmissionForm()
     });
+    const consumedResolution = (await (
+      await call(`/api/guest/links/${consumedLink.guestToken}`)
+    ).json()) as { vcardUrl: string };
+    expect((await call(consumedResolution.vcardUrl)).status).toBe(200);
     await revokeGuestLink(revokedLink.id);
 
     const response = await call("/api/owner/links");
@@ -299,6 +303,10 @@ describe("owner guest-link API", () => {
       method: "POST",
       body: guestSubmissionForm()
     });
+    const resolution = (await (
+      await call(`/api/guest/links/${guestToken}`)
+    ).json()) as { vcardUrl: string };
+    expect((await call(resolution.vcardUrl)).status).toBe(200);
     const before = await env.DB.prepare(
       "SELECT consumed_at, revoked_at FROM guest_links"
     ).first<{ consumed_at: string | null; revoked_at: string | null }>();
@@ -315,6 +323,22 @@ describe("owner guest-link API", () => {
     expect(await env.DB.prepare("SELECT id FROM notification_outbox").first()).not.toBeNull();
   });
 
+  it("revokes a submitted link without deleting its submission or notification", async () => {
+    const { guestToken, id } = await createGuestLink();
+    const submissionResponse = await call(`/api/guest/links/${guestToken}/submissions`, {
+      method: "POST",
+      body: guestSubmissionForm()
+    });
+
+    expect(submissionResponse.status).toBe(201);
+    expect((await revokeGuestLink(id)).status).toBe(204);
+    expect((await call(`/api/guest/links/${guestToken}`)).status).toBe(410);
+    expect(await env.DB.prepare("SELECT id FROM guest_submissions").first()).not.toBeNull();
+    expect(await env.DB.prepare("SELECT id FROM notification_outbox").first()).not.toBeNull();
+    expect(await env.DB.prepare("SELECT revoked_at FROM guest_links").first<{ revoked_at: string }>())
+      .toMatchObject({ revoked_at: expect.any(String) });
+  });
+
   it("serializes concurrent revocation and submission", async () => {
     const { guestToken, id } = await createGuestLink();
     const [revokeResponse, submissionResponse] = await Promise.all([
@@ -325,8 +349,12 @@ describe("owner guest-link API", () => {
       })
     ]);
     const link = await env.DB.prepare(
-      "SELECT consumed_at, revoked_at FROM guest_links"
-    ).first<{ consumed_at: string | null; revoked_at: string | null }>();
+      "SELECT consumed_at, submitted_at, revoked_at FROM guest_links"
+    ).first<{
+      consumed_at: string | null;
+      submitted_at: string | null;
+      revoked_at: string | null;
+    }>();
     const submissionCount = await env.DB.prepare(
       "SELECT COUNT(*) AS count FROM guest_submissions"
     ).first<{ count: number }>();
@@ -334,11 +362,12 @@ describe("owner guest-link API", () => {
     expect(revokeResponse.status).toBe(204);
     expect([201, 410]).toContain(submissionResponse.status);
     if (submissionResponse.status === 201) {
-      expect(link?.consumed_at).not.toBeNull();
-      expect(link?.revoked_at).toBeNull();
+      expect(link?.consumed_at).toBeNull();
+      expect(link?.submitted_at).not.toBeNull();
       expect(submissionCount?.count).toBe(1);
     } else {
       expect(link?.consumed_at).toBeNull();
+      expect(link?.submitted_at).toBeNull();
       expect(link?.revoked_at).not.toBeNull();
       expect(submissionCount?.count).toBe(0);
     }

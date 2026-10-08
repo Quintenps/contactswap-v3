@@ -173,9 +173,9 @@ describe("frontend language support", () => {
     expect(translate("nl", "validPhone")).toContain("E.164-formaat");
     expect(translate("en", "validPhone")).toContain("E.164 format");
     expect(translate("nl", "downloadCardOnly")).toBe("Alleen kaart downloaden");
-    expect(translate("nl", "downloadAndShare")).toBe("Kaart downloaden en mijn gegevens delen");
+    expect(translate("nl", "downloadAndShare")).toBe("Mijn gegevens delen en daarna de kaart ophalen");
     expect(translate("en", "downloadCardOnly")).toBe("Download the card only");
-    expect(translate("en", "downloadAndShare")).toBe("Download the card & share my details");
+    expect(translate("en", "downloadAndShare")).toBe("Share my details, then get the card");
     expect(formatDateTime("2026-10-06T12:00:00.000Z", "nl", translate("nl", "dateUnavailable")))
       .not.toBe(formatDateTime("2026-10-06T12:00:00.000Z", "en", translate("en", "dateUnavailable")));
     expect(formatDateTime("invalid", "nl", translate("nl", "dateUnavailable"))).toBe("Datum onbekend");

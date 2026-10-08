@@ -93,6 +93,7 @@ describe("guest URL API flow", () => {
       ownerName: string;
       profilePhotoUrl: string | null;
       vcardUrl: string;
+      submissionComplete: boolean;
     };
 
     expect(resolved.status).toBe(200);
@@ -100,6 +101,7 @@ describe("guest URL API flow", () => {
     expect(body.ownerName).toBe(profile.name);
     expect(body.profilePhotoUrl).toBeNull();
     expect(body.vcardUrl).toMatch(/^\/api\/guest\/vcard\/[\da-f-]{36}\/[A-Za-z\d_-]+$/i);
+    expect(body.submissionComplete).toBe(false);
     expect(JSON.stringify(body)).not.toContain(profile.email);
     expect(JSON.stringify(body)).not.toContain(profile.address);
     expect(JSON.stringify(body)).not.toContain(profile.birthday);
@@ -151,6 +153,9 @@ describe("guest URL API flow", () => {
       await call(`/api/guest/links/${consumedLink.token}`)
     ).json()) as { profilePhotoUrl: string };
     expect((await submit(consumedLink.token)).status).toBe(201);
+    expect((await call(consumedResolution.profilePhotoUrl)).status).toBe(200);
+    const vcardUrl = consumedResolution.profilePhotoUrl.replace("profile-photo", "vcard");
+    expect((await call(vcardUrl)).status).toBe(200);
     expect((await call(consumedResolution.profilePhotoUrl)).status).toBe(404);
     await env.PHOTOS.delete(photoKey);
   });
@@ -160,24 +165,6 @@ describe("guest URL API flow", () => {
     const resolved = (await (await call(`/api/guest/links/${token}`)).json()) as {
       vcardUrl: string;
     };
-    const firstCard = await call(resolved.vcardUrl);
-
-    expect(firstCard.status).toBe(200);
-    expect(firstCard.headers.get("Content-Type")).toBe(
-      "text/vcard; version=3.0; charset=utf-8"
-    );
-    expect(firstCard.headers.get("Content-Disposition")).toBe(
-      'attachment; filename="quinten-example.vcf"'
-    );
-    expect(firstCard.headers.get("Cache-Control")).toBe("no-store");
-    expect(firstCard.headers.get("Referrer-Policy")).toBe("no-referrer");
-    const firstCardBody = await firstCard.text();
-    expect(firstCardBody).toContain("FN:Quinten Example");
-    expect(firstCardBody).toContain("VERSION:3.0\r\n");
-    expect(firstCardBody).toContain("TEL;TYPE=CELL,VOICE,PREF:+31600000000\r\n");
-    expect(firstCardBody).toContain("ORG:ContactSwap\\, Inc.\r\n");
-    expect(firstCardBody).toContain("TITLE:Founder\r\n");
-
     await call("/api/owner/profile", {
       method: "PUT",
       headers: {
@@ -187,7 +174,24 @@ describe("guest URL API flow", () => {
       body: JSON.stringify({ ...profile, address: "Updated Owner Street" })
     });
     const currentCard = await call(resolved.vcardUrl);
-    expect(await currentCard.text()).toContain("ADR;TYPE=home:;;Updated Owner Street;;;;");
+
+    expect(currentCard.status).toBe(200);
+    expect(currentCard.headers.get("Content-Type")).toBe(
+      "text/vcard; version=3.0; charset=utf-8"
+    );
+    expect(currentCard.headers.get("Content-Disposition")).toBe(
+      'attachment; filename="quinten-example.vcf"'
+    );
+    expect(currentCard.headers.get("Cache-Control")).toBe("no-store");
+    expect(currentCard.headers.get("Referrer-Policy")).toBe("no-referrer");
+    const currentCardBody = await currentCard.text();
+    expect(currentCardBody).toContain("FN:Quinten Example");
+    expect(currentCardBody).toContain("VERSION:3.0\r\n");
+    expect(currentCardBody).toContain("TEL;TYPE=CELL,VOICE,PREF:+31600000000\r\n");
+    expect(currentCardBody).toContain("ORG:ContactSwap\\, Inc.\r\n");
+    expect(currentCardBody).toContain("TITLE:Founder\r\n");
+    expect(currentCardBody).toContain("ADR;TYPE=home:;;Updated Owner Street;;;;");
+    expect((await call(resolved.vcardUrl)).status).toBe(404);
 
     const [linkId, signature] = resolved.vcardUrl.split("/").slice(-2);
     const invalidSignature = await call(`/api/guest/vcard/${linkId}/${signature.slice(1)}x`);
@@ -202,6 +206,32 @@ describe("guest URL API flow", () => {
     const crossLink = await call(`/api/guest/vcard/${linkId}/${secondSignature}`);
     expect(crossLink.status).toBe(404);
     expect(await crossLink.text()).not.toContain(profile.email);
+  });
+
+  it("allows only one concurrent vCard download to consume a link", async () => {
+    const { token } = await createGuestLink();
+    const resolved = (await (await call(`/api/guest/links/${token}`)).json()) as {
+      vcardUrl: string;
+    };
+
+    const responses = await Promise.all([
+      call(resolved.vcardUrl),
+      call(resolved.vcardUrl)
+    ]);
+
+    expect(responses.map((response) => response.status).sort()).toEqual([200, 404]);
+    expect((await call(`/api/guest/links/${token}`)).status).toBe(410);
+  });
+
+  it("does not consume a link when the signed card request fails", async () => {
+    const { token } = await createGuestLink();
+    const resolved = (await (await call(`/api/guest/links/${token}`)).json()) as {
+      vcardUrl: string;
+    };
+    const [linkId, signature] = resolved.vcardUrl.split("/").slice(-2);
+
+    expect((await call(`/api/guest/vcard/${linkId}/${signature.slice(1)}x`)).status).toBe(404);
+    expect((await call(resolved.vcardUrl)).status).toBe(200);
   });
 
   it("rejects missing, blank, malformed, and unsupported submission values without consuming the link", async () => {
@@ -240,15 +270,23 @@ describe("guest URL API flow", () => {
     expect(await env.DB.prepare("SELECT id FROM guest_submissions").first()).toBeNull();
   });
 
-  it("atomically stores one submission, consumes the link, and schedules a private notification", async () => {
+  it("atomically stores one submission, keeps the card available, and schedules a private notification", async () => {
     const { token } = await createGuestLink();
     const response = await submit(token);
 
     expect(response.status).toBe(201);
     expect(response.headers.get("Cache-Control")).toBe("no-store");
     expect(await response.json()).toEqual({ success: true });
-    expect((await call(`/api/guest/links/${token}`)).status).toBe(410);
+    const resolution = await call(`/api/guest/links/${token}`);
+    expect(resolution.status).toBe(200);
+    const resolutionBody = (await resolution.json()) as {
+      submissionComplete: boolean;
+      vcardUrl: string;
+    };
+    expect(resolutionBody.submissionComplete).toBe(true);
     expect((await submit(token)).status).toBe(410);
+    expect((await call(resolutionBody.vcardUrl)).status).toBe(200);
+    expect((await call(`/api/guest/links/${token}`)).status).toBe(410);
 
     const stored = await env.DB.prepare(
       "SELECT name, email, address, birthday, phone, org, title, created_at, expires_at FROM guest_submissions"
@@ -304,6 +342,18 @@ describe("guest URL API flow", () => {
       count: number;
     }>();
     expect(count?.count).toBe(1);
+  });
+
+  it("keeps the submission lock after guest data expires", async () => {
+    const { token, linkId } = await createGuestLink();
+    expect((await submit(token)).status).toBe(201);
+    await env.DB.prepare("DELETE FROM guest_submissions WHERE link_id = ?").bind(linkId).run();
+
+    const resolution = (await (
+      await call(`/api/guest/links/${token}`)
+    ).json()) as { submissionComplete: boolean };
+    expect(resolution.submissionComplete).toBe(true);
+    expect((await submit(token)).status).toBe(410);
   });
 
   it("rolls back submission and link consumption when persistence fails", async () => {
@@ -390,6 +440,7 @@ describe("guest URL API flow", () => {
       vcardUrl: string;
     };
     expect((await submit(activeLink.token)).status).toBe(201);
+    expect((await call(activeResolved.vcardUrl)).status).toBe(200);
     expect((await call(activeResolved.vcardUrl)).status).toBe(404);
   });
 });

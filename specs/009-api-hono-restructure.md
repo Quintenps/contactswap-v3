@@ -82,7 +82,7 @@ The refactor must preserve these routes and their current behavior:
 | `POST` | `/api/guest/links/:token/submissions` | Guest |
 | `GET` | `/api/guest/vcard/:linkId/:signature` | Guest |
 
-All existing validation and response semantics remain intact, including required profile and submission fields, optional photo handling, active-link checks, single-use submission behavior, 30-day submission expiry, and privacy-minimizing webhook notifications.
+All existing validation and response semantics remain intact, including required profile and submission fields, optional photo handling, active-link checks, single-use submission behavior, 30-day submission expiry, and privacy-minimizing webhook notifications, except for the guest lifecycle revision in spec 021.
 
 Preserve the existing response headers for binary content:
 
@@ -104,10 +104,10 @@ Preserve the existing response headers for binary content:
 - Owner authorization and no-store cache headers consistently cover every owner and guest route, including failures, photos, and vCard downloads.
 - The root error handler and not-found behavior remain centralized and retain their existing safe response and logging behavior.
 - The Worker continues to execute scheduled retention cleanup and notification retries. Existing imports of the default app and `runScheduledTasks` remain valid.
-- Guest links remain single-use only after successful submission; signed vCard access remains link-scoped and is revoked when the link is consumed or revoked.
+- Guest submissions remain single-use and signed vCard access remains link-scoped. The revised lifecycle in spec 021 records submission separately and consumes the link only after a successful card response.
 - Existing focused API tests continue to pass. Add or adjust tests where necessary to cover route mounting and middleware boundaries, including unauthorized requests, cache headers, not-found behavior, and scheduled task invocation.
 - Type checking, the API test suite, and the production Worker build pass.
-- No new runtime dependency, database migration, frontend change, or product behavior change is introduced.
+- No new runtime dependency is introduced. Guest-flow changes and the required submitted-link timestamp migration are specified in spec 021.
 
 ## Verification
 

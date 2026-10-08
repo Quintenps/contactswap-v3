@@ -912,6 +912,36 @@ input[aria-invalid="true"] {
   gap: 18px;
 }
 
+.profile-panel .profile-form {
+  gap: 20px;
+}
+
+.profile-form-section {
+  min-width: 0;
+  margin: 0;
+  padding: 12px 20px 20px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fbfdff;
+}
+
+.profile-form-section legend {
+  padding: 0 8px;
+  color: var(--ink);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.profile-form-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px 20px;
+}
+
+.profile-field-wide {
+  grid-column: 1 / -1;
+}
+
 .field {
   display: grid;
   align-content: start;
@@ -935,6 +965,17 @@ input[aria-invalid="true"] {
 .form-actions {
   grid-column: 1 / -1;
   padding-top: 3px;
+}
+
+.profile-panel .form-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 18px;
+  border-top: 1px solid #e8eff7;
+}
+
+.profile-panel .form-actions .primary-button {
+  min-width: 150px;
 }
 
 .photo-preview {
@@ -1235,6 +1276,10 @@ input[type="file"]::file-selector-button {
   }
 
   .profile-form {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-form-fields {
     grid-template-columns: 1fr;
   }
 

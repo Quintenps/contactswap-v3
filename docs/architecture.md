@@ -10,7 +10,7 @@ ContactSwap runs primarily on Cloudflare's platform.
 
 ## Frontend
 
-TypeScript-based, mobile-first web application with an owner interface and a guest submission form. Show clear feedback for validation and service errors, and show the guest a thank-you state only after a successful submission.
+TypeScript-based, mobile-first web application with an owner interface and a guest submission form. The combined guest action submits details before downloading the card, and shows a thank-you state after a successful card download. If the download fails after submission, offer a retry without resubmitting.
 
 The frontend communicates with Workers through HTTP APIs. Owner-only operations must be authorized server-side; the admin token and webhook configuration must never be embedded in or exposed to the browser.
 
@@ -27,7 +27,7 @@ Cloudflare Worker APIs provide:
 - Delivery of the owner's current vCard 3.0 through the signed URL associated with an active guest link
 - A summary webhook notification after successful submissions, without guest contact details
 
-The owner's vCard is not available through a public profile URL. Each guest link has a distinct signed URL, validated server-side and scoped to that link. The URL is valid only while its associated link is active and is revoked when the link is deleted or consumed. Guest links are single-use for submissions: a link is consumed only when a submission succeeds.
+The owner's vCard is not available through a public profile URL. Each guest link has a distinct signed URL, validated server-side and scoped to that link. The URL is valid only while its associated link is active and is revoked when the link is deleted or consumed by a successful vCard response. A link accepts at most one successful submission; submission leaves the link active for the card download, while subsequent submissions are rejected.
 
 The guest landing-page preview may expose only the owner's name and optional profile photo through the active guest link. Serve the private R2 photo through a link-scoped Worker route that verifies the associated link is active and returns `Cache-Control: no-store`; do not make the photo publicly addressable. Do not include other owner contact fields in the preview. A missing photo is represented by initials in the frontend.
 
@@ -43,7 +43,7 @@ Store guest submission data, including optional organization and title, in D1 an
 
 The owner's organization and title are nullable canonical profile fields. Guest submission organization and title are nullable canonical submission fields.
 
-Guest submissions are retained for 30 days. A scheduled Worker process deletes expired submissions and any associated stored guest files. Guest links do not expire by age; they are deleted manually by the owner or consumed after a successful submission.
+Guest submissions are retained for 30 days. A scheduled Worker process deletes expired submissions and any associated stored guest files. Guest links do not expire by age; they are deleted manually by the owner or consumed after a successful card download. A submission timestamp remains on the link so it cannot accept a second submission after the guest record's retention period ends.
 
 Signed vCard URLs follow the lifecycle of their guest link and do not expire by age while that link remains active. Treat each URL as a bearer credential: do not log its signature, prevent it from leaking through referrers, and return vCard responses with `Cache-Control: no-store`.
 

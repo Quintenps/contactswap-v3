@@ -70,13 +70,32 @@ routes.get("/vcard/:linkId/:signature", async (context) => {
   }
 
   const photo = await getPhoto(context.env, profile.photo_key);
+  const vcard = renderVCard(profile, photo);
+  const consumed = await context.env.DB.prepare(
+    `UPDATE guest_links SET consumed_at = ?
+     WHERE id = ? AND vcard_signature = ? AND consumed_at IS NULL AND revoked_at IS NULL`
+  )
+    .bind(
+      new Date().toISOString(),
+      context.req.param("linkId"),
+      context.req.param("signature")
+    )
+    .run();
+
+  if (consumed.meta.changes !== 1) {
+    return context.json(
+      { error: { code: "vcard_unavailable", message: "The vCard is not available." } },
+      404
+    );
+  }
+
   context.header("Content-Type", "text/vcard; version=3.0; charset=utf-8");
   context.header(
     "Content-Disposition",
     `attachment; filename="${vCardDownloadFilename(profile.name)}"`
   );
   context.header("Referrer-Policy", "no-referrer");
-  return context.body(renderVCard(profile, photo));
+  return context.body(vcard);
 });
 
 export default routes;

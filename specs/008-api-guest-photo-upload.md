@@ -22,7 +22,7 @@ Allow a guest to include an optional photo in the same request as their contact 
 
 - Guest-facing form or other frontend changes.
 - A standalone guest-photo preview, public image URL, or separate guest photo upload endpoint.
-- Changes to required guest fields, single-use guest links, notification contents, or the 30-day retention period.
+- Changes to required guest fields, guest-link lifecycle (defined in spec 021), notification contents, or the 30-day retention period.
 - Guest photo access through the owner's profile vCard or the link-scoped signed owner vCard.
 - Multiple photos, original-file retention, photo history, or general-purpose file management.
 
@@ -32,11 +32,11 @@ Allow a guest to include an optional photo in the same request as their contact 
 
 - Accept `multipart/form-data` with required `name`, `email`, `address`, and `birthday` text fields and at most one optional file field named `picture`. Arbitrary picture URLs and object keys are not accepted.
 - Reject JSON submissions and other unsupported request media types with the stable `400 invalid_submission` error.
-- The photo is part of the submission: store the guest record, consume the link, and enqueue its notification only when the complete submission succeeds. An omitted photo remains valid.
+- The photo is part of the submission: store the guest record, record the submitted state on the link, and enqueue its notification only when the complete submission succeeds. An omitted photo remains valid. The link remains active for card download until a successful vCard response consumes it.
 - Reject malformed multipart bodies, missing or duplicate required fields, duplicate or non-file `picture` values, multiple files, and unsupported extra fields with the stable `400 invalid_submission` error. Preserve existing required-field, email, birthday, and whitespace validation.
 - For an included file, accept only `image/jpeg`, `image/png`, or `image/webp`. Verify the declared media type against the file signature; reject empty, malformed, mismatched, SVG, and animated images. Do not trust a filename or extension.
 - Limit the source photo to 19 MiB. Return `413` with the stable photo-size error if the source exceeds that limit, `415` for an unsupported media type, `400` for an invalid image, and `422 photo_too_large` if it cannot be optimized within the output limit.
-- Return the existing `201` success response with no contact values, image bytes, filename, or object key. Preserve the existing `404` response for an unknown link and `410` response for a consumed or revoked link. Invalid submissions do not consume a link.
+- Return the existing `201` success response with no contact values, image bytes, filename, or object key. Preserve the existing `404` response for an unknown link and `410` response for a submitted, consumed, or revoked link. Invalid submissions do not change the link state.
 - Continue setting `Cache-Control: no-store` on all guest API responses. Do not log tokens, submitted contact values, uploaded bytes, filenames, object keys, or photo content.
 
 ### Owner guest vCard download
@@ -56,10 +56,10 @@ Allow a guest to include an optional photo in the same request as their contact 
 ## Data and Consistency
 
 - Add a nullable `photo_key` column to `guest_submissions`. Existing records remain valid with no photo. Store no image bytes, original file, base64 data, public URL, or rendered vCard in D1.
-- The guest submission and link consumption remain atomic in D1, including the new `photo_key` and existing notification-outbox record. A submission with no photo stores `NULL`.
+- The guest submission, persistent link submission timestamp, and notification-outbox record remain atomic in D1, including the new `photo_key`. A submission with no photo stores `NULL`. The submission timestamp remains after the guest row expires so the link cannot accept another submission.
 - Validate the link before doing photo processing or writing an object, but retain the existing conditional D1 write as the authority for single-use behavior. Concurrent requests must not both create a submission.
 - Generate keys for guest photos under a dedicated prefix such as `guest-submissions/`; do not use this prefix for owner photos or unrelated files. Configure an R2 object lifecycle expiration rule for this prefix at 30 days. The rule applies to every object under the prefix, including uploads left behind by failed submissions or concurrent requests that lose the single-use-link race.
-- Because R2 and D1 cannot share a transaction, write the optimized object before the conditional D1 batch. Do not report success unless both the R2 write and the D1 batch succeed. If persistence fails after an object is written, return a safe generic failure without consuming the link or enqueueing a notification. Do not add a D1 staging journal or perform manual R2 deletion; the lifecycle rule expires unreferenced guest objects automatically.
+- Because R2 and D1 cannot share a transaction, write the optimized object before the conditional D1 batch. Do not report success unless both the R2 write and the D1 batch succeed. If persistence fails after an object is written, return a safe generic failure without marking the link submitted, consuming it, or enqueueing a notification. Do not add a D1 staging journal or perform manual R2 deletion; the lifecycle rule expires unreferenced guest objects automatically.
 - The owner vCard endpoint reads photo bytes from the referenced private R2 object. If the object is unexpectedly missing or unreadable, fail safely rather than returning a vCard that silently omits the stored photo; do not expose storage details or guest data in the error.
 - At the 30-day expiry boundary, an expired submission and its photo are unavailable to the owner API even if scheduled cleanup or R2 lifecycle processing has not completed. D1's `expires_at` remains the access-control boundary. Scheduled cleanup deletes expired submission rows as before but does not delete R2 objects. R2 lifecycle processing removes guest-prefix objects asynchronously; Cloudflare documents that objects are typically removed within 24 hours of their lifecycle expiration time.
 - The notification continues to contain only the existing fixed submission summary. Never include guest contact fields, photo data, filenames, or object keys.
@@ -76,12 +76,12 @@ Allow a guest to include an optional photo in the same request as their contact 
 
 ## Acceptance Criteria
 
-- A valid multipart submission without a photo succeeds once with a null photo key. A valid multipart submission with one supported photo succeeds once, stores the guest record and optimized JPEG, consumes the link, and creates the existing privacy-safe notification.
-- The guest's uploaded file is normalized to a metadata-free JPEG within the specified dimension and 75 KiB output limits. Invalid, animated, oversized, unsupported, mismatched, and uncompressible files are rejected with the documented stable errors and do not consume the link or leave a stored guest record.
+- A valid multipart submission without a photo succeeds once with a null photo key. A valid multipart submission with one supported photo succeeds once, stores the guest record and optimized JPEG, marks the link submitted, and creates the existing privacy-safe notification. The card remains downloadable until a successful vCard response consumes the link.
+- The guest's uploaded file is normalized to a metadata-free JPEG within the specified dimension and 75 KiB output limits. Invalid, animated, oversized, unsupported, mismatched, and uncompressible files are rejected with the documented stable errors and do not mark the link submitted or leave a stored guest record.
 - Submissions without a photo have a null photo key and generate a card without a `PHOTO` property. Submissions with a photo generate an owner-downloadable vCard 3.0 whose decoded `PHOTO` bytes exactly match the optimized R2 object and whose folded line unfolds correctly.
 - Unauthorized owner requests cannot retrieve contact data or photo content. The photo key is not exposed by owner list/detail responses or any guest response, and no guest or public route returns photo bytes or a URL.
-- Unknown, consumed, and revoked links retain the existing behavior. Concurrent submissions cannot create more than one guest record. Any object written for a losing request remains private under the guest-photo prefix and is automatically expired by the R2 lifecycle rule.
-- Failed R2 or D1 persistence does not consume the link or enqueue a notification, and does not return success. Any uploaded but unreferenced object is automatically expired by the same R2 lifecycle rule; no staging journal or manual object deletion is required.
+- Unknown, submitted, consumed, and revoked links retain the behavior defined by spec 021. Concurrent submissions cannot create more than one guest record. Any object written for a losing request remains private under the guest-photo prefix and is automatically expired by the R2 lifecycle rule.
+- Failed R2 or D1 persistence does not mark the link submitted or consume it, does not enqueue a notification, and does not return success. Any uploaded but unreferenced object is automatically expired by the same R2 lifecycle rule; no staging journal or manual object deletion is required.
 - Expired submissions are unavailable at the 30-day D1 boundary. Scheduled cleanup removes expired D1 records, and the R2 lifecycle rule asynchronously expires guest-photo objects within the documented lifecycle processing window.
 - Webhook notifications contain no contact values, photo content, filename, object key, or other guest-provided content.
 - Automated tests cover JSON rejection, multipart success, optional photos, field and file validation, image limits and normalization, link single-use and concurrency, R2 and D1 failures, vCard photo embedding, owner authorization, missing R2 objects, and expiry using local Workers bindings only. Verify the deployed R2 lifecycle rule targets only the guest-photo prefix and expires objects after 30 days.

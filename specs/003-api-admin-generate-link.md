@@ -43,8 +43,8 @@ Allow Quinten to create an active, shareable guest link through the owner-author
 - Each created link is unique, remains active without an age-based expiry, and is associated with a distinct signed URL for the owner's current vCard 3.0.
 - This endpoint persists a distinct HMAC signature for each link. Guest-facing URL validation, vCard delivery, and link revocation are handled by their respective endpoints and are outside this spec.
 - The guest URL opens the guest flow, where the guest can access the current owner vCard and optionally submit their own contact details.
-- The vCard URL grants access only while its associated guest link is active. It is revoked when the link is manually deleted or consumed by a successful guest submission.
-- Opening the guest link or downloading the vCard does not consume the link. The first successful guest form submission consumes it; invalid or failed submissions do not.
+- The vCard URL grants access only while its associated guest link is active. It is revoked when the link is manually deleted or consumed by a successful card download.
+- Opening the guest link or submitting the form does not consume the link. A successful submission prevents another submission but leaves the card available; the first successful vCard response consumes the link. Failed card requests do not consume it.
 - Link creation must not expose the admin token, signing key, or other links. Link credentials and signed URL signatures must not appear in logs.
 - The shareable URL must direct the guest to the intended ContactSwap guest flow, not expose an owner-only route or a public profile URL.
 
