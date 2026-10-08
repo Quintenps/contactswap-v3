@@ -46,3 +46,64 @@ describe("GET /api/health", () => {
     expect(await unknownGuest.text()).toBe("Not found");
   });
 });
+
+describe("API CORS", () => {
+  const pagesOrigin = "https://contactswap.quinten.dev";
+
+  it("allows the Pages origin to read API responses and exposed headers", async () => {
+    const response = await call("/api/health", { Origin: pagesOrigin });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Access-Control-Allow-Origin")).toBe(pagesOrigin);
+    expect(response.headers.get("Access-Control-Expose-Headers")).toContain("Content-Disposition");
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+  });
+
+  it("allows HTTPS subdomains matching the configured wildcard", async () => {
+    const origin = "https://preview.quinten.dev";
+    const response = await call("/api/health", { Origin: origin });
+
+    expect(response.headers.get("Access-Control-Allow-Origin")).toBe(origin);
+  });
+
+  it.each([
+    "http://preview.quinten.dev",
+    "https://quinten.dev",
+    "https://notquinten.dev",
+    "https://attacker.example"
+  ])("does not allow origin %s through the wildcard", async (origin) => {
+    const response = await call("/api/health", { Origin: origin });
+
+    expect(response.headers.get("Access-Control-Allow-Origin")).toBeNull();
+  });
+
+  it("answers the Pages owner's authenticated preflight before authorization", async () => {
+    const response = await app.fetch(
+      new Request("http://contactswap.local/api/owner/profile", {
+        method: "OPTIONS",
+        headers: {
+          Origin: pagesOrigin,
+          "Access-Control-Request-Method": "PUT",
+          "Access-Control-Request-Headers": "authorization,content-type"
+        }
+      }),
+      testEnv,
+      createExecutionContext()
+    );
+
+    expect(response.status).toBe(204);
+    expect(response.headers.get("Access-Control-Allow-Origin")).toBe(pagesOrigin);
+    expect(response.headers.get("Access-Control-Allow-Methods")).toContain("PUT");
+    expect(response.headers.get("Access-Control-Allow-Headers")).toContain("Authorization");
+    expect(response.headers.get("Access-Control-Allow-Headers")).toContain("Content-Type");
+    expect(response.headers.get("Access-Control-Allow-Credentials")).toBeNull();
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+  });
+
+  it("does not allow any origin other than the configured Pages origin", async () => {
+    const response = await call("/api/health", { Origin: "https://attacker.example" });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Access-Control-Allow-Origin")).toBeNull();
+  });
+});

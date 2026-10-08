@@ -1,5 +1,7 @@
 import { Hono } from "hono";
+import { cors } from "hono/cors";
 import { routePath } from "hono/route";
+import { getPublicAppOrigin } from "./api-utils";
 import { runScheduledTasks } from "./scheduled";
 import guestLinks from "./routes/guest/links";
 import guestSubmissions from "./routes/guest/submissions";
@@ -10,10 +12,46 @@ import ownerSubmissions from "./routes/owner/submissions";
 
 export { runScheduledTasks } from "./scheduled";
 
+function matchesCorsOriginPattern(origin: string, pattern: string): boolean {
+  const wildcard = /^(https?):\/\/\*\.([^/:?#]+)(:\d+)?$/i.exec(pattern);
+  if (!wildcard || !URL.canParse(origin)) return false;
+
+  const candidate = new URL(origin);
+  const domain = wildcard[2].toLowerCase();
+  return (
+    candidate.origin === origin &&
+    candidate.protocol === `${wildcard[1].toLowerCase()}:` &&
+    candidate.port === (wildcard[3]?.slice(1) ?? "") &&
+    candidate.hostname.endsWith(`.${domain}`) &&
+    candidate.hostname !== domain
+  );
+}
+
 const app = new Hono<{ Bindings: Env }>();
 
-app.use("/api/owner/*", async (context, next) => {
+app.use("/api/*", async (context, next) => {
   context.header("Cache-Control", "no-store");
+  await next();
+});
+
+app.use(
+  "/api/*",
+  cors({
+    origin: (origin, context) => {
+      const allowedOrigin = getPublicAppOrigin(context.env.PUBLIC_APP_ORIGIN).origin;
+      if (origin === allowedOrigin) return allowedOrigin;
+
+      return matchesCorsOriginPattern(origin, context.env.CORS_ALLOWED_ORIGIN_PATTERN)
+        ? origin
+        : undefined;
+    },
+    allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowHeaders: ["Authorization", "Content-Type"],
+    exposeHeaders: ["Content-Disposition"]
+  })
+);
+
+app.use("/api/owner/*", async (context, next) => {
   const adminToken = context.env.ADMIN_TOKEN;
   if (!adminToken || context.req.header("Authorization") !== `Bearer ${adminToken}`) {
     return context.json(
@@ -26,7 +64,6 @@ app.use("/api/owner/*", async (context, next) => {
 });
 
 app.use("/api/guest/*", async (context, next) => {
-  context.header("Cache-Control", "no-store");
   await next();
 });
 

@@ -1,37 +1,50 @@
 {
-  "$schema": "../../node_modules/wrangler/config-schema.json",
-  "name": "contactswap-api",
-  "main": "src/index.ts",
-  "compatibility_date": "2026-10-02",
-  "d1_databases": [
-    {
-      "binding": "DB",
-      "database_name": "contactswap-local",
-      "database_id": "00000000-0000-0000-0000-000000000000",
+	"$schema": "../../node_modules/wrangler/config-schema.json",
+	"name": "contactswap-api",
+	"main": "src/index.ts",
+	"compatibility_date": "2026-10-02",
+	"routes": [
+		{
+			"pattern": "contactswap-api.quinten.dev",
+			"custom_domain": true
+		}
+	],
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "contactswap-production",
+			"database_id": "3864851e-84a7-4cde-85d2-98b80384a6d4",
       "migrations_dir": "migrations"
-    }
-  ],
-  "r2_buckets": [
-    {
-      "binding": "PHOTOS",
-      "bucket_name": "contactswap-photos"
-    }
-  ],
-  "images": {
-    "binding": "IMAGES"
-  },
-  "triggers": {
-    "crons": ["*/5 * * * *"]
-  },
-  "vars": {
-    "PUBLIC_APP_ORIGIN": "https://contactswap.pages.dev"
-  },
-  "secrets": {
-    "required": ["ADMIN_TOKEN", "LINK_SIGNING_KEY", "WEBHOOK_URL"]
-  },
-  "dev": {
-    "ip": "127.0.0.1",
-    "port": 8787,
-    "local_protocol": "http"
-  }
+		}
+	],
+	"r2_buckets": [
+		{
+			"binding": "PHOTOS",
+			"bucket_name": "contactswap-photos"
+		}
+	],
+	"images": {
+		"binding": "IMAGES"
+	},
+	"triggers": {
+		"crons": [
+			"*/5 * * * *"
+		]
+	},
+	"vars": {
+		"PUBLIC_APP_ORIGIN": "https://contactswap.quinten.dev",
+		"CORS_ALLOWED_ORIGIN_PATTERN": "https://*.quinten.dev"
+	},
+	"secrets": {
+		"required": [
+			"ADMIN_TOKEN",
+			"LINK_SIGNING_KEY",
+			"WEBHOOK_URL"
+		]
+	},
+	"dev": {
+		"ip": "127.0.0.1",
+		"port": 8787,
+		"local_protocol": "http"
+	}
 }

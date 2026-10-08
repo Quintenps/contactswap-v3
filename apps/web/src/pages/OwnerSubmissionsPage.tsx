@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { OwnerPageHeader, useOwnerSession } from "../app/OwnerSession";
 import {
+  apiUrl,
   fetchOwnerSubmissions,
   OwnerApiError,
   ownerAuthorization,
@@ -51,7 +52,7 @@ export default function OwnerSubmissionsPage() {
     let downloadUrl: string | undefined;
     try {
       const response = await fetch(
-        `/api/owner/submissions/${encodeURIComponent(submission.id)}/vcard`,
+        apiUrl(`/api/owner/submissions/${encodeURIComponent(submission.id)}/vcard`),
         {
           headers: { Authorization: ownerAuthorization(token) },
           cache: "no-store"

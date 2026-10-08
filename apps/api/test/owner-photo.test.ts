@@ -127,7 +127,7 @@ describe("owner profile photo API", () => {
       ...env,
       ADMIN_TOKEN: adminToken,
       LINK_SIGNING_KEY: "test-only-link-signing-key-with-32-bytes",
-      PUBLIC_APP_ORIGIN: "https://contactswap.pages.dev",
+      PUBLIC_APP_ORIGIN: "https://contactswap.quinten.dev",
       IMAGES: createImagesBinding()
     };
     await env.DB.prepare("DELETE FROM owner_profile").run();

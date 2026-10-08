@@ -74,34 +74,25 @@ npm run build
 
 The frontend and Worker API deploy independently. No Cloudflare resources are created by setup or CI.
 
-1. Create a D1 database in your Cloudflare account and replace the placeholder `database_id` in `apps/api/wrangler.jsonc` with its ID before deploying the API. Apply production migrations only when intentionally targeting that remote database.
-2. Create a private R2 bucket named `contactswap-photos` (or update the bucket name in `apps/api/wrangler.jsonc`) and add the guest-photo expiration rule from `apps/api`:
+### API Worker, D1, and R2
 
-	```sh
-	npx wrangler r2 bucket lifecycle add contactswap-photos expire-guest-photos-after-30-days guest-submissions/ --expire-days 30
-	npx wrangler r2 bucket lifecycle list contactswap-photos
-	```
+For first-time production setup, follow the complete sequence in the API [README](apps/api/README.md#first-time-production-setup). It includes the account check and exact commands to create D1 and R2, apply migrations and lifecycle rules, and make the first Worker deployment with its required secrets. Create each resource only once, in the intended Cloudflare account.
 
-	Confirm the enabled rule matches only the `guest-submissions/` prefix and expires objects after 30 days. Do not use a bucket-wide expiration rule: owner photos are stored outside this prefix. Lifecycle processing is asynchronous; R2 typically removes expired objects within 24 hours. The lifecycle commands modify the selected Cloudflare account and require the R2 storage write permission.
-3. From `apps/api`, authenticate Wrangler and set the production admin token on the API Worker:
+Attach `contactswap.quinten.dev` as a custom domain to the `contactswap` Pages project. `PUBLIC_APP_ORIGIN` in `apps/api/wrangler.jsonc` is set to `https://contactswap.quinten.dev`; it must match the Pages production origin for CORS and generated guest links. The separate `CORS_ALLOWED_ORIGIN_PATTERN` allows HTTPS subdomains matching `https://*.quinten.dev` without changing generated guest links.
 
-	```sh
-	npx wrangler secret put ADMIN_TOKEN
-	```
+### Pages frontend
 
-	Enter the token at Wrangler's interactive prompt. Do not put it in a command argument, Wrangler `vars`, or source code. You can also set it in the Cloudflare dashboard under **Workers & Pages > contactswap-api > Settings > Variables and Secrets**, choosing **Secret**. To rotate the token, repeat the same `secret put` command with the new value.
-4. Set the link-signing key on the API Worker as a Worker Secret:
+Create the Pages project once if it does not already exist. From `apps/web`, run `npm exec -- wrangler pages project create contactswap` and select the intended production branch when prompted. The project name and build output are in `apps/web/wrangler.jsonc`.
 
-	```sh
-	npx wrangler secret put LINK_SIGNING_KEY
-	```
+Deploy the static frontend from `apps/web`, using the API Worker's custom domain:
 
-	Use a randomly generated value of at least 32 bytes. Do not put it in Wrangler `vars`, source code, or command arguments.
-5. Set `PUBLIC_APP_ORIGIN` in `apps/api/wrangler.jsonc` to the deployed Pages origin before deploying the API. It is non-secret configuration; the default matches the `contactswap` Pages project's `https://contactswap.pages.dev` origin.
-6. After configuring both Worker Secrets and the public origin, return to the repository root and deploy the API with `npm run deploy --workspace @contactswap/api`.
-7. Create a Pages project named `contactswap` once with `npm exec --workspace @contactswap/api -- wrangler pages project create contactswap`.
-8. Build the frontend with `npm run build --workspace @contactswap/web`, then deploy `apps/web/dist` using `npm exec --workspace @contactswap/api -- wrangler pages deploy ../web/dist --project-name contactswap` from the repository root.
-Configure the Pages build output as `apps/web/dist` when using an external build pipeline. Add only non-secret public API origin configuration to the Pages build environment when the frontend needs to call the separately deployed API. The admin token belongs in the API Worker's Cloudflare Worker Secrets, never in Pages variables, frontend code, or committed files. Local secret files such as `.env` and `.dev.vars` are ignored by Git.
+```sh
+VITE_API_BASE_URL="https://contactswap-api.quinten.dev" npm run deploy
+```
+
+`VITE_API_BASE_URL` is non-secret build-time configuration. Because this command performs a local Vite build and Direct Upload, setting it in Pages dashboard build settings is not sufficient.
+
+The Pages deployment publishes static assets only; it does not deploy the API Worker. The frontend keeps relative `/api` requests and Vite's proxy locally, while production requests use `VITE_API_BASE_URL`. The API allows cross-origin requests from `PUBLIC_APP_ORIGIN` and HTTPS subdomains matching `CORS_ALLOWED_ORIGIN_PATTERN`. The admin token belongs in the API Worker's Cloudflare Worker Secrets, never in Pages variables, frontend code, or committed files. Local secret files such as `.env` and `.dev.vars` are ignored by Git.
 
 ## Project Docs
 

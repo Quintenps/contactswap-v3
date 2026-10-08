@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useParams } from "react-router-dom";
 import {
+  apiUrl,
   errorCode,
   guestSubmissionErrorKey,
   isGuestLinkResolution,
-  isGuestSubmissionSuccess
+  isGuestSubmissionSuccess,
+  vCardFilename
 } from "../lib/api";
 import { emptyFields, fields, validateProfile } from "../lib/forms";
-import { vCardFilename } from "../lib/api";
 import { useLanguage, type MessageKey } from "../lib/i18n";
 import type { FieldName, GuestPageState, ProfileFields } from "../types";
 
@@ -72,7 +73,7 @@ export default function GuestPage() {
       setOwnerProfilePhotoFailed(false);
       setGuestVCardUrl(null);
       try {
-        const response = await fetch(`/api/guest/links/${encodeURIComponent(token)}`, {
+        const response = await fetch(apiUrl(`/api/guest/links/${encodeURIComponent(token)}`), {
           cache: "no-store",
           referrerPolicy: "no-referrer"
         });
@@ -94,8 +95,8 @@ export default function GuestPage() {
           return;
         }
         setOwnerName(payload.ownerName);
-        setOwnerProfilePhotoUrl(payload.profilePhotoUrl);
-        setGuestVCardUrl(payload.vcardUrl);
+        setOwnerProfilePhotoUrl(payload.profilePhotoUrl ? apiUrl(payload.profilePhotoUrl) : null);
+        setGuestVCardUrl(apiUrl(payload.vcardUrl));
         setGuestPageState(payload.submissionComplete ? "submitted" : "ready");
       } catch {
         if (!cancelled) {
@@ -130,7 +131,7 @@ export default function GuestPage() {
 
   async function resumeSubmittedLink() {
     try {
-      const response = await fetch(`/api/guest/links/${encodeURIComponent(token)}`, {
+      const response = await fetch(apiUrl(`/api/guest/links/${encodeURIComponent(token)}`), {
         cache: "no-store",
         referrerPolicy: "no-referrer"
       });
@@ -150,8 +151,8 @@ export default function GuestPage() {
       }
 
       setOwnerName(payload.ownerName);
-      setOwnerProfilePhotoUrl(payload.profilePhotoUrl);
-      setGuestVCardUrl(payload.vcardUrl);
+      setOwnerProfilePhotoUrl(payload.profilePhotoUrl ? apiUrl(payload.profilePhotoUrl) : null);
+      setGuestVCardUrl(apiUrl(payload.vcardUrl));
       setGuestValues(emptyFields);
       setGuestFieldErrors({});
       setGuestPictureError("");
@@ -173,7 +174,7 @@ export default function GuestPage() {
     setGuestMessage("");
     let downloadUrl: string | undefined;
     try {
-      const response = await fetch(guestVCardUrl, {
+      const response = await fetch(apiUrl(guestVCardUrl), {
         cache: "no-store",
         referrerPolicy: "no-referrer"
       });
@@ -246,7 +247,7 @@ export default function GuestPage() {
 
     try {
       const response = await fetch(
-        `/api/guest/links/${encodeURIComponent(token)}/submissions`,
+        apiUrl(`/api/guest/links/${encodeURIComponent(token)}/submissions`),
         {
           method: "POST",
           body: formData,

@@ -3,6 +3,45 @@ import type { Language, MessageKey } from "./i18n";
 
 export const tokenStorageKey = "contactswap-owner-token";
 
+function getApiOrigin(): URL {
+  const configuredOrigin = import.meta.env.VITE_API_BASE_URL?.trim();
+  if (!configuredOrigin) return new URL(window.location.origin);
+
+  const origin = new URL(configuredOrigin);
+  if (
+    origin.protocol !== "https:" ||
+    origin.username ||
+    origin.password ||
+    origin.pathname !== "/" ||
+    origin.search ||
+    origin.hash
+  ) {
+    throw new Error("VITE_API_BASE_URL must be an HTTPS origin.");
+  }
+
+  return origin;
+}
+
+export function apiUrl(path: string): string {
+  if (!path.startsWith("/api/") && !/^https?:\/\//i.test(path)) {
+    throw new Error("API requests must use an /api/ path or an absolute API URL.");
+  }
+
+  const configuredOrigin = import.meta.env.VITE_API_BASE_URL?.trim();
+  const origin = getApiOrigin();
+  const url = new URL(path, origin);
+  if (
+    url.origin !== origin.origin ||
+    !url.pathname.startsWith("/api/") ||
+    url.username ||
+    url.password
+  ) {
+    throw new Error("API request paths must stay on the configured API origin.");
+  }
+
+  return configuredOrigin ? url.toString() : path;
+}
+
 export function ownerAuthorization(token: string): string {
   return `Bearer ${token}`;
 }
@@ -48,13 +87,16 @@ export function isGuestUrl(value: unknown): value is string {
   }
 }
 
-export function isGuestVCardPath(value: unknown): value is string {
-  if (typeof value !== "string") return false;
+function isGuestApiPath(value: unknown, expectedPath: RegExp): value is string {
+  if (typeof value !== "string" || value.startsWith("//")) return false;
   try {
-    const url = new URL(value, window.location.origin);
+    const origin = getApiOrigin();
+    const url = new URL(value, origin);
     return (
-      url.origin === window.location.origin &&
-      /^\/api\/guest\/vcard\/[^/]+\/[^/]+$/.test(url.pathname) &&
+      url.origin === origin.origin &&
+      !url.username &&
+      !url.password &&
+      expectedPath.test(url.pathname) &&
       !url.search &&
       !url.hash
     );
@@ -63,19 +105,12 @@ export function isGuestVCardPath(value: unknown): value is string {
   }
 }
 
+export function isGuestVCardPath(value: unknown): value is string {
+  return isGuestApiPath(value, /^\/api\/guest\/vcard\/[^/]+\/[^/]+$/);
+}
+
 export function isGuestProfilePhotoPath(value: unknown): value is string {
-  if (typeof value !== "string") return false;
-  try {
-    const url = new URL(value, window.location.origin);
-    return (
-      url.origin === window.location.origin &&
-      /^\/api\/guest\/profile-photo\/[\da-f-]{36}\/[A-Za-z\d_-]+$/i.test(url.pathname) &&
-      !url.search &&
-      !url.hash
-    );
-  } catch {
-    return false;
-  }
+  return isGuestApiPath(value, /^\/api\/guest\/profile-photo\/[\da-f-]{36}\/[A-Za-z\d_-]+$/i);
 }
 
 export function isGuestLinkResolution(value: unknown): value is GuestLinkResolution {
@@ -95,7 +130,7 @@ export function isGuestSubmissionSuccess(value: unknown): value is { success: tr
 }
 
 export async function fetchOwnerLinks(token: string, signal?: AbortSignal): Promise<GuestLink[]> {
-  const response = await fetch("/api/owner/links", {
+  const response = await fetch(apiUrl("/api/owner/links"), {
     headers: { Authorization: ownerAuthorization(token) },
     cache: "no-store",
     signal
@@ -124,7 +159,7 @@ export function isOwnerSubmissionList(value: unknown): value is { submissions: O
 }
 
 export async function fetchOwnerSubmissions(token: string, signal?: AbortSignal): Promise<OwnerSubmission[]> {
-  const response = await fetch("/api/owner/submissions", {
+  const response = await fetch(apiUrl("/api/owner/submissions"), {
     headers: { Authorization: ownerAuthorization(token) },
     cache: "no-store",
     signal

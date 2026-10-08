@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { OwnerPageHeader, useOwnerSession } from "../app/OwnerSession";
 import {
+  apiUrl,
   errorCode,
   fetchOwnerLinks,
   isGuestUrl,
@@ -55,7 +56,7 @@ export default function OwnerLinksPage() {
     setLinkActionBusy("create");
     setLinkMessage("");
     try {
-      const response = await fetch("/api/owner/links", {
+      const response = await fetch(apiUrl("/api/owner/links"), {
         method: "POST",
         headers: { Authorization: ownerAuthorization(token) },
         cache: "no-store"
@@ -118,7 +119,7 @@ export default function OwnerLinksPage() {
     setLinkActionBusy(linkId);
     setLinkMessage("");
     try {
-      const response = await fetch(`/api/owner/links/${encodeURIComponent(linkId)}`, {
+      const response = await fetch(apiUrl(`/api/owner/links/${encodeURIComponent(linkId)}`), {
         method: "DELETE",
         headers: { Authorization: ownerAuthorization(token) },
         cache: "no-store"
