@@ -80,13 +80,20 @@ export function isValidPhone(value: string): boolean {
   return /^\+[1-9]\d{1,14}$/.test(value);
 }
 
+export function formatDisplayName(firstName: string, lastName: string): string {
+  return [firstName.trim(), lastName.trim()].filter(Boolean).join(" ");
+}
+
 export function parseProfile(value: unknown): OwnerProfile | null {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     return null;
   }
 
   const fields = value as Record<string, unknown>;
-  if (["name", "email", "address", "birthday", "phone"].some((field) => typeof fields[field] !== "string")) {
+  if (
+    ["firstName", "lastName", "email", "street", "city", "postalCode", "country", "birthday", "phone"]
+      .some((field) => typeof fields[field] !== "string")
+  ) {
     return null;
   }
   if (
@@ -101,9 +108,13 @@ export function parseProfile(value: unknown): OwnerProfile | null {
   }
 
   const profile = {
-    name: (fields.name as string).trim(),
+    firstName: (fields.firstName as string).trim(),
+    lastName: (fields.lastName as string).trim(),
     email: (fields.email as string).trim(),
-    address: (fields.address as string).trim(),
+    street: (fields.street as string).trim(),
+    city: (fields.city as string).trim(),
+    postalCode: (fields.postalCode as string).trim(),
+    country: (fields.country as string).trim(),
     birthday: (fields.birthday as string).trim(),
     phone: (fields.phone as string).trim(),
     org: typeof fields.org === "string" ? fields.org.trim() || null : null,
@@ -111,8 +122,12 @@ export function parseProfile(value: unknown): OwnerProfile | null {
   };
 
   if (
-    !profile.name ||
-    !profile.address ||
+    !profile.firstName ||
+    !profile.lastName ||
+    !profile.street ||
+    !profile.city ||
+    !profile.postalCode ||
+    !profile.country ||
     !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(profile.email) ||
     !isValidBirthday(profile.birthday) ||
     !isValidPhone(profile.phone) ||
@@ -130,7 +145,19 @@ export function parseGuestSubmission(value: unknown): GuestSubmission | null {
   }
 
   const fields = value as Record<string, unknown>;
-  const allowedFields = new Set(["name", "email", "address", "birthday", "phone", "org", "title"]);
+  const allowedFields = new Set([
+    "firstName",
+    "lastName",
+    "email",
+    "street",
+    "city",
+    "postalCode",
+    "country",
+    "birthday",
+    "phone",
+    "org",
+    "title"
+  ]);
   if (Object.keys(fields).some((field) => !allowedFields.has(field))) {
     return null;
   }

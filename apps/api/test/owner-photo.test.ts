@@ -6,9 +6,13 @@ import { photoLimits, readPhotoBody } from "../src/photo";
 
 const adminToken = "test-only-admin-token";
 const baseProfile = {
-  name: "Quinten Example",
+  firstName: "Quinten",
+  lastName: "Example",
   email: "quinten@example.invalid",
-  address: "123 Example Street",
+  street: "123 Example Street",
+  city: "Amsterdam",
+  postalCode: "1012 AB",
+  country: "The Netherlands",
   birthday: "1990-02-28",
   phone: "+31600000000",
   org: null,
@@ -254,11 +258,11 @@ describe("owner profile photo API", () => {
     await call("/api/owner/profile", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...baseProfile, address: "99 New Street" })
+      body: JSON.stringify({ ...baseProfile, street: "99 New Street" })
     });
     expect(await storedPhotoKey()).not.toBeNull();
     expect((await (await call("/api/owner/profile/vcard")).text()).replaceAll("\r\n ", ""))
-      .toContain("ADR;TYPE=home:;;99 New Street;;;;\r\n");
+      .toContain("ADR;TYPE=home:;;99 New Street;Amsterdam;;1012 AB;The Netherlands\r\n");
 
     const linkResponse = await call("/api/owner/links", { method: "POST" });
     const guestUrl = new URL(((await linkResponse.json()) as { guestUrl: string }).guestUrl);

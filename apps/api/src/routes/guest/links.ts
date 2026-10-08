@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { hashGuestToken } from "../../api-utils";
+import { formatDisplayName, hashGuestToken } from "../../api-utils";
 
 const routes = new Hono<{ Bindings: Env }>();
 
@@ -8,7 +8,8 @@ routes.get("/links/:token", async (context) => {
   const link = await context.env.DB.prepare(
     `SELECT guest_links.id, guest_links.vcard_signature, guest_links.consumed_at, guest_links.revoked_at,
             guest_links.submitted_at,
-            owner_profile.name AS owner_name, owner_profile.photo_key
+            owner_profile.first_name AS owner_first_name,
+            owner_profile.last_name AS owner_last_name, owner_profile.photo_key
      FROM guest_links
      LEFT JOIN owner_profile ON owner_profile.id = 1
      WHERE guest_links.token_hash = ?`
@@ -20,7 +21,8 @@ routes.get("/links/:token", async (context) => {
       consumed_at: string | null;
       revoked_at: string | null;
       submitted_at: string | null;
-      owner_name: string | null;
+      owner_first_name: string | null;
+      owner_last_name: string | null;
       photo_key: string | null;
     }>();
 
@@ -37,7 +39,7 @@ routes.get("/links/:token", async (context) => {
     );
   }
 
-  if (!link.owner_name) {
+  if (!link.owner_first_name || !link.owner_last_name) {
     return context.json(
       { error: { code: "owner_profile_unavailable", message: "The owner profile is unavailable." } },
       404
@@ -45,7 +47,7 @@ routes.get("/links/:token", async (context) => {
   }
 
   return context.json({
-    ownerName: link.owner_name,
+    ownerName: formatDisplayName(link.owner_first_name, link.owner_last_name),
     profilePhotoUrl: link.photo_key
       ? `/api/guest/profile-photo/${link.id}/${link.vcard_signature}`
       : null,

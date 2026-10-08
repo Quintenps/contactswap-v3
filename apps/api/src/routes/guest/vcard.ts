@@ -42,7 +42,10 @@ routes.get("/profile-photo/:linkId/:signature", async (context) => {
 
 routes.get("/vcard/:linkId/:signature", async (context) => {
   const profile = await context.env.DB.prepare(
-    `SELECT owner_profile.name, owner_profile.email, owner_profile.address,
+    `SELECT owner_profile.first_name AS firstName,
+            owner_profile.last_name AS lastName, owner_profile.email,
+            owner_profile.street, owner_profile.city,
+            owner_profile.postal_code AS postalCode, owner_profile.country,
             owner_profile.birthday, owner_profile.phone, owner_profile.org,
             owner_profile.title, owner_profile.photo_key
      FROM guest_links
@@ -92,7 +95,7 @@ routes.get("/vcard/:linkId/:signature", async (context) => {
   context.header("Content-Type", "text/vcard; version=3.0; charset=utf-8");
   context.header(
     "Content-Disposition",
-    `attachment; filename="${vCardDownloadFilename(profile.name)}"`
+    `attachment; filename="${vCardDownloadFilename(profile.firstName, profile.lastName)}"`
   );
   context.header("Referrer-Policy", "no-referrer");
   return context.body(vcard);

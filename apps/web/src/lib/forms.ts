@@ -11,9 +11,13 @@ export const fields: {
   placeholderKey?: MessageKey;
   optional?: boolean;
 }[] = [
-  { name: "name", labelKey: "fieldName", type: "text", autoComplete: "name" },
+  { name: "firstName", labelKey: "fieldFirstName", type: "text", autoComplete: "given-name" },
+  { name: "lastName", labelKey: "fieldLastName", type: "text", autoComplete: "family-name" },
   { name: "email", labelKey: "fieldEmail", type: "email", autoComplete: "email" },
-  { name: "address", labelKey: "fieldAddress", type: "text", autoComplete: "street-address" },
+  { name: "street", labelKey: "fieldStreet", type: "text", autoComplete: "street-address", placeholderKey: "guestExampleStreet" },
+  { name: "city", labelKey: "fieldCity", type: "text", autoComplete: "address-level2", placeholderKey: "guestExampleCity" },
+  { name: "postalCode", labelKey: "fieldPostalCode", type: "text", autoComplete: "postal-code", placeholderKey: "guestExamplePostalCode" },
+  { name: "country", labelKey: "fieldCountry", type: "text", autoComplete: "country-name" },
   { name: "birthday", labelKey: "fieldBirthday", type: "date", autoComplete: "bday" },
   {
     name: "phone",
@@ -41,10 +45,27 @@ export const fields: {
   }
 ];
 
+const addressFieldNames: ReadonlySet<FieldName> = new Set([
+  "street",
+  "city",
+  "postalCode",
+  "country"
+]);
+
+export const contactFields = fields.filter(
+  ({ name, optional }) => !optional && !addressFieldNames.has(name)
+);
+export const addressFields = fields.filter(({ name }) => addressFieldNames.has(name));
+export const workFields = fields.filter(({ optional }) => optional);
+
 export const emptyFields: ProfileFields = {
-  name: "",
+  firstName: "",
+  lastName: "",
   email: "",
-  address: "",
+  street: "",
+  city: "",
+  postalCode: "",
+  country: "The Netherlands",
   birthday: "",
   phone: "",
   org: "",
@@ -54,19 +75,27 @@ export const emptyFields: ProfileFields = {
 export function validateProfile(values: ProfileFields): Partial<Record<FieldName, MessageKey>> {
   const errors: Partial<Record<FieldName, MessageKey>> = {};
   const trimmed = {
-    name: values.name.trim(),
+    firstName: values.firstName.trim(),
+    lastName: values.lastName.trim(),
     email: values.email.trim(),
-    address: values.address.trim(),
+    street: values.street.trim(),
+    city: values.city.trim(),
+    postalCode: values.postalCode.trim(),
+    country: values.country.trim(),
     birthday: values.birthday.trim(),
     phone: values.phone.trim()
   };
 
-  if (!trimmed.name) errors.name = "enterName";
+  if (!trimmed.firstName) errors.firstName = "enterFirstName";
+  if (!trimmed.lastName) errors.lastName = "enterLastName";
   if (!trimmed.email) errors.email = "enterEmail";
   else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed.email)) {
     errors.email = "validEmail";
   }
-  if (!trimmed.address) errors.address = "enterAddress";
+  if (!trimmed.street) errors.street = "enterStreet";
+  if (!trimmed.city) errors.city = "enterCity";
+  if (!trimmed.postalCode) errors.postalCode = "enterPostalCode";
+  if (!trimmed.country) errors.country = "enterCountry";
   if (!trimmed.phone) {
     errors.phone = "enterPhone";
   } else if (!/^\+[1-9]\d{1,14}$/.test(trimmed.phone)) {

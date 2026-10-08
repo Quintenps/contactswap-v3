@@ -8,14 +8,18 @@ import {
   isGuestSubmissionSuccess,
   vCardFilename
 } from "../lib/api";
-import { emptyFields, fields, validateProfile } from "../lib/forms";
+import { addressFields, contactFields, emptyFields, fields, validateProfile, workFields } from "../lib/forms";
 import { useLanguage, type MessageKey } from "../lib/i18n";
 import type { FieldName, GuestPageState, ProfileFields } from "../types";
 
 const guestExampleKeys: Record<FieldName, MessageKey> = {
-  name: "guestExampleName",
+  firstName: "guestExampleFirstName",
+  lastName: "guestExampleLastName",
   email: "guestExampleEmail",
-  address: "guestExampleAddress",
+  street: "guestExampleStreet",
+  city: "guestExampleCity",
+  postalCode: "guestExamplePostalCode",
+  country: "guestExampleCountry",
   birthday: "guestExampleBirthday",
   phone: "guestExamplePhone",
   org: "guestExampleOrg",
@@ -496,7 +500,7 @@ export default function GuestPage() {
             <fieldset className="guest-form-section">
               <legend>{t("guestContactSection")}</legend>
               <div className="profile-form guest-profile-form">
-                {fields.filter(({ optional }) => !optional).map(({ name, labelKey, type, autoComplete, hintKey }) => {
+                {contactFields.map(({ name, labelKey, type, autoComplete, hintKey }) => {
                   const example = t(guestExampleKeys[name]);
                   return (
                     <div className="field" key={name}>
@@ -534,9 +538,44 @@ export default function GuestPage() {
             </fieldset>
 
             <fieldset className="guest-form-section">
+              <legend>{t("guestAddressSection")}</legend>
+              <div className="profile-form guest-profile-form">
+                {addressFields.map(({ name, labelKey, type, autoComplete }) => {
+                  const example = t(guestExampleKeys[name]);
+                  return (
+                    <div className="field" key={name}>
+                      <label htmlFor={`guest-${name}`}>
+                        {t(labelKey)} <span aria-hidden="true"> *</span>
+                      </label>
+                      <input
+                        id={`guest-${name}`}
+                        name={name}
+                        type={type}
+                        autoComplete={autoComplete}
+                        placeholder={example}
+                        value={guestValues[name]}
+                        required
+                        aria-invalid={Boolean(guestFieldErrors[name])}
+                        aria-describedby={guestFieldErrors[name] ? `guest-${name}-error` : undefined}
+                        onChange={(event) => {
+                          setGuestValues((current) => ({ ...current, [name]: event.target.value }));
+                          setGuestFieldErrors((current) => ({ ...current, [name]: undefined }));
+                          setGuestMessage("");
+                        }}
+                      />
+                      {guestFieldErrors[name] && (
+                        <span className="field-error" id={`guest-${name}-error`}>{t(guestFieldErrors[name])}</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </fieldset>
+
+            <fieldset className="guest-form-section">
               <legend>{t("guestWorkSection")}</legend>
               <div className="profile-form guest-profile-form">
-                {fields.filter(({ optional }) => optional).map(({ name, labelKey, type, autoComplete }) => {
+                {workFields.map(({ name, labelKey, type, autoComplete }) => {
                   const example = t(guestExampleKeys[name]);
                   return (
                     <div className="field" key={name}>

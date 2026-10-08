@@ -12,18 +12,26 @@ const testEnv: Env = {
   PUBLIC_APP_ORIGIN: "https://contactswap.quinten.dev"
 };
 const profile = {
-  name: "Quinten Example",
+  firstName: "Quinten",
+  lastName: "Example",
   email: "quinten@example.invalid",
-  address: "123 Owner Street",
+  street: "123 Owner Street",
+  city: "Amsterdam",
+  postalCode: "1012 AB",
+  country: "The Netherlands",
   birthday: "1990-02-28",
   phone: "+31600000000",
   org: "ContactSwap, Inc.",
   title: "Founder"
 };
 const submission = {
-  name: "Guest Example",
+  firstName: "Guest",
+  lastName: "Example",
   email: "guest@example.invalid",
-  address: "456 Guest Street",
+  street: "456 Guest Street",
+  city: "Amsterdam",
+  postalCode: "1013 AB",
+  country: "The Netherlands",
   birthday: "1988-06-12",
   phone: "+31600000001",
   org: "Guest Company",
@@ -98,12 +106,12 @@ describe("guest URL API flow", () => {
 
     expect(resolved.status).toBe(200);
     expect(resolved.headers.get("Cache-Control")).toBe("no-store");
-    expect(body.ownerName).toBe(profile.name);
+    expect(body.ownerName).toBe(`${profile.firstName} ${profile.lastName}`);
     expect(body.profilePhotoUrl).toBeNull();
     expect(body.vcardUrl).toMatch(/^\/api\/guest\/vcard\/[\da-f-]{36}\/[A-Za-z\d_-]+$/i);
     expect(body.submissionComplete).toBe(false);
     expect(JSON.stringify(body)).not.toContain(profile.email);
-    expect(JSON.stringify(body)).not.toContain(profile.address);
+    expect(JSON.stringify(body)).not.toContain(profile.street);
     expect(JSON.stringify(body)).not.toContain(profile.birthday);
     expect(JSON.stringify(body)).not.toContain(profile.phone);
     expect(JSON.stringify(body)).not.toContain(profile.org);
@@ -171,7 +179,7 @@ describe("guest URL API flow", () => {
         Authorization: `Bearer ${adminToken}`,
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({ ...profile, address: "Updated Owner Street" })
+      body: JSON.stringify({ ...profile, street: "Updated Owner Street" })
     });
     const currentCard = await call(resolved.vcardUrl);
 
@@ -190,7 +198,9 @@ describe("guest URL API flow", () => {
     expect(currentCardBody).toContain("TEL;TYPE=CELL,VOICE,PREF:+31600000000\r\n");
     expect(currentCardBody).toContain("ORG:ContactSwap\\, Inc.\r\n");
     expect(currentCardBody).toContain("TITLE:Founder\r\n");
-    expect(currentCardBody).toContain("ADR;TYPE=home:;;Updated Owner Street;;;;");
+    expect(currentCardBody).toContain(
+      "ADR;TYPE=home:;;Updated Owner Street;Amsterdam;;1012 AB;The Netherlands\r\n"
+    );
     expect((await call(resolved.vcardUrl)).status).toBe(404);
 
     const [linkId, signature] = resolved.vcardUrl.split("/").slice(-2);
@@ -237,13 +247,18 @@ describe("guest URL API flow", () => {
   it("rejects missing, blank, malformed, and unsupported submission values without consuming the link", async () => {
     const { token } = await createGuestLink();
     const invalidBodies = [
-      { ...submission, name: "   " },
+      { ...submission, firstName: "   " },
+      { ...submission, lastName: " " },
+      { ...submission, street: "" },
+      { ...submission, city: "" },
+      { ...submission, postalCode: "" },
+      { ...submission, country: "" },
       { ...submission, email: "not-an-email" },
       { ...submission, birthday: "2025-02-30" },
       { ...submission, phone: "+31 6 0000 0000" },
       { ...submission, phone: "+3161234567890123" },
       { ...submission, extra: "unsupported" },
-      { name: submission.name, email: submission.email, address: submission.address }
+      { firstName: submission.firstName, email: submission.email, street: submission.street }
     ];
 
     for (const body of invalidBodies) {
@@ -289,10 +304,17 @@ describe("guest URL API flow", () => {
     expect((await call(`/api/guest/links/${token}`)).status).toBe(410);
 
     const stored = await env.DB.prepare(
-      "SELECT name, email, address, birthday, phone, org, title, created_at, expires_at FROM guest_submissions"
+      `SELECT first_name AS firstName, last_name AS lastName, email, street, city,
+              postal_code AS postalCode, country, birthday, phone, org, title,
+              created_at AS createdAt, expires_at AS expiresAt
+       FROM guest_submissions`
     ).first<Record<string, string>>();
-    expect(stored).toMatchObject(submission);
-    expect(Date.parse(stored!.expires_at) - Date.parse(stored!.created_at)).toBe(
+    expect(stored).toMatchObject({
+      ...submission,
+      createdAt: expect.any(String),
+      expiresAt: expect.any(String)
+    });
+    expect(Date.parse(stored!.expiresAt) - Date.parse(stored!.createdAt)).toBe(
       30 * 24 * 60 * 60 * 1000
     );
     expect(await env.DB.prepare("SELECT id FROM guest_submissions").all()).toMatchObject({
@@ -306,9 +328,13 @@ describe("guest URL API flow", () => {
   it("accepts omitted or blank optional organization and title values", async () => {
     const omittedLink = await createGuestLink();
     const withoutOptionalFields = {
-      name: submission.name,
+      firstName: submission.firstName,
+      lastName: submission.lastName,
       email: submission.email,
-      address: submission.address,
+      street: submission.street,
+      city: submission.city,
+      postalCode: submission.postalCode,
+      country: submission.country,
       birthday: submission.birthday,
       phone: submission.phone
     };

@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import type { GuestSubmission, StoredGuestSubmission } from "../../api-types";
-import { getPhoto, isValidPhone } from "../../api-utils";
+import { formatDisplayName, getPhoto, isValidPhone } from "../../api-utils";
 import { renderVCard, vCardDownloadFilename } from "../../vcard";
 
 const routes = new Hono<{ Bindings: Env }>();
@@ -8,21 +8,29 @@ const routes = new Hono<{ Bindings: Env }>();
 routes.get("/submissions", async (context) => {
   const now = new Date().toISOString();
   const submissions = await context.env.DB.prepare(
-    `SELECT id, name, created_at AS createdAt, expires_at AS expiresAt
+    `SELECT id, first_name AS firstName, last_name AS lastName,
+            created_at AS createdAt, expires_at AS expiresAt
      FROM guest_submissions
      WHERE expires_at > ?
      ORDER BY created_at DESC, id DESC`
   )
     .bind(now)
-    .all<{ id: string; name: string; createdAt: string; expiresAt: string }>();
+    .all<{ id: string; firstName: string; lastName: string; createdAt: string; expiresAt: string }>();
 
-  return context.json({ submissions: submissions.results });
+  return context.json({
+    submissions: submissions.results.map(({ firstName, lastName, ...submission }) => ({
+      ...submission,
+      name: formatDisplayName(firstName, lastName)
+    }))
+  });
 });
 
 routes.get("/submissions/:id", async (context) => {
   const now = new Date().toISOString();
   const submission = await context.env.DB.prepare(
-    `SELECT id, name, email, address, birthday, phone, org, title,
+    `SELECT id, first_name AS firstName, last_name AS lastName,
+            email, street, city, postal_code AS postalCode, country,
+            birthday, phone, org, title,
             created_at AS createdAt, expires_at AS expiresAt
      FROM guest_submissions
      WHERE id = ? AND expires_at > ?`
@@ -43,7 +51,9 @@ routes.get("/submissions/:id", async (context) => {
 routes.get("/submissions/:id/vcard", async (context) => {
   const now = new Date().toISOString();
   const submission = await context.env.DB.prepare(
-    `SELECT name, email, address, birthday, phone, org, title, photo_key
+    `SELECT first_name AS firstName, last_name AS lastName, email,
+            street, city, postal_code AS postalCode, country,
+            birthday, phone, org, title, photo_key
      FROM guest_submissions
      WHERE id = ? AND expires_at > ?`
   )
@@ -68,7 +78,7 @@ routes.get("/submissions/:id/vcard", async (context) => {
   context.header("Content-Type", "text/vcard; version=3.0; charset=utf-8");
   context.header(
     "Content-Disposition",
-    `attachment; filename="${vCardDownloadFilename(submission.name)}"`
+    `attachment; filename="${vCardDownloadFilename(submission.firstName, submission.lastName)}"`
   );
   context.header("Referrer-Policy", "no-referrer");
   return context.body(renderVCard(submission, photo));

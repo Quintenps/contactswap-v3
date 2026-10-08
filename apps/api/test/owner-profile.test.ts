@@ -6,9 +6,13 @@ import app from "../src/index";
 const adminToken = "test-only-admin-token";
 const testEnv: Env = { ...env, ADMIN_TOKEN: adminToken };
 const baseProfile = {
-  name: "Quinten Example",
+  firstName: "Quinten",
+  lastName: "Example",
   email: "quinten@example.invalid",
-  address: "12 Main St, Apt 3; East",
+  street: "12 Main St, Apt 3; East",
+  city: "Amsterdam",
+  postalCode: "1012 AB",
+  country: "The Netherlands",
   birthday: "1990-02-28",
   phone: "+31600000000",
   org: null,
@@ -105,15 +109,18 @@ describe("owner profile API", () => {
     expect(downloadResponse.headers.get("Cache-Control")).toBe("no-store");
     expect(initialVCard).toContain("VERSION:3.0\r\n");
     expect(initialVCard).toContain("FN:Quinten Example\r\n");
+    expect(initialVCard).toContain("N:Example;Quinten;;;\r\n");
     expect(initialVCard).toContain("EMAIL:quinten@example.invalid\r\n");
     expect(initialVCard).toContain("TEL;TYPE=CELL,VOICE,PREF:+31600000000\r\n");
     expect(initialVCard).toContain("BDAY:1990-02-28\r\n");
-    expect(initialVCard).toContain("ADR;TYPE=home:;;12 Main St\\, Apt 3\\; East;;;;\r\n");
+    expect(initialVCard.replaceAll("\r\n ", "")).toContain(
+      "ADR;TYPE=home:;;12 Main St\\, Apt 3\\; East;Amsterdam;;1012 AB;The Netherlands\r\n"
+    );
     expect(initialVCard).not.toContain("PHOTO:");
     expect(initialVCard).not.toContain("ORG:");
     expect(initialVCard).not.toContain("TITLE:");
 
-    const updatedProfile = { ...baseProfile, address: "99 New Street" };
+    const updatedProfile = { ...baseProfile, street: "99 New Street" };
     const updateResponse = await call(
       "/api/owner/profile",
       profileRequest(updatedProfile)
@@ -123,7 +130,9 @@ describe("owner profile API", () => {
 
     const updatedCardResponse = await call("/api/owner/profile/vcard");
     const updatedVCard = await updatedCardResponse.text();
-    expect(updatedVCard).toContain("ADR;TYPE=home:;;99 New Street;;;;\r\n");
+    expect(updatedVCard).toContain(
+      "ADR;TYPE=home:;;99 New Street;Amsterdam;;1012 AB;The Netherlands\r\n"
+    );
     expect(updatedVCard).not.toBe(initialVCard);
 
     const count = await env.DB.prepare("SELECT COUNT(*) AS count FROM owner_profile")
@@ -166,9 +175,13 @@ describe("owner profile API", () => {
     await call("/api/owner/profile", profileRequest(baseProfile));
 
     const invalidRequests: RequestInit[] = [
-      { ...profileRequest({ ...baseProfile, name: "   " }) },
-      { ...profileRequest({ ...baseProfile, address: " " }) },
-      { ...profileRequest({ name: baseProfile.name, email: baseProfile.email, birthday: baseProfile.birthday }) },
+      { ...profileRequest({ ...baseProfile, firstName: "   " }) },
+      { ...profileRequest({ ...baseProfile, lastName: " " }) },
+      { ...profileRequest({ ...baseProfile, street: " " }) },
+      { ...profileRequest({ ...baseProfile, city: " " }) },
+      { ...profileRequest({ ...baseProfile, postalCode: " " }) },
+      { ...profileRequest({ ...baseProfile, country: " " }) },
+      { ...profileRequest({ firstName: baseProfile.firstName, email: baseProfile.email, birthday: baseProfile.birthday }) },
       { ...profileRequest({ ...baseProfile, email: "not-an-email" }) },
       { ...profileRequest({ ...baseProfile, birthday: "1990-02-30" }) },
       { ...profileRequest({ ...baseProfile, phone: "+31 6 0000 0000" }) },
@@ -202,7 +215,7 @@ describe("owner profile API", () => {
     const longName = "é".repeat(40);
     const response = await call(
       "/api/owner/profile",
-      profileRequest({ ...baseProfile, name: longName })
+      profileRequest({ ...baseProfile, firstName: longName })
     );
     expect(response.status).toBe(200);
 

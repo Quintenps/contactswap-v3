@@ -1,8 +1,14 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { OwnerPageHeader, useOwnerSession } from "../app/OwnerSession";
-import { apiUrl,
-errorCode, isProfile, ownerAuthorization, photoErrorKey } from "../lib/api";
-import { emptyFields, fields, validateProfile } from "../lib/forms";
+import {
+  apiUrl,
+  errorCode,
+  isProfile,
+  ownerAuthorization,
+  photoErrorKey,
+  vCardFilename
+} from "../lib/api";
+import { addressFields, contactFields, emptyFields, fields, validateProfile, workFields } from "../lib/forms";
 import { useLanguage, type MessageKey } from "../lib/i18n";
 import type { FieldName, ProfileFields } from "../types";
 
@@ -11,9 +17,13 @@ export default function OwnerProfilePage() {
   const { t } = useLanguage();
   const [values, setValues] = useState<ProfileFields>(() => profile
     ? {
-        name: profile.name,
+        firstName: profile.firstName,
+        lastName: profile.lastName,
         email: profile.email,
-        address: profile.address,
+        street: profile.street,
+        city: profile.city,
+        postalCode: profile.postalCode,
+        country: profile.country,
         birthday: profile.birthday,
         phone: profile.phone,
         org: profile.org ?? "",
@@ -25,15 +35,19 @@ export default function OwnerProfilePage() {
   const [photoRevision, setPhotoRevision] = useState(0);
   const [message, setMessage] = useState<MessageKey | "">(profile ? "" : "noProfileYet");
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<FieldName, MessageKey>>>({});
-  const [busy, setBusy] = useState<"save" | "upload" | "remove" | null>(null);
+  const [busy, setBusy] = useState<"save" | "upload" | "remove" | "download" | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (profile) {
       setValues({
-        name: profile.name,
+        firstName: profile.firstName,
+        lastName: profile.lastName,
         email: profile.email,
-        address: profile.address,
+        street: profile.street,
+        city: profile.city,
+        postalCode: profile.postalCode,
+        country: profile.country,
         birthday: profile.birthday,
         phone: profile.phone,
         org: profile.org ?? "",
@@ -104,9 +118,13 @@ export default function OwnerProfilePage() {
     setBusy("save");
     setMessage("");
     const payload = {
-      name: values.name.trim(),
+      firstName: values.firstName.trim(),
+      lastName: values.lastName.trim(),
       email: values.email.trim(),
-      address: values.address.trim(),
+      street: values.street.trim(),
+      city: values.city.trim(),
+      postalCode: values.postalCode.trim(),
+      country: values.country.trim(),
       birthday: values.birthday.trim(),
       phone: values.phone.trim(),
       org: values.org.trim() || null,
@@ -146,6 +164,58 @@ export default function OwnerProfilePage() {
     } catch {
       setMessage("saveFailedChangesKept");
     } finally {
+      setBusy(null);
+    }
+  }
+
+  async function handleProfileDownload() {
+    if (!token || !profile || hasUnsavedChanges || busy) return;
+
+    setBusy("download");
+    setMessage("");
+    let downloadUrl: string | undefined;
+    try {
+      const response = await fetch(apiUrl("/api/owner/profile/vcard"), {
+        headers: { Authorization: ownerAuthorization(token) },
+        cache: "no-store"
+      });
+      if (response.status === 401) {
+        unauthorized();
+        return;
+      }
+      if (!response.ok) {
+        setMessage("profileVCardDownloadFailed");
+        return;
+      }
+
+      const contentType = response.headers.get("Content-Type")?.toLowerCase() ?? "";
+      const blob = await response.blob();
+      if (!/^text\/vcard(?:\s*;|$)/.test(contentType) || blob.size === 0) {
+        setMessage("profileVCardDownloadFailed");
+        return;
+      }
+
+      downloadUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = downloadUrl;
+      anchor.download = vCardFilename(response.headers.get("Content-Disposition"));
+      anchor.rel = "noreferrer";
+      anchor.referrerPolicy = "no-referrer";
+      anchor.style.display = "none";
+      document.body.append(anchor);
+      try {
+        anchor.click();
+      } finally {
+        anchor.remove();
+      }
+      const completedDownloadUrl = downloadUrl;
+      window.setTimeout(() => URL.revokeObjectURL(completedDownloadUrl), 1000);
+      downloadUrl = undefined;
+      setMessage("profileVCardDownloaded");
+    } catch {
+      setMessage("profileVCardDownloadConnectionFailed");
+    } finally {
+      if (downloadUrl) URL.revokeObjectURL(downloadUrl);
       setBusy(null);
     }
   }
@@ -230,7 +300,7 @@ export default function OwnerProfilePage() {
   );
 
   const renderField = ({ name, labelKey, type, autoComplete, hintKey, placeholder, placeholderKey, optional }: (typeof fields)[number]) => (
-    <div className={`field ${name === "address" ? "profile-field-wide" : ""}`} key={name}>
+    <div className={`field ${name === "street" ? "profile-field-wide" : ""}`} key={name}>
       <label htmlFor={name}>
         {t(labelKey)}{" "}
         {optional ? <span>({t("optional")})</span> : <span aria-hidden="true"> *</span>}
@@ -277,13 +347,19 @@ export default function OwnerProfilePage() {
             <fieldset className="profile-form-section">
               <legend>{t("profileContactSection")}</legend>
               <div className="profile-form-fields">
-                {fields.filter(({ optional }) => !optional).map(renderField)}
+                {contactFields.map(renderField)}
+              </div>
+            </fieldset>
+            <fieldset className="profile-form-section">
+              <legend>{t("profileAddressSection")}</legend>
+              <div className="profile-form-fields">
+                {addressFields.map(renderField)}
               </div>
             </fieldset>
             <fieldset className="profile-form-section">
               <legend>{t("profileWorkSection")}</legend>
               <div className="profile-form-fields">
-                {fields.filter(({ optional }) => optional).map(renderField)}
+                {workFields.map(renderField)}
               </div>
             </fieldset>
             <div className="form-actions">
@@ -294,39 +370,58 @@ export default function OwnerProfilePage() {
           </form>
         </section>
 
-        <section className="panel photo-panel" aria-labelledby="photo-heading">
-          <div className="section-heading">
-            <div><h2 id="photo-heading">{t("photo")}</h2></div>
-            <span className="state-pill">{hasPhoto ? t("photoAdded") : t("photoNone")}</span>
-          </div>
-          {hasPhoto && (
-            <div className="photo-preview">
-              {photoUrl
-                ? <img src={photoUrl} alt={t("profilePhotoAlt")} />
-                : <span className="preview-placeholder" aria-live="polite">{t("uploadingPreview")}</span>}
+        <div className="profile-sidebar">
+          <section className="panel photo-panel" aria-labelledby="photo-heading">
+            <div className="section-heading">
+              <div><h2 id="photo-heading">{t("photo")}</h2></div>
+              <span className="state-pill">{hasPhoto ? t("photoAdded") : t("photoNone")}</span>
             </div>
-          )}
-          <form className="photo-form" onSubmit={handlePhotoUpload}>
-            <input
-              id="profile-photo"
-              ref={fileInput}
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              aria-label={t("profilePhotoAlt")}
-              disabled={!profile || busy !== null}
-            />
-            <div className="photo-actions">
-              <button className="secondary-button" type="submit" disabled={!profile || busy !== null}>
-                {busy === "upload" ? t("uploading") : hasPhoto ? t("replacing") : t("upload")}
-              </button>
-              {hasPhoto && (
-                <button className="danger-button" type="button" onClick={handlePhotoRemoval} disabled={busy !== null}>
-                  {busy === "remove" ? t("removing") : t("remove")}
+            {hasPhoto && (
+              <div className="photo-preview">
+                {photoUrl
+                  ? <img src={photoUrl} alt={t("profilePhotoAlt")} />
+                  : <span className="preview-placeholder" aria-live="polite">{t("uploadingPreview")}</span>}
+              </div>
+            )}
+            <form className="photo-form" onSubmit={handlePhotoUpload}>
+              <input
+                id="profile-photo"
+                ref={fileInput}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                aria-label={t("profilePhotoAlt")}
+                disabled={!profile || busy !== null}
+              />
+              <div className="photo-actions">
+                <button className="secondary-button" type="submit" disabled={!profile || busy !== null}>
+                  {busy === "upload" ? t("uploading") : hasPhoto ? t("replacing") : t("upload")}
                 </button>
-              )}
+                {hasPhoto && (
+                  <button className="danger-button" type="button" onClick={handlePhotoRemoval} disabled={busy !== null}>
+                    {busy === "remove" ? t("removing") : t("remove")}
+                  </button>
+                )}
+              </div>
+            </form>
+          </section>
+
+          <section className="panel profile-vcard-panel" aria-labelledby="profile-vcard-heading" aria-busy={busy === "download"}>
+            <div className="section-heading">
+              <div>
+                <h2 id="profile-vcard-heading">{t("profileVCardHeading")}</h2>
+                <p className="section-description">{t("profileVCardDescription")}</p>
+              </div>
             </div>
-          </form>
-        </section>
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={() => void handleProfileDownload()}
+              disabled={!profile || busy !== null || hasUnsavedChanges}
+            >
+              {busy === "download" ? t("downloading") : t("profileVCardDownload")}
+            </button>
+          </section>
+        </div>
       </div>
     </main>
   );

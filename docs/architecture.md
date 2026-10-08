@@ -35,11 +35,13 @@ The guest landing-page preview may expose only the owner's name and optional pro
 
 Cloudflare D1.
 
-The owner profile stores optional organization and title values as nullable canonical fields alongside required contact fields.
+The owner profile stores optional organization and title values as nullable canonical fields alongside required contact fields: `firstName`, `lastName`, `email`, `street`, `city`, `postalCode`, `country`, `birthday`, and `phone`.
 
 Store only the single owner's editable profile fields and optional private R2 photo object key in D1 as canonical data, so the owner interface can load and update them directly. Do not store image bytes, base64 image data, or rendered vCard text in D1. Generate the current vCard 3.0 when requested from the current profile fields and, when present, the optimized photo bytes read from R2. Embed the photo as a base64 `PHOTO;ENCODING=b;TYPE=JPEG` property in the generated vCard. Do not require downloading or extracting a vCard to edit the profile.
 
-Store guest submission data, including optional organization and title, in D1 and generate vCard 3.0 downloads from the saved guest records for the owner. Guest vCards are generated on demand; do not store duplicate guest vCards.
+Store guest submission data, including first and last name, street, city, postal code, country, and optional organization and title, in D1 and generate vCard 3.0 downloads from the saved guest records for the owner. Guest vCards are generated on demand; do not store duplicate guest vCards.
+
+The split-name and structured-address schema replaces the legacy single `name` and `address` fields. Existing profile and guest-submission rows do not need to be preserved; the versioned D1 migration may drop and recreate the affected tables without backfilling their data. Remove associated old profile and guest photo objects when discarding those records.
 
 The owner's organization and title are nullable canonical profile fields. Guest submission organization and title are nullable canonical submission fields.
 
@@ -59,7 +61,7 @@ The admin token, signed-URL signing key, and webhook credentials are Cloudflare 
 
 ## API
 
-Use JSON for application requests and responses where appropriate. Guest submission requests use `multipart/form-data` whether or not a photo is included; the `picture` file field is optional. `GET /api/owner/profile/vcard` generates the current vCard 3.0 at request time from D1 profile fields and the optional optimized image in R2, and requires owner authorization. The signed guest-link vCard route generates the same current card only for its active link. Embed the image using vCard 3.0 binary `PHOTO;ENCODING=b;TYPE=JPEG` syntax; do not persist the vCard or image data in D1. Owner downloads of guest records also return generated vCard 3.0 files. Validate required fields on the server for both owner and guest forms: name, email, address, birthday, and phone number in international E.164 format are required; organization, title, and picture are optional. Dutch-facing form examples use the `+31` country code, while validation accepts other valid E.164 numbers. Include each profile's phone number as a vCard 3.0 text `TEL` property and optional organization and title as vCard 3.0 `ORG` and `TITLE` properties.
+Use JSON for application requests and responses where appropriate. Guest submission requests use `multipart/form-data` whether or not a photo is included; the `picture` file field is optional. Owner profile requests and guest submissions carry the separate required fields `firstName`, `lastName`, `street`, `city`, `postalCode`, and `country`, as well as the other required contact fields. New owner and guest forms default Country to `The Netherlands`; saved owner data takes precedence when editing. `GET /api/owner/profile/vcard` generates the current vCard 3.0 at request time from D1 profile fields and the optional optimized image in R2, and requires owner authorization. The signed guest-link vCard route generates the same current card only for its active link. Embed the image using vCard 3.0 binary `PHOTO;ENCODING=b;TYPE=JPEG` syntax; do not persist the vCard or image data in D1. Owner downloads of guest records also return generated vCard 3.0 files. Validate all required fields on the server for both owner and guest forms, including birthday and phone number in international E.164 format; organization, title, and picture are optional. The generated `N` value follows RFC 2426 Family Name then Given Name order, and the `ADR` value maps street, city, postal code, and country to Street, Locality, Postal Code, and Country Name components, with semicolons delimiting components. Dutch-facing phone examples use the `+31` country code, while validation accepts other valid E.164 numbers. Include each profile's phone number as a vCard 3.0 text `TEL` property and optional organization and title as vCard 3.0 `ORG` and `TITLE` properties.
 
 ## Local API Requests
 

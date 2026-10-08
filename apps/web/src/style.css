@@ -383,6 +383,13 @@ a:focus-visible {
   gap: 18px;
 }
 
+.profile-sidebar {
+  display: grid;
+  align-content: start;
+  gap: 18px;
+  min-width: 0;
+}
+
 .guest-shell {
   width: min(100% - 32px, 620px);
   display: block;
@@ -882,7 +889,8 @@ input[aria-invalid="true"] {
 }
 
 .profile-panel,
-.photo-panel {
+.photo-panel,
+.profile-vcard-panel {
   padding: clamp(20px, 5vw, 32px);
 }
 
@@ -891,6 +899,10 @@ input[aria-invalid="true"] {
 }
 
 .photo-panel {
+  min-width: 0;
+}
+
+.profile-vcard-panel {
   min-width: 0;
 }
 

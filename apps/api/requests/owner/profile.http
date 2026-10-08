@@ -12,9 +12,13 @@ Authorization: Bearer {{adminToken}}
 Content-Type: application/json
 
 {
-  "name": "Quinten Example",
+  "firstName": "Quinten",
+  "lastName": "Example",
   "email": "quinten@example.invalid",
-  "address": "123 Example Street",
+  "street": "123 Example Street",
+  "city": "Amsterdam",
+  "postalCode": "1012 AB",
+  "country": "The Netherlands",
   "birthday": "1990-02-28",
   "phone": "+31600000000",
   "org": "Larkspur Creative Studio",

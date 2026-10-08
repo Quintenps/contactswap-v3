@@ -10,8 +10,13 @@ type Submission = {
   id: string;
   linkId: string;
   name: string;
+  firstName: string;
+  lastName: string;
   email: string;
-  address: string;
+  street: string;
+  city: string;
+  postalCode: string;
+  country: string;
   birthday: string;
   phone: string;
   org: string | null;
@@ -43,8 +48,13 @@ async function insertSubmission(
 ): Promise<Submission> {
   const id = crypto.randomUUID();
   const linkId = crypto.randomUUID();
+  const [firstName, ...lastNameParts] = name.split(/\s+/);
+  const lastName = lastNameParts.join(" ");
   const email = `${id}@example.invalid`;
-  const address = `${id} Guest Street`;
+  const street = `${id} Guest Street`;
+  const city = "Amsterdam";
+  const postalCode = "1012 AB";
+  const country = "The Netherlands";
   const birthday = "1988-06-12";
   const phone = "+31600000001";
   const org = "Example, Inc.; Europe";
@@ -58,13 +68,47 @@ async function insertSubmission(
     .run();
   await env.DB.prepare(
     `INSERT INTO guest_submissions
-       (id, link_id, name, email, address, birthday, phone, org, title, created_at, expires_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       (id, link_id, first_name, last_name, email, street, city, postal_code, country,
+        birthday, phone, org, title, created_at, expires_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   )
-    .bind(id, linkId, name, email, address, birthday, phone, org, title, createdAt, expiresAt)
+    .bind(
+      id,
+      linkId,
+      firstName,
+      lastName,
+      email,
+      street,
+      city,
+      postalCode,
+      country,
+      birthday,
+      phone,
+      org,
+      title,
+      createdAt,
+      expiresAt
+    )
     .run();
 
-  return { id, linkId, name, email, address, birthday, phone, org, title, createdAt, expiresAt };
+  return {
+    id,
+    linkId,
+    name: `${firstName} ${lastName}`,
+    firstName,
+    lastName,
+    email,
+    street,
+    city,
+    postalCode,
+    country,
+    birthday,
+    phone,
+    org,
+    title,
+    createdAt,
+    expiresAt
+  };
 }
 
 describe("owner submissions API", () => {
@@ -115,7 +159,7 @@ describe("owner submissions API", () => {
       }
     ]);
     expect(JSON.stringify(body)).not.toContain(older.email);
-    expect(JSON.stringify(body)).not.toContain(older.address);
+    expect(JSON.stringify(body)).not.toContain(older.street);
     expect(JSON.stringify(body)).not.toContain(older.birthday);
     expect(JSON.stringify(body)).not.toContain(older.linkId);
   });
@@ -135,9 +179,13 @@ describe("owner submissions API", () => {
     expect(response.headers.get("Cache-Control")).toBe("no-store");
     expect(await response.json()).toEqual({
       id: submission.id,
-      name: submission.name,
+      firstName: submission.firstName,
+      lastName: submission.lastName,
       email: submission.email,
-      address: submission.address,
+      street: submission.street,
+      city: submission.city,
+      postalCode: submission.postalCode,
+      country: submission.country,
       birthday: submission.birthday,
       phone: submission.phone,
       org: submission.org,
@@ -173,10 +221,13 @@ describe("owner submissions API", () => {
     expect(response.headers.get("Referrer-Policy")).toBe("no-referrer");
     expect(vcard).toContain("VERSION:3.0\r\n");
     expect(vcard).toContain("FN:Guest\\, Contact\r\n");
+    expect(vcard).toContain("N:Contact;Guest\\,;;;\r\n");
     expect(vcard).toContain(`EMAIL:${submission.email}\r\n`);
     expect(vcard).toContain(`BDAY:${submission.birthday}\r\n`);
     expect(vcard).toContain(`TEL;TYPE=CELL,VOICE,PREF:${submission.phone}\r\n`);
-    expect(vcard).toContain(`ADR;TYPE=home:;;${submission.address};;;;\r\n`);
+    expect(vcard.replaceAll("\r\n ", "")).toContain(
+      `ADR;TYPE=home:;;${submission.street};${submission.city};;${submission.postalCode};${submission.country}\r\n`
+    );
     expect(vcard).toContain("ORG:Example\\, Inc.\\; Europe\r\n");
     expect(vcard).toContain("TITLE:Product designer\r\n");
     expect(vcard).not.toContain("PHOTO:");

@@ -5,16 +5,24 @@ import app from "../src/index";
 
 const adminToken = "test-only-admin-token";
 const profile = {
-  name: "Quinten Example",
+  firstName: "Quinten",
+  lastName: "Example",
   email: "quinten@example.invalid",
-  address: "123 Owner Street",
+  street: "123 Owner Street",
+  city: "Amsterdam",
+  postalCode: "1012 AB",
+  country: "The Netherlands",
   birthday: "1990-02-28",
   phone: "+31600000000"
 };
 const guest = {
-  name: "Morgan Rivera",
+  firstName: "Morgan",
+  lastName: "Rivera",
   email: "morgan.rivera@example.invalid",
-  address: "42 Example Avenue",
+  street: "42 Example Avenue",
+  city: "Amsterdam",
+  postalCode: "1013 AB",
+  country: "The Netherlands",
   birthday: "1992-07-14",
   phone: "+31600000001"
 };
@@ -214,9 +222,10 @@ describe("guest photo API", () => {
     const nonFilePicture = submissionForm();
     nonFilePicture.append("picture", "https://example.invalid/photo.jpg");
     const missingField = new FormData();
-    missingField.append("name", guest.name);
+    missingField.append("firstName", guest.firstName);
+    missingField.append("lastName", guest.lastName);
     missingField.append("email", guest.email);
-    missingField.append("address", guest.address);
+    missingField.append("street", guest.street);
     const extraField = submissionForm();
     extraField.append("extra", "not accepted");
 

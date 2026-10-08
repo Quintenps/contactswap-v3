@@ -8,7 +8,10 @@ const routes = new Hono<{ Bindings: Env }>();
 
 routes.get("/profile", async (context) => {
   const profile = await context.env.DB.prepare(
-    "SELECT name, email, address, birthday, phone, org, title, photo_key FROM owner_profile WHERE id = 1"
+    `SELECT first_name AS firstName, last_name AS lastName, email,
+            street, city, postal_code AS postalCode, country, birthday, phone,
+            org, title, photo_key
+     FROM owner_profile WHERE id = 1`
   ).first<StoredOwnerProfile>();
 
   if (!profile) {
@@ -42,12 +45,17 @@ routes.put("/profile", async (context) => {
   }
 
   await context.env.DB.prepare(
-    `INSERT INTO owner_profile (id, name, email, address, birthday, phone, org, title, updated_at)
-     VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO owner_profile
+       (id, first_name, last_name, email, street, city, postal_code, country, birthday, phone, org, title, updated_at)
+     VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
-       name = excluded.name,
+       first_name = excluded.first_name,
+       last_name = excluded.last_name,
        email = excluded.email,
-       address = excluded.address,
+       street = excluded.street,
+       city = excluded.city,
+       postal_code = excluded.postal_code,
+       country = excluded.country,
        birthday = excluded.birthday,
        phone = excluded.phone,
        org = excluded.org,
@@ -55,9 +63,13 @@ routes.put("/profile", async (context) => {
        updated_at = excluded.updated_at`
   )
     .bind(
-      profile.name,
+      profile.firstName,
+      profile.lastName,
       profile.email,
-      profile.address,
+      profile.street,
+      profile.city,
+      profile.postalCode,
+      profile.country,
       profile.birthday,
       profile.phone,
       profile.org,
@@ -74,7 +86,10 @@ routes.put("/profile", async (context) => {
 
 routes.get("/profile/vcard", async (context) => {
   const profile = await context.env.DB.prepare(
-    "SELECT name, email, address, birthday, phone, org, title, photo_key FROM owner_profile WHERE id = 1"
+    `SELECT first_name AS firstName, last_name AS lastName, email,
+            street, city, postal_code AS postalCode, country, birthday, phone,
+            org, title, photo_key
+     FROM owner_profile WHERE id = 1`
   ).first<StoredOwnerProfile>();
 
   if (!profile) {
@@ -95,14 +110,17 @@ routes.get("/profile/vcard", async (context) => {
   context.header("Content-Type", "text/vcard; version=3.0; charset=utf-8");
   context.header(
     "Content-Disposition",
-    `attachment; filename="${vCardDownloadFilename(profile.name)}"`
+    `attachment; filename="${vCardDownloadFilename(profile.firstName, profile.lastName)}"`
   );
   return context.body(renderVCard(profile, photo));
 });
 
 routes.put("/profile/photo", async (context) => {
   const profile = await context.env.DB.prepare(
-    "SELECT name, email, address, birthday, phone, org, title, photo_key FROM owner_profile WHERE id = 1"
+    `SELECT first_name AS firstName, last_name AS lastName, email,
+            street, city, postal_code AS postalCode, country, birthday, phone,
+            org, title, photo_key
+     FROM owner_profile WHERE id = 1`
   ).first<StoredOwnerProfile>();
   if (!profile) {
     return context.json(

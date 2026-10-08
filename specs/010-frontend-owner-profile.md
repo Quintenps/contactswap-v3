@@ -14,6 +14,7 @@ Build the mobile-first owner interface for Quinten to authorize with the existin
 - Load the saved owner profile and display its required fields: name, email, address, and birthday.
 - Allow the owner to create the profile when none has been saved, or edit and save the existing profile.
 - Allow the owner to view, upload, replace, and remove the optional profile photo.
+- Let the owner download a vCard generated from the saved profile.
 - Provide clear loading, validation, success, authorization, and service-error feedback.
 - Keep the API Worker as the authority for authentication, validation, profile persistence, and photo processing.
 
@@ -22,7 +23,6 @@ Build the mobile-first owner interface for Quinten to authorize with the existin
 - Guest submission, guest-link management, guest-submission review, and guest vCard downloads.
 - Owner account creation, password authentication, multiple owners, or a new authentication/session API.
 - Changes to API routes, API response contracts, profile fields, photo processing rules, or data retention.
-- Downloading the owner's profile vCard from this screen.
 
 ## Owner Flow
 
@@ -32,7 +32,8 @@ Build the mobile-first owner interface for Quinten to authorize with the existin
 4. If the API reports that no profile exists, the owner sees an empty profile form and can create one by saving all required fields.
 5. The owner edits the required fields and explicitly saves them with `PUT /api/owner/profile`. Unsaved changes are not presented as saved.
 6. After a profile exists, the owner can upload or replace a photo using `PUT /api/owner/profile/photo`, or choose to remove it. Removal requires explicit confirmation before sending `DELETE /api/owner/profile/photo`; cancelling leaves the photo unchanged.
-7. The owner can log out, which removes the token from browser storage and active frontend state and returns to the login screen.
+7. After saving profile changes, the owner can download the current saved profile as a vCard using `GET /api/owner/profile/vcard`.
+8. The owner can log out, which removes the token from browser storage and active frontend state and returns to the login screen.
 
 ## API Integration
 
@@ -43,6 +44,7 @@ Build the mobile-first owner interface for Quinten to authorize with the existin
 - The photo upload uses the raw selected file as the body of `PUT /api/owner/profile/photo` and declares its actual supported media type (`image/jpeg`, `image/png`, or `image/webp`).
 - `GET /api/owner/profile/photo` returns the optimized JPEG for an authenticated preview. Render it only within the authorized owner interface; do not publish or persist a public image URL.
 - `DELETE /api/owner/profile/photo` removes the current photo. A successful removal clears the displayed preview and updates the UI to reflect no photo.
+- `GET /api/owner/profile/vcard` downloads the current saved profile as an attachment. Use the response's vCard content type and attachment filename; do not build or cache the card in the browser.
 - Do not send profile or photo requests until a token has been entered. The API remains responsible for validating every request; frontend gating is not an authorization boundary.
 
 ## Form and Photo Behavior
@@ -84,8 +86,9 @@ Build the mobile-first owner interface for Quinten to authorize with the existin
 - An owner can remove a photo, and the UI accurately reflects that it is no longer present.
 - Cancelling photo-removal confirmation leaves the photo and its preview unchanged and sends no delete request.
 - Failed photo or profile operations show safe feedback and do not make the UI claim that unsaved changes were persisted.
+- The profile page offers an owner-authorized vCard download for the saved profile. Disable it before a profile exists and while profile edits are unsaved; report failed downloads without creating an invalid file.
 - The login and profile form are usable by keyboard and on mobile-sized viewports, with labels, visible focus, and announced status/errors.
-- Automated frontend tests cover login/authenticated API headers, profile loading including initial absence, create/update payloads, invalid credentials, photo preview/upload/replacement/removal, and service failures.
+- Automated frontend tests cover login/authenticated API headers, profile loading including initial absence, create/update payloads, saved-profile vCard downloads and errors, invalid credentials, photo preview/upload/replacement/removal, and service failures.
 - Web type checking and production build pass.
 
 ## Verification
