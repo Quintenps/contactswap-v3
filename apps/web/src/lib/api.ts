@@ -85,7 +85,8 @@ export function isGuestLinkResolution(value: unknown): value is GuestLinkResolut
     typeof candidate.ownerName === "string" &&
     candidate.ownerName.trim().length > 0 &&
     (candidate.profilePhotoUrl === null || isGuestProfilePhotoPath(candidate.profilePhotoUrl)) &&
-    isGuestVCardPath(candidate.vcardUrl)
+    isGuestVCardPath(candidate.vcardUrl) &&
+    typeof candidate.submissionComplete === "boolean"
   );
 }
 

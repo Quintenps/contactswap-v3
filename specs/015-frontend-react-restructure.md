@@ -91,7 +91,7 @@ apps/web/src/
 - Do not embed secrets in frontend assets, log owner credentials, or put credentials in URLs. The token entered by the owner remains a request credential and must only be used for the existing owner API flow.
 - Do not expose guest contact details in the guest-link list, routes, logs, or unrelated UI. Preserve the privacy-minimized submission list.
 - Treat signed guest vCard URLs as bearer credentials: keep them within their intended guest-sharing flow and preserve existing referrer and no-store protections.
-- Preserve guest-link single-use behavior, guest form required-field validation, optional picture behavior, and the thank-you state only after a successful submission.
+- Preserve guest-link single-use behavior, guest form required-field validation, optional picture behavior, and the thank-you state only after a successful card download. A failed post-submission card request remains retryable without resubmission.
 - Do not change backend contracts or use route-level UI checks as a substitute for backend authorization.
 
 ## Acceptance Criteria

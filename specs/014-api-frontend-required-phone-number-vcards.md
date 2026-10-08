@@ -54,7 +54,7 @@ Ensure every owner and guest vCard contains the contact's phone number so a down
 
 - Show a required phone field on the owner profile form and guest submission form. Use a telephone-appropriate input and visible guidance to include the Dutch `+31` country code, with an example such as `+31600000000`.
 - Do not infer a country code or silently rewrite an invalid number. Preserve entered values after validation or recoverable service errors.
-- Show field-level validation feedback where practical. A guest with invalid data can correct and retry; the guest link is consumed only after a valid successful submission.
+- Show field-level validation feedback where practical. A guest with invalid data can correct and retry; a valid submission blocks resubmission but the link is consumed only after a successful card download.
 - Do not display the phone number in submission list rows, webhook notifications, URLs, analytics, or logs.
 
 ## Acceptance Criteria

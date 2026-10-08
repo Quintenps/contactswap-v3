@@ -22,7 +22,7 @@ Allow Quinten to revoke a guest link by its ID at any time, including when the s
 - Editing guest links, creating links, or changing their share URLs.
 - Revoking links automatically by age.
 - Deleting guest submissions or notification records associated with a submission.
-- Changing link behavior after a successful submission; consumed links are already unavailable.
+- Changing guest submission or download behavior. A submitted link whose card is still pending can still be revoked by the owner; a successfully consumed link is already unavailable.
 - Owner or guest interface changes.
 
 ## API Contract
@@ -53,7 +53,7 @@ Allow Quinten to revoke a guest link by its ID at any time, including when the s
 - Revocation must be a conditional D1 write that cannot clear `consumed_at` or overwrite an existing `revoked_at` timestamp.
 - A revoked link cannot resolve through `GET /api/guest/links/{token}`, download the owner's vCard through its signed URL, or submit guest details. Existing guest endpoints return their documented unavailable responses for revoked links.
 - Revocation does not delete or modify a guest submission or its queued notification. A successfully consumed link remains consumed; revocation never rolls back a completed submission.
-- If revocation and submission race, D1 serialization/conditional writes must ensure only one outcome wins: if revocation commits first, submission fails without storing a record; if submission commits first, its successful record remains and the link stays consumed. The revocation response remains `204` for either known-ID outcome.
+- If revocation and submission race, D1 serialization/conditional writes must ensure only one outcome wins: if revocation commits first, submission fails without storing a record; if submission commits first, its successful record remains and the owner may then revoke the still-pending card link. The revocation response remains `204` for either known-ID outcome.
 - The endpoint does not require an owner profile; revocation must remain possible if the profile is absent or incomplete.
 
 ## Acceptance Criteria
@@ -66,7 +66,7 @@ Allow Quinten to revoke a guest link by its ID at any time, including when the s
 - A malformed link ID and an unknown well-formed ID return the documented safe errors; no other link is modified.
 - After revocation, link resolution and submission return `410`, and the associated signed vCard URL does not return the owner vCard.
 - Revoking a link does not delete an existing guest submission or its notification outbox record.
-- Concurrent revocation and submission cannot result in both a revoked link and a successful submission through that link. The result follows the transaction that commits first.
+- If revocation commits before submission, the submission fails. If submission commits first, the guest record and notification remain even if the owner then revokes the pending card link.
 - All success and error responses are non-cacheable; the guest token and signed vCard signature are not accepted or returned by the revocation endpoint and are never logged.
 - Automated tests cover listing authorization and data minimization, active and repeated revocation, unknown and malformed IDs, guest-flow denial after revocation, preservation of existing submissions, and concurrent revocation/submission using local Workers bindings only.
 - A local `.http` request demonstrates listing and revocation using a link ID returned by the listing endpoint and an admin token supplied outside the committed request file.

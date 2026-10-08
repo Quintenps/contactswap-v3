@@ -41,7 +41,7 @@ function button(text: string): HTMLButtonElement {
     "Generate new link": "Make a link",
     "Revoke": "Delete",
     "Log out": "Sign out",
-    "Download my card & share your details": "Download the card & share my details",
+    "Download my card & share your details": "Share my details, then get the card",
     "Download card only": "Download the card only"
   };
   const expectedText = updatedCopy[text] ?? text;
@@ -649,6 +649,10 @@ describe("owner profile frontend", () => {
 
     expect(await screenText()).toContain("My details");
     expect(document.querySelector("#phone-hint")?.textContent).toContain("Example: +31600000000");
+    expect([...document.querySelectorAll(".profile-form-section legend")].map((legend) => legend.textContent))
+      .toEqual(["Contact information", "Work information"]);
+    expect(document.querySelector(".profile-form-section #address")?.closest(".field")?.classList.contains("profile-field-wide"))
+      .toBe(true);
     expect(input("org").placeholder).toBe("Larkspur Creative Studio");
     expect(input("title").placeholder).toBe("Senior Product Designer");
     const requestCount = fetchMock.mock.calls.length;
@@ -891,7 +895,12 @@ describe("guest frontend", () => {
   function installActiveGuestLink(handler?: (url: RequestInfo | URL, init?: RequestInit) => Promise<Response>) {
     return installFetch(async (url, init) => {
       if (url === `/api/guest/links/${guestToken}`) {
-        return response({ ownerName: "Quinten Example", profilePhotoUrl: null, vcardUrl });
+        return response({
+          ownerName: "Quinten Example",
+          profilePhotoUrl: null,
+          vcardUrl,
+          submissionComplete: false
+        });
       }
       if (handler) return handler(url, init);
       if (url === vcardUrl) return vcardResponse();
@@ -914,7 +923,7 @@ describe("guest frontend", () => {
     expect(document.querySelector(".guest-owner-name")?.textContent).toBe("Quinten Example");
     expect(document.querySelector(".guest-owner-avatar")?.textContent).toBe("QE");
     expect(document.querySelector("h1")?.textContent).toBe("Here's the contact card");
-    expect(document.body.textContent).toContain("Nothing gets sent until you tap “Share my details.”");
+    expect(document.body.textContent).toContain("download the card after you submit");
     expect(document.body.textContent).not.toContain("My latest details, ready for your phone.");
   });
 
@@ -962,7 +971,7 @@ describe("guest frontend", () => {
 
   it("previews the owner's picture without a referrer and falls back to initials if it fails", async () => {
     installFetch(async (url) => url === `/api/guest/links/${guestToken}`
-      ? response({ ownerName: "Quinten Example", profilePhotoUrl, vcardUrl })
+      ? response({ ownerName: "Quinten Example", profilePhotoUrl, vcardUrl, submissionComplete: false })
       : response({ error: { code: "not_found" } }, 404));
     await renderGuestPage(guestToken);
 
@@ -977,23 +986,14 @@ describe("guest frontend", () => {
     expect(document.querySelector(".guest-owner-avatar")?.textContent).toBe("QE");
   });
 
-  it("downloads the card, hides welcome panels, and focuses the form from the primary action", async () => {
+  it("opens and focuses the form without downloading the card from the primary action", async () => {
     const fetchMock = installActiveGuestLink();
-    const anchorClick = vi
-      .spyOn(HTMLAnchorElement.prototype, "click")
-      .mockImplementation(function (this: HTMLAnchorElement) {
-        expect(this.download).toBe("quinten-example.vcf");
-      });
     await renderGuestPage(guestToken);
 
     await click(button("Download my card & share your details"));
 
-    expect(fetchMock).toHaveBeenCalledWith(vcardUrl, {
-      cache: "no-store",
-      referrerPolicy: "no-referrer"
-    });
-    expect(URL.createObjectURL).toHaveBeenCalled();
-    expect(anchorClick).toHaveBeenCalled();
+    expect(fetchMock.mock.calls.some(([url]) => url === vcardUrl)).toBe(false);
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
     const formPanel = document.querySelector(".guest-form-panel");
     expect(formPanel).not.toBeNull();
     expect(document.querySelector(".guest-owner-card")).toBeNull();
@@ -1008,7 +1008,7 @@ describe("guest frontend", () => {
     expect(document.querySelector(".guest-download-panel")).not.toBeNull();
   });
 
-  it("downloads only when the secondary action is selected", async () => {
+  it("downloads and consumes the link only when the secondary action is selected", async () => {
     const fetchMock = installActiveGuestLink();
     vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
     await renderGuestPage(guestToken);
@@ -1017,6 +1017,75 @@ describe("guest frontend", () => {
 
     expect(fetchMock.mock.calls.some(([url]) => url === vcardUrl)).toBe(true);
     expect(document.querySelector("#guest-details-form")).toBeNull();
+    expect(document.querySelector("#guest-downloaded-heading")?.textContent).toBe("Card downloaded");
+  });
+
+  it("restores a submitted guest's pending card download without reopening the form", async () => {
+    const fetchMock = installFetch(async (url) => {
+      if (url === `/api/guest/links/${guestToken}`) {
+        return response({
+          ownerName: "Quinten Example",
+          profilePhotoUrl: null,
+          vcardUrl,
+          submissionComplete: true
+        });
+      }
+      if (url === vcardUrl) return vcardResponse();
+      return response({ error: { code: "not_found" } }, 404);
+    });
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+
+    await renderGuestPage(guestToken);
+
+    expect(document.body.textContent).toContain("Your details have been shared.");
+    expect(document.querySelector("#guest-details-form")).toBeNull();
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/submissions"))).toBe(false);
+    await click(button("Download the card"));
+
+    expect(fetchMock.mock.calls.filter(([url]) => url === vcardUrl)).toHaveLength(1);
+    expect(document.querySelector("#guest-thank-you-heading")?.textContent).toBe("Thanks for sharing!");
+  });
+
+  it("recovers a committed submission when its response was lost", async () => {
+    let resolutionCalls = 0;
+    let submissionCalls = 0;
+    const fetchMock = installFetch(async (url) => {
+      if (url === `/api/guest/links/${guestToken}`) {
+        resolutionCalls += 1;
+        return response({
+          ownerName: "Quinten Example",
+          profilePhotoUrl: null,
+          vcardUrl,
+          submissionComplete: resolutionCalls > 1
+        });
+      }
+      if (url === `/api/guest/links/${guestToken}/submissions`) {
+        submissionCalls += 1;
+        if (submissionCalls === 1) throw new Error("response lost");
+        return response({ error: { code: "guest_link_unavailable" } }, 410);
+      }
+      if (url === vcardUrl) return vcardResponse();
+      return response({ error: { code: "not_found" } }, 404);
+    });
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    await renderGuestPage(guestToken);
+    await click(button("Download my card & share your details"));
+
+    changeValue(input("guest-name"), "Guest Example");
+    changeValue(input("guest-email"), "guest@example.invalid");
+    changeValue(input("guest-address"), "34 Example Street");
+    changeValue(input("guest-birthday"), "1992-06-17");
+    changeValue(input("guest-phone"), "+31600000001");
+    const form = document.querySelector<HTMLFormElement>("#guest-details-form")!;
+    await submit(form);
+    expect(document.querySelector("#guest-details-form")).not.toBeNull();
+    expect(document.body.textContent).toContain("Couldn't confirm your details went through.");
+
+    await submit(form);
+
+    expect(submissionCalls).toBe(2);
+    expect(fetchMock.mock.calls.filter(([url]) => url === vcardUrl)).toHaveLength(1);
+    expect(document.querySelector("#guest-thank-you-heading")?.textContent).toBe("Thanks for sharing!");
   });
 
   it("submits required details without a picture and shows a privacy-safe thank-you state", async () => {
@@ -1037,6 +1106,11 @@ describe("guest frontend", () => {
     await submit(document.querySelector<HTMLFormElement>("#guest-details-form")!);
 
     const submission = fetchMock.mock.calls.find(([url]) => url === `/api/guest/links/${guestToken}/submissions`);
+    const submissionIndex = fetchMock.mock.calls.findIndex(
+      ([url]) => url === `/api/guest/links/${guestToken}/submissions`
+    );
+    const cardIndex = fetchMock.mock.calls.findIndex(([url]) => url === vcardUrl);
+    expect(cardIndex).toBeGreaterThan(submissionIndex);
     expect(submission?.[1]?.method).toBe("POST");
     expect(submission?.[1]?.cache).toBe("no-store");
     expect(submission?.[1]?.referrerPolicy).toBe("no-referrer");
@@ -1199,16 +1273,39 @@ describe("guest frontend", () => {
     expect(button("Try again")).toBeDefined();
   });
 
-  it("keeps the form available when the vCard download fails", async () => {
-    installActiveGuestLink(async (url) => {
-      if (url === vcardUrl) return response({ error: { code: "vcard_unavailable" } }, 500);
+  it("retries a failed post-submission vCard download without resubmitting", async () => {
+    let cardRequests = 0;
+    const fetchMock = installActiveGuestLink(async (url) => {
+      if (url === vcardUrl) {
+        cardRequests += 1;
+        return cardRequests === 1
+          ? response({ error: { code: "vcard_unavailable" } }, 500)
+          : vcardResponse();
+      }
+      if (url === `/api/guest/links/${guestToken}/submissions`) return response({ success: true }, 201);
       return response({ error: { code: "not_found" } }, 404);
     });
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
     await renderGuestPage(guestToken);
     await click(button("Download my card & share your details"));
 
-    expect(document.querySelector("#guest-details-form")).not.toBeNull();
+    changeValue(input("guest-name"), "Guest Example");
+    changeValue(input("guest-email"), "guest@example.invalid");
+    changeValue(input("guest-address"), "34 Example Street");
+    changeValue(input("guest-birthday"), "1992-06-17");
+    changeValue(input("guest-phone"), "+31600000001");
+    await submit(document.querySelector<HTMLFormElement>("#guest-details-form")!);
+
+    expect(document.querySelector("#guest-details-form")).toBeNull();
+    expect(document.querySelector("#guest-thank-you-heading")?.textContent).toBe("Thanks for sharing!");
     expect(document.body.textContent).toContain("Couldn't get the contact card. Try again.");
+    expect(fetchMock.mock.calls.filter(([url]) => url === vcardUrl)).toHaveLength(1);
+    await click(button("Download the card"));
+
+    expect(fetchMock.mock.calls.filter(([url]) => url === `/api/guest/links/${guestToken}/submissions`))
+      .toHaveLength(1);
+    expect(fetchMock.mock.calls.filter(([url]) => url === vcardUrl)).toHaveLength(2);
+    expect(document.querySelector("#guest-thank-you-heading")?.textContent).toBe("Thanks for sharing!");
   });
 });
 

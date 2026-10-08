@@ -37,7 +37,9 @@ export default function GuestPage() {
   const [guestPicturePreviewUrl, setGuestPicturePreviewUrl] = useState<string | null>(null);
   const [guestMessage, setGuestMessage] = useState<MessageKey | "">("");
   const [guestDownloading, setGuestDownloading] = useState(false);
-  const [guestDownloadMode, setGuestDownloadMode] = useState<"share" | "card-only" | null>(null);
+  const [guestDownloadMode, setGuestDownloadMode] = useState<
+    "card-only" | "submission" | "retry" | null
+  >(null);
   const [guestSubmitting, setGuestSubmitting] = useState(false);
   const guestPictureInput = useRef<HTMLInputElement>(null);
   const guestPictureObjectUrl = useRef<string | null>(null);
@@ -93,7 +95,7 @@ export default function GuestPage() {
         setOwnerName(payload.ownerName);
         setOwnerProfilePhotoUrl(payload.profilePhotoUrl);
         setGuestVCardUrl(payload.vcardUrl);
-        setGuestPageState("ready");
+        setGuestPageState(payload.submissionComplete ? "submitted" : "ready");
       } catch {
         if (!cancelled) {
           setGuestMessage("guestConnectionFailed");
@@ -125,12 +127,48 @@ export default function GuestPage() {
     if (guestPictureInput.current) guestPictureInput.current.value = "";
   }
 
-  async function handleGuestDownload(openForm: boolean) {
-    if (openForm) setGuestFormOpen(true);
+  async function resumeSubmittedLink() {
+    try {
+      const response = await fetch(`/api/guest/links/${encodeURIComponent(token)}`, {
+        cache: "no-store",
+        referrerPolicy: "no-referrer"
+      });
+      if (response.status === 404 || response.status === 410) {
+        markGuestLinkUnavailable();
+        return;
+      }
+      if (!response.ok) {
+        setGuestMessage("guestSubmissionCouldNotConfirm");
+        return;
+      }
+
+      const payload: unknown = await response.json();
+      if (!isGuestLinkResolution(payload) || !payload.submissionComplete) {
+        setGuestMessage("guestSubmissionCouldNotConfirm");
+        return;
+      }
+
+      setOwnerName(payload.ownerName);
+      setOwnerProfilePhotoUrl(payload.profilePhotoUrl);
+      setGuestVCardUrl(payload.vcardUrl);
+      setGuestValues(emptyFields);
+      setGuestFieldErrors({});
+      setGuestPictureError("");
+      setGuestPicturePreview(null);
+      setGuestFormOpen(false);
+      if (guestPictureInput.current) guestPictureInput.current.value = "";
+      setGuestPageState("submitted");
+      await handleGuestDownload("retry");
+    } catch {
+      setGuestMessage("guestConnectionFailed");
+    }
+  }
+
+  async function handleGuestDownload(mode: "card-only" | "submission" | "retry") {
     if (!guestVCardUrl || guestDownloading) return;
 
     setGuestDownloading(true);
-    setGuestDownloadMode(openForm ? "share" : "card-only");
+    setGuestDownloadMode(mode);
     setGuestMessage("");
     let downloadUrl: string | undefined;
     try {
@@ -166,6 +204,7 @@ export default function GuestPage() {
       } finally {
         anchor.remove();
       }
+      setGuestPageState(mode === "card-only" ? "downloaded" : "thank-you");
       const completedDownloadUrl = downloadUrl;
       window.setTimeout(() => URL.revokeObjectURL(completedDownloadUrl), 1000);
       downloadUrl = undefined;
@@ -214,8 +253,12 @@ export default function GuestPage() {
           referrerPolicy: "no-referrer"
         }
       );
-      if (response.status === 404 || response.status === 410) {
+      if (response.status === 404) {
         markGuestLinkUnavailable();
+        return;
+      }
+      if (response.status === 410) {
+        await resumeSubmittedLink();
         return;
       }
       if (!response.ok) {
@@ -237,9 +280,9 @@ export default function GuestPage() {
       setGuestPictureError("");
       setGuestPicturePreview(null);
       setGuestFormOpen(false);
-      setGuestVCardUrl(null);
       if (guestPictureInput.current) guestPictureInput.current.value = "";
-      setGuestPageState("thank-you");
+      setGuestPageState("submitted");
+      await handleGuestDownload("submission");
     } catch {
       setGuestMessage("guestSubmissionConnectionFailed");
     } finally {
@@ -283,6 +326,42 @@ export default function GuestPage() {
           <p className="eyebrow">ContactSwap</p>
           <h1 id="guest-thank-you-heading">{t("thanksForSharing")}</h1>
           <p className="section-description">{t("detailsShared")}</p>
+        </section>
+      </main>
+    );
+  }
+
+  if (guestPageState === "submitted") {
+    return (
+      <main className="shell guest-shell guest-state-shell">
+        <section className="panel guest-panel guest-state-panel guest-state-thank-you" aria-labelledby="guest-thank-you-heading">
+          <span className="guest-state-emoji" aria-hidden="true">🎉</span>
+          <p className="eyebrow">ContactSwap</p>
+          <h1 id="guest-thank-you-heading">{t("thanksForSharing")}</h1>
+          {guestMessage
+            ? <p className="notice" role="alert">{t(guestMessage)}</p>
+            : <p className="section-description">{t("guestDownloadPending")}</p>}
+          <button
+            className="primary-button guest-retry-button"
+            type="button"
+            onClick={() => void handleGuestDownload("retry")}
+            disabled={guestDownloading || !guestVCardUrl}
+          >
+            {guestDownloading ? t("preparingDownload") : t("downloadCard")}
+          </button>
+        </section>
+      </main>
+    );
+  }
+
+  if (guestPageState === "downloaded") {
+    return (
+      <main className="shell guest-shell guest-state-shell">
+        <section className="panel guest-panel guest-state-panel guest-state-thank-you" aria-labelledby="guest-downloaded-heading">
+          <span className="guest-state-emoji" aria-hidden="true">📇</span>
+          <p className="eyebrow">ContactSwap</p>
+          <h1 id="guest-downloaded-heading">{t("cardDownloadedHeading")}</h1>
+          <p className="section-description">{t("cardDownloadedDescription")}</p>
         </section>
       </main>
     );
@@ -492,7 +571,7 @@ export default function GuestPage() {
             {guestMessage && <p className="notice" role="alert" aria-live="polite">{t(guestMessage)}</p>}
             <div className="guest-form-actions">
               <button className="primary-button" type="submit" disabled={guestSubmitting || guestDownloading}>
-                {guestSubmitting ? t("sending") : t("shareMyDetails")}
+                {guestSubmitting ? t("sending") : t("submitAndDownload")}
               </button>
             </div>
           </form>
@@ -512,17 +591,15 @@ export default function GuestPage() {
             <button
               className="primary-button guest-primary-action"
               type="button"
-              onClick={() => void handleGuestDownload(true)}
+              onClick={() => setGuestFormOpen(true)}
               disabled={!guestVCardUrl || guestDownloading}
             >
-              {guestDownloading && guestDownloadMode === "share"
-                ? t("preparingDownload")
-                : t("downloadAndShare")}
+              {t("downloadAndShare")}
             </button>
             <button
               className="secondary-button guest-secondary-action"
               type="button"
-              onClick={() => void handleGuestDownload(false)}
+              onClick={() => void handleGuestDownload("card-only")}
               disabled={!guestVCardUrl || guestDownloading}
             >
               {guestDownloading && guestDownloadMode === "card-only"

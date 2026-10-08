@@ -74,17 +74,24 @@ routes.post("/links/:token/submissions", async (context) => {
 
   const tokenHash = await hashGuestToken(context.req.param("token"));
   const link = await context.env.DB.prepare(
-    "SELECT id, consumed_at, revoked_at FROM guest_links WHERE token_hash = ?"
+    `SELECT guest_links.id, guest_links.consumed_at, guest_links.revoked_at,
+            guest_links.submitted_at
+     FROM guest_links WHERE guest_links.token_hash = ?`
   )
     .bind(tokenHash)
-    .first<{ id: string; consumed_at: string | null; revoked_at: string | null }>();
+    .first<{
+      id: string;
+      consumed_at: string | null;
+      revoked_at: string | null;
+      submitted_at: string | null;
+    }>();
   if (!link) {
     return context.json(
       { error: { code: "guest_link_not_found", message: "The guest link was not found." } },
       404
     );
   }
-  if (link.consumed_at || link.revoked_at) {
+  if (link.consumed_at || link.revoked_at || link.submitted_at) {
     return context.json(
       { error: { code: "guest_link_unavailable", message: "The guest link is no longer available." } },
       410
@@ -157,7 +164,8 @@ routes.post("/links/:token/submissions", async (context) => {
            (id, link_id, name, email, address, birthday, phone, org, title, photo_key, created_at, expires_at)
          SELECT ?, id, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
          FROM guest_links
-         WHERE token_hash = ? AND consumed_at IS NULL AND revoked_at IS NULL`
+         WHERE token_hash = ? AND consumed_at IS NULL AND revoked_at IS NULL
+           AND submitted_at IS NULL`
       ).bind(
         submissionId,
         submission.name,
@@ -173,9 +181,9 @@ routes.post("/links/:token/submissions", async (context) => {
         tokenHash
       ),
       context.env.DB.prepare(
-        `UPDATE guest_links SET consumed_at = ?
+        `UPDATE guest_links SET submitted_at = ?
          WHERE id = (SELECT link_id FROM guest_submissions WHERE id = ?)
-           AND consumed_at IS NULL AND revoked_at IS NULL`
+           AND submitted_at IS NULL`
       ).bind(now, submissionId),
       context.env.DB.prepare(
         `INSERT INTO notification_outbox (id, submission_id, attempts, next_attempt_at, created_at)
@@ -185,10 +193,15 @@ routes.post("/links/:token/submissions", async (context) => {
     inserted = results[0].meta.changes;
   } catch {
     const link = await context.env.DB.prepare(
-      "SELECT consumed_at, revoked_at FROM guest_links WHERE token_hash = ?"
+      `SELECT guest_links.consumed_at, guest_links.revoked_at, guest_links.submitted_at
+       FROM guest_links WHERE guest_links.token_hash = ?`
     )
       .bind(tokenHash)
-      .first<{ consumed_at: string | null; revoked_at: string | null }>();
+      .first<{
+        consumed_at: string | null;
+        revoked_at: string | null;
+        submitted_at: string | null;
+      }>();
 
     if (!link) {
       return context.json(
@@ -196,7 +209,7 @@ routes.post("/links/:token/submissions", async (context) => {
         404
       );
     }
-    if (link.consumed_at || link.revoked_at) {
+    if (link.consumed_at || link.revoked_at || link.submitted_at) {
       return context.json(
         { error: { code: "guest_link_unavailable", message: "The guest link is no longer available." } },
         410
@@ -207,10 +220,16 @@ routes.post("/links/:token/submissions", async (context) => {
 
   if (inserted !== 1) {
     const link = await context.env.DB.prepare(
-      "SELECT id FROM guest_links WHERE token_hash = ?"
+      `SELECT guest_links.id, guest_links.consumed_at, guest_links.revoked_at, guest_links.submitted_at
+       FROM guest_links WHERE guest_links.token_hash = ?`
     )
       .bind(tokenHash)
-      .first<{ id: string }>();
+      .first<{
+        id: string;
+        consumed_at: string | null;
+        revoked_at: string | null;
+        submitted_at: string | null;
+      }>();
     return context.json(
       {
         error: {

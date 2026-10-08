@@ -228,6 +228,37 @@ export default function OwnerProfilePage() {
     ({ name }) => values[name] !== (profile[name] ?? "")
   );
 
+  const renderField = ({ name, labelKey, type, autoComplete, hintKey, placeholder, placeholderKey, optional }: (typeof fields)[number]) => (
+    <div className={`field ${name === "address" ? "profile-field-wide" : ""}`} key={name}>
+      <label htmlFor={name}>
+        {t(labelKey)}{" "}
+        {optional ? <span>({t("optional")})</span> : <span aria-hidden="true"> *</span>}
+      </label>
+      <input
+        id={name}
+        name={name}
+        type={type}
+        autoComplete={autoComplete}
+        placeholder={placeholderKey ? t(placeholderKey) : placeholder}
+        inputMode={name === "phone" ? "tel" : undefined}
+        value={values[name] ?? ""}
+        required={!optional}
+        aria-invalid={Boolean(fieldErrors[name])}
+        aria-describedby={[
+          hintKey ? `${name}-hint` : undefined,
+          fieldErrors[name] ? `${name}-error` : undefined
+        ].filter(Boolean).join(" ") || undefined}
+        onChange={(event) => {
+          setValues((current) => ({ ...current, [name]: event.target.value }));
+          setFieldErrors((current) => ({ ...current, [name]: undefined }));
+          setMessage("");
+        }}
+      />
+      {hintKey && <span className="field-hint" id={`${name}-hint`}>{t(hintKey)} {t("exampleWithValue", { example: placeholder ?? "" })}</span>}
+      {fieldErrors[name] && <span className="field-error" id={`${name}-error`}>{t(fieldErrors[name])}</span>}
+    </div>
+  );
+
   return (
     <main className="shell profile-shell">
       <OwnerPageHeader title={t("profile")} />
@@ -275,36 +306,18 @@ export default function OwnerProfilePage() {
           </span>
         </div>
         <form onSubmit={handleSave} className="profile-form" noValidate>
-          {fields.map(({ name, labelKey, type, autoComplete, hintKey, placeholder, placeholderKey, optional }) => (
-            <div className="field" key={name}>
-              <label htmlFor={name}>
-                {t(labelKey)}{" "}
-                {optional ? <span>({t("optional")})</span> : <span aria-hidden="true"> *</span>}
-              </label>
-              <input
-                id={name}
-                name={name}
-                type={type}
-                autoComplete={autoComplete}
-                placeholder={placeholderKey ? t(placeholderKey) : placeholder}
-                inputMode={name === "phone" ? "tel" : undefined}
-                value={values[name] ?? ""}
-                required={!optional}
-                aria-invalid={Boolean(fieldErrors[name])}
-                aria-describedby={[
-                  hintKey ? `${name}-hint` : undefined,
-                  fieldErrors[name] ? `${name}-error` : undefined
-                ].filter(Boolean).join(" ") || undefined}
-                onChange={(event) => {
-                  setValues((current) => ({ ...current, [name]: event.target.value }));
-                  setFieldErrors((current) => ({ ...current, [name]: undefined }));
-                  setMessage("");
-                }}
-              />
-              {hintKey && <span className="field-hint" id={`${name}-hint`}>{t(hintKey)} {t("exampleWithValue", { example: placeholder ?? "" })}</span>}
-              {fieldErrors[name] && <span className="field-error" id={`${name}-error`}>{t(fieldErrors[name])}</span>}
+          <fieldset className="profile-form-section">
+            <legend>{t("profileContactSection")}</legend>
+            <div className="profile-form-fields">
+              {fields.filter(({ optional }) => !optional).map(renderField)}
             </div>
-          ))}
+          </fieldset>
+          <fieldset className="profile-form-section">
+            <legend>{t("profileWorkSection")}</legend>
+            <div className="profile-form-fields">
+              {fields.filter(({ optional }) => optional).map(renderField)}
+            </div>
+          </fieldset>
           <div className="form-actions">
             <button className="primary-button" type="submit" disabled={busy !== null}>
               {busy === "save" ? t("saving") : t("save")}
