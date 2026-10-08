@@ -174,9 +174,13 @@ export function isProfile(value: unknown): value is Profile {
   if (typeof value !== "object" || value === null) return false;
   const candidate = value as Record<string, unknown>;
   return (
-    typeof candidate.name === "string" &&
+    typeof candidate.firstName === "string" &&
+    typeof candidate.lastName === "string" &&
     typeof candidate.email === "string" &&
-    typeof candidate.address === "string" &&
+    typeof candidate.street === "string" &&
+    typeof candidate.city === "string" &&
+    typeof candidate.postalCode === "string" &&
+    typeof candidate.country === "string" &&
     typeof candidate.birthday === "string" &&
     typeof candidate.phone === "string" &&
     (candidate.org === null || typeof candidate.org === "string") &&

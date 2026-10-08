@@ -7,17 +7,33 @@ POST {{baseUrl}}/api/guest/links/{{guestToken}}/submissions
 Content-Type: multipart/form-data; boundary=ContactSwapGuestBoundary
 
 --ContactSwapGuestBoundary
-Content-Disposition: form-data; name="name"
+Content-Disposition: form-data; name="firstName"
 
-Morgan Rivera
+Morgan
+--ContactSwapGuestBoundary
+Content-Disposition: form-data; name="lastName"
+
+Rivera
 --ContactSwapGuestBoundary
 Content-Disposition: form-data; name="email"
 
 morgan.rivera@example.invalid
 --ContactSwapGuestBoundary
-Content-Disposition: form-data; name="address"
+Content-Disposition: form-data; name="street"
 
-42 Example Avenue, Sampleville, ZZ 00000
+42 Example Avenue
+--ContactSwapGuestBoundary
+Content-Disposition: form-data; name="city"
+
+Sampleville
+--ContactSwapGuestBoundary
+Content-Disposition: form-data; name="postalCode"
+
+ZZ 00000
+--ContactSwapGuestBoundary
+Content-Disposition: form-data; name="country"
+
+The Netherlands
 --ContactSwapGuestBoundary
 Content-Disposition: form-data; name="birthday"
 
@@ -41,17 +57,33 @@ POST {{baseUrl}}/api/guest/links/{{guestToken}}/submissions
 Content-Type: multipart/form-data; boundary=ContactSwapGuestPhotoBoundary
 
 --ContactSwapGuestPhotoBoundary
-Content-Disposition: form-data; name="name"
+Content-Disposition: form-data; name="firstName"
 
-Morgan Rivera
+Morgan
+--ContactSwapGuestPhotoBoundary
+Content-Disposition: form-data; name="lastName"
+
+Rivera
 --ContactSwapGuestPhotoBoundary
 Content-Disposition: form-data; name="email"
 
 morgan.rivera@example.invalid
 --ContactSwapGuestPhotoBoundary
-Content-Disposition: form-data; name="address"
+Content-Disposition: form-data; name="street"
 
-42 Example Avenue, Sampleville, ZZ 00000
+42 Example Avenue
+--ContactSwapGuestPhotoBoundary
+Content-Disposition: form-data; name="city"
+
+Sampleville
+--ContactSwapGuestPhotoBoundary
+Content-Disposition: form-data; name="postalCode"
+
+ZZ 00000
+--ContactSwapGuestPhotoBoundary
+Content-Disposition: form-data; name="country"
+
+The Netherlands
 --ContactSwapGuestPhotoBoundary
 Content-Disposition: form-data; name="birthday"
 

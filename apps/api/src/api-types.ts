@@ -1,7 +1,11 @@
 export type OwnerProfile = {
-  name: string;
+  firstName: string;
+  lastName: string;
   email: string;
-  address: string;
+  street: string;
+  city: string;
+  postalCode: string;
+  country: string;
   birthday: string;
   phone: string;
   org: string | null;

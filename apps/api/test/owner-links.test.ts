@@ -12,9 +12,13 @@ const testEnv: Env = {
   PUBLIC_APP_ORIGIN: "https://contactswap.quinten.dev"
 };
 const profile = {
-  name: "Quinten Example",
+  firstName: "Quinten",
+  lastName: "Example",
   email: "quinten@example.invalid",
-  address: "123 Example Street",
+  street: "123 Example Street",
+  city: "Amsterdam",
+  postalCode: "1012 AB",
+  country: "The Netherlands",
   birthday: "1990-02-28",
   phone: "+31600000000"
 };
@@ -69,9 +73,13 @@ async function revokeGuestLink(
 
 function guestSubmissionForm(): FormData {
   const form = new FormData();
-  form.append("name", "Guest Example");
+  form.append("firstName", "Guest");
+  form.append("lastName", "Example");
   form.append("email", "guest@example.invalid");
-  form.append("address", "456 Guest Street");
+  form.append("street", "456 Guest Street");
+  form.append("city", "Amsterdam");
+  form.append("postalCode", "1013 AB");
+  form.append("country", "The Netherlands");
   form.append("birthday", "1988-06-12");
   form.append("phone", "+31600000001");
   return form;

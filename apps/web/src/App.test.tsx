@@ -8,9 +8,13 @@ import { languageStorageKey } from "./lib/i18n";
 
 const token = "owner-test-token";
 const profile = {
-  name: "Quinten Example",
+  firstName: "Quinten",
+  lastName: "Example",
   email: "quinten@example.invalid",
-  address: "12 Main Street",
+  street: "12 Main Street",
+  city: "Amsterdam",
+  postalCode: "1012 AB",
+  country: "The Netherlands",
   birthday: "1990-02-28",
   phone: "+31600000000",
   org: null,
@@ -57,6 +61,17 @@ function changeValue(element: HTMLInputElement, value: string) {
     setter.call(element, value);
     element.dispatchEvent(new Event("input", { bubbles: true }));
   });
+}
+
+function fillGuestRequiredFields(phone = "+31600000001") {
+  changeValue(input("guest-firstName"), "Guest");
+  changeValue(input("guest-lastName"), "Example");
+  changeValue(input("guest-email"), "guest@example.invalid");
+  changeValue(input("guest-street"), "34 Example Street");
+  changeValue(input("guest-city"), "Amsterdam");
+  changeValue(input("guest-postalCode"), "1013 AB");
+  changeValue(input("guest-birthday"), "1992-06-17");
+  changeValue(input("guest-phone"), phone);
 }
 
 async function submit(form: HTMLFormElement) {
@@ -209,6 +224,74 @@ describe("owner profile frontend", () => {
     expect(document.querySelector(".login-panel label, .login-panel h1, .login-panel a")).toBeNull();
     expect(document.querySelector(".login-panel button")).not.toBeNull();
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps the profile vCard download disabled until a profile exists", async () => {
+    window.localStorage.setItem(tokenStorageKey, token);
+    const fetchMock = installFetch(async () => response({ error: { code: "profile_not_found" } }, 404));
+    await renderApp();
+
+    expect(button("Download my vCard").disabled).toBe(true);
+    expect(fetchMock.mock.calls.some(([url]) => url === "/api/owner/profile/vcard")).toBe(false);
+  });
+
+  it("downloads the saved profile vCard through the owner-authorized endpoint", async () => {
+    window.localStorage.setItem(tokenStorageKey, token);
+    const fetchMock = installFetch(async (url) => url === "/api/owner/profile/vcard"
+      ? vcardResponse(
+        "BEGIN:VCARD\r\nVERSION:3.0\r\nFN:Quinten Example\r\nEND:VCARD\r\n",
+        "text/vcard; version=3.0; charset=utf-8",
+        "quinten-example.vcf"
+      )
+      : response(profile));
+    const clickAnchor = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) {
+      expect(this.download).toBe("quinten-example.vcf");
+      expect(this.href).toBe("blob:private-profile-photo");
+    });
+    await renderApp();
+
+    const downloadButton = button("Download my vCard");
+    expect(downloadButton.disabled).toBe(false);
+    changeValue(input("firstName"), "Changed");
+    expect(downloadButton.disabled).toBe(true);
+    changeValue(input("firstName"), profile.firstName);
+    expect(downloadButton.disabled).toBe(false);
+
+    await click(downloadButton);
+
+    const downloadCall = fetchMock.mock.calls.find(([url]) => url === "/api/owner/profile/vcard");
+    expect(downloadCall?.[1]).toMatchObject({
+      headers: { Authorization: expect.any(String) },
+      cache: "no-store"
+    });
+    expect(clickAnchor).toHaveBeenCalledOnce();
+    expect(URL.createObjectURL).toHaveBeenCalledOnce();
+    expect(document.body.textContent).toContain("Your contact card was downloaded.");
+  });
+
+  it("reports failed profile vCard downloads and allows retry", async () => {
+    window.localStorage.setItem(tokenStorageKey, token);
+    let downloads = 0;
+    installFetch(async (url) => {
+      if (url === "/api/owner/profile/vcard") {
+        downloads += 1;
+        return downloads === 1
+          ? response({ error: { code: "service_error" } }, 500)
+          : vcardResponse();
+      }
+      return response(profile);
+    });
+    const clickAnchor = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    await renderApp();
+
+    await click(button("Download my vCard"));
+    expect(document.body.textContent).toContain("Couldn't download your vCard. Try again.");
+    expect(clickAnchor).not.toHaveBeenCalled();
+
+    await click(button("Download my vCard"));
+    expect(downloads).toBe(2);
+    expect(clickAnchor).toHaveBeenCalledOnce();
+    expect(document.body.textContent).toContain("Your contact card was downloaded.");
   });
 
   it("loads retained submissions newest first without displaying private fields or identifiers", async () => {
@@ -644,15 +727,17 @@ describe("owner profile frontend", () => {
 
   it("loads a remembered token using the authorization header and no-store cache", async () => {
     window.localStorage.setItem(tokenStorageKey, token);
-    const fetchMock = installFetch(async () => response(profile));
+    const savedProfile = { ...profile, country: "Belgium" };
+    const fetchMock = installFetch(async () => response(savedProfile));
     await renderApp();
 
     expect(await screenText()).toContain("My details");
     expect(document.querySelector("#phone-hint")?.textContent).toContain("Example: +31600000000");
     expect([...document.querySelectorAll(".profile-form-section legend")].map((legend) => legend.textContent))
-      .toEqual(["Contact information", "Work information"]);
-    expect(document.querySelector(".profile-form-section #address")?.closest(".field")?.classList.contains("profile-field-wide"))
+      .toEqual(["Contact information", "Address", "Work information"]);
+    expect(document.querySelector(".profile-form-section #street")?.closest(".field")?.classList.contains("profile-field-wide"))
       .toBe(true);
+    expect(input("country").value).toBe("Belgium");
     expect(input("org").placeholder).toBe("Larkspur Creative Studio");
     expect(input("title").placeholder).toBe("Senior Product Designer");
     const requestCount = fetchMock.mock.calls.length;
@@ -667,9 +752,12 @@ describe("owner profile frontend", () => {
 
     expect(document.querySelector("#phone-hint")?.textContent).toContain("Bijvoorbeeld: +31600000000");
     expect(fetchMock).toHaveBeenCalledTimes(requestCount);
-    expect([...document.querySelectorAll(".profile-layout > section.panel")].map((panel) =>
+    expect([...document.querySelectorAll(".profile-layout .panel")].map((panel) =>
       panel.getAttribute("aria-labelledby")
-    )).toEqual(["profile-heading", "photo-heading"]);
+    )).toEqual(["profile-heading", "photo-heading", "profile-vcard-heading"]);
+    expect([...document.querySelectorAll(".profile-sidebar > .panel")].map((panel) =>
+      panel.getAttribute("aria-labelledby")
+    )).toEqual(["photo-heading", "profile-vcard-heading"]);
     expect(fetchMock).toHaveBeenCalledWith("/api/owner/profile", {
       headers: { Authorization: `Bearer ${token}` },
       cache: "no-store"
@@ -691,14 +779,18 @@ describe("owner profile frontend", () => {
     expect(window.localStorage.getItem(tokenStorageKey)).toBe(token);
     expect(fetchMock.mock.calls[0]?.[1]?.headers).toEqual({ Authorization: `Bearer ${token}` });
     expect(document.body.textContent).toContain("Not set up");
-    changeValue(input("name"), " Quinten Example ");
+    expect(input("country").value).toBe("The Netherlands");
+    changeValue(input("firstName"), " Quinten ");
+    changeValue(input("lastName"), " Example ");
     changeValue(input("email"), " quinten@example.invalid ");
-    changeValue(input("address"), " 12 Main Street ");
+    changeValue(input("street"), " 12 Main Street ");
+    changeValue(input("city"), " Amsterdam ");
+    changeValue(input("postalCode"), " 1012 AB ");
     changeValue(input("birthday"), "1990-02-28");
     changeValue(input("phone"), " +31600000000 ");
     changeValue(input("org"), " ContactSwap ");
     changeValue(input("title"), " Founder ");
-    await submit(input("name").form!);
+    await submit(input("firstName").form!);
 
     const saveCall = fetchMock.mock.calls.find(([, init]) => init?.method === "PUT");
     expect(saveCall?.[0]).toBe("/api/owner/profile");
@@ -707,26 +799,34 @@ describe("owner profile frontend", () => {
       "Content-Type": "application/json"
     });
     expect(JSON.parse(String(saveCall?.[1]?.body))).toEqual({
-      name: profile.name,
+      firstName: profile.firstName,
+      lastName: profile.lastName,
       email: profile.email,
-      address: profile.address,
+      street: profile.street,
+      city: profile.city,
+      postalCode: profile.postalCode,
+      country: profile.country,
       birthday: profile.birthday,
       phone: profile.phone,
       org: "ContactSwap",
       title: "Founder"
     });
     expect(document.body.textContent).toContain("Changes saved.");
-    expect([...document.querySelectorAll(".profile-shell > .page-notice, .profile-layout > section.panel")].map((element) =>
+    expect([...document.querySelectorAll(".profile-shell > .page-notice, .profile-layout .panel")].map((element) =>
       element.classList.contains("page-notice") ? "notice" : element.getAttribute("aria-labelledby")
-    )).toEqual(["notice", "profile-heading", "photo-heading"]);
+    )).toEqual(["notice", "profile-heading", "photo-heading", "profile-vcard-heading"]);
 
-    changeValue(input("address"), " 99 New Street ");
-    await submit(input("address").form!);
+    changeValue(input("street"), " 99 New Street ");
+    await submit(input("street").form!);
     const saves = fetchMock.mock.calls.filter(([, init]) => init?.method === "PUT");
     expect(JSON.parse(String(saves[1]?.[1]?.body))).toEqual({
-      name: profile.name,
+      firstName: profile.firstName,
+      lastName: profile.lastName,
       email: profile.email,
-      address: "99 New Street",
+      street: "99 New Street",
+      city: profile.city,
+      postalCode: profile.postalCode,
+      country: profile.country,
       birthday: profile.birthday,
       phone: profile.phone,
       org: "ContactSwap",
@@ -736,7 +836,7 @@ describe("owner profile frontend", () => {
 
     changeValue(input("org"), "");
     changeValue(input("title"), "");
-    await submit(input("name").form!);
+    await submit(input("firstName").form!);
     const clearedSave = fetchMock.mock.calls.filter(([, init]) => init?.method === "PUT")[2];
     expect(JSON.parse(String(clearedSave?.[1]?.body))).toMatchObject({ org: null, title: null });
   });
@@ -749,7 +849,7 @@ describe("owner profile frontend", () => {
     expect(window.localStorage.getItem(tokenStorageKey)).toBeNull();
     expect(document.querySelector("#owner-token")).not.toBeNull();
     expect(document.body.textContent).not.toContain(profile.email);
-    expect(document.querySelector("#name")).toBeNull();
+    expect(document.querySelector("#firstName")).toBeNull();
     expect(document.body.textContent).toContain("That token didn't work.");
   });
 
@@ -784,10 +884,10 @@ describe("owner profile frontend", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
     changeValue(input("email"), "correct@example.invalid");
-    changeValue(input("name"), "Edited name");
+    changeValue(input("firstName"), "Edited name");
     await submit(input("email").form!);
-    expect(document.body.textContent).toContain("Check the required fields, email, birthday, and phone number.");
-    expect(input("name").value).toBe("Edited name");
+    expect(document.body.textContent).toContain("Check all required contact fields, email, birthday, and phone number.");
+    expect(input("firstName").value).toBe("Edited name");
     expect(input("org").value).toBe("Example Company");
     expect(input("title").value).toBe("Product designer");
     expect(document.body.textContent).toContain("Not saved");
@@ -871,7 +971,7 @@ describe("owner profile frontend", () => {
     await click(button("Log out"));
     expect(window.localStorage.getItem(tokenStorageKey)).toBeNull();
     expect(document.querySelector("#owner-token")).not.toBeNull();
-    expect(document.querySelector("#name")).toBeNull();
+    expect(document.querySelector("#firstName")).toBeNull();
     expect(document.body.textContent).toContain("You're signed out.");
   });
 });
@@ -933,9 +1033,13 @@ describe("guest frontend", () => {
     await renderGuestPage(guestToken);
     await click(button("Download my card & share your details"));
 
-    expect(input("guest-name").placeholder).toBe("Alex Morgan");
+    expect(input("guest-firstName").placeholder).toBe("Alex");
+    expect(input("guest-lastName").placeholder).toBe("Morgan");
     expect(input("guest-email").placeholder).toBe("alex@example.com");
-    expect(input("guest-address").placeholder).toBe("42 Example Street, London SW1A 1AA");
+    expect(input("guest-street").placeholder).toBe("42 Example Street");
+    expect(input("guest-city").placeholder).toBe("London");
+    expect(input("guest-postalCode").placeholder).toBe("SW1A 1AA");
+    expect(input("guest-country").value).toBe("The Netherlands");
     expect(input("guest-birthday").placeholder).toBe("1990-06-15");
     expect(document.querySelector("#guest-birthday-hint")).toBeNull();
     expect(input("guest-phone").placeholder).toBe("+447700900123");
@@ -945,7 +1049,7 @@ describe("guest frontend", () => {
     expect(input("guest-org").required).toBe(false);
     expect(input("guest-title").required).toBe(false);
 
-    changeValue(input("guest-name"), "A name in progress");
+    changeValue(input("guest-firstName"), "A name in progress");
     const requestCount = fetchMock.mock.calls.length;
     const languageToggle = document.querySelector<HTMLButtonElement>("#contactswap-language-toggle");
     if (!languageToggle) throw new Error("Missing language selector.");
@@ -956,16 +1060,19 @@ describe("guest frontend", () => {
     if (!dutchOption) throw new Error("Missing Dutch language option.");
     await click(dutchOption);
 
-    expect(input("guest-name").placeholder).toBe("Lotte de Vries");
+    expect(input("guest-firstName").placeholder).toBe("Lotte");
+    expect(input("guest-lastName").placeholder).toBe("de Vries");
     expect(input("guest-email").placeholder).toBe("lotte.devries@gmail.com");
-    expect(input("guest-address").placeholder).toBe("Kerkstraat 12, 1015 AB Amsterdam");
+    expect(input("guest-street").placeholder).toBe("Kerkstraat 12");
+    expect(input("guest-city").placeholder).toBe("Amsterdam");
+    expect(input("guest-postalCode").placeholder).toBe("1015 AB");
     expect(input("guest-birthday").placeholder).toBe("1990-06-15");
     expect(document.querySelector("#guest-birthday-hint")).toBeNull();
     expect(input("guest-phone").placeholder).toBe("+31612345678");
     expect(document.querySelector("#guest-phone-hint")?.textContent).toContain("Bijvoorbeeld: +31612345678.");
     expect(input("guest-org").placeholder).toBe("Albert Heijn");
     expect(input("guest-title").placeholder).toBe("Vakkenvuller");
-    expect(input("guest-name").value).toBe("A name in progress");
+    expect(input("guest-firstName").value).toBe("A name in progress");
     expect(fetchMock).toHaveBeenCalledTimes(requestCount);
   });
 
@@ -1073,11 +1180,7 @@ describe("guest frontend", () => {
     await renderGuestPage(guestToken);
     await click(button("Download my card & share your details"));
 
-    changeValue(input("guest-name"), "Guest Example");
-    changeValue(input("guest-email"), "guest@example.invalid");
-    changeValue(input("guest-address"), "34 Example Street");
-    changeValue(input("guest-birthday"), "1992-06-17");
-    changeValue(input("guest-phone"), "+31600000001");
+    fillGuestRequiredFields();
     const form = document.querySelector<HTMLFormElement>("#guest-details-form")!;
     await submit(form);
     expect(document.querySelector("#guest-details-form")).not.toBeNull();
@@ -1100,11 +1203,7 @@ describe("guest frontend", () => {
     await renderGuestPage(guestToken);
     await click(button("Download my card & share your details"));
 
-    changeValue(input("guest-name"), "Guest Example");
-    changeValue(input("guest-email"), "guest@example.invalid");
-    changeValue(input("guest-address"), "34 Example Street");
-    changeValue(input("guest-birthday"), "1992-06-17");
-    changeValue(input("guest-phone"), "+31600000001");
+    fillGuestRequiredFields();
     await submit(document.querySelector<HTMLFormElement>("#guest-details-form")!);
 
     const submission = fetchMock.mock.calls.find(([url]) => url === `/api/guest/links/${guestToken}/submissions`);
@@ -1118,6 +1217,12 @@ describe("guest frontend", () => {
     expect(submission?.[1]?.referrerPolicy).toBe("no-referrer");
     expect(submission?.[1]?.body).toBeInstanceOf(FormData);
     expect((submission?.[1]?.body as FormData).get("picture")).toBeNull();
+    expect((submission?.[1]?.body as FormData).get("firstName")).toBe("Guest");
+    expect((submission?.[1]?.body as FormData).get("lastName")).toBe("Example");
+    expect((submission?.[1]?.body as FormData).get("street")).toBe("34 Example Street");
+    expect((submission?.[1]?.body as FormData).get("city")).toBe("Amsterdam");
+    expect((submission?.[1]?.body as FormData).get("postalCode")).toBe("1013 AB");
+    expect((submission?.[1]?.body as FormData).get("country")).toBe("The Netherlands");
     expect((submission?.[1]?.body as FormData).get("phone")).toBe("+31600000001");
     expect((submission?.[1]?.body as FormData).get("org")).toBeNull();
     expect((submission?.[1]?.body as FormData).get("title")).toBeNull();
@@ -1138,11 +1243,7 @@ describe("guest frontend", () => {
     await renderGuestPage(guestToken);
     await click(button("Download my card & share your details"));
 
-    changeValue(input("guest-name"), "Guest Example");
-    changeValue(input("guest-email"), "guest@example.invalid");
-    changeValue(input("guest-address"), "34 Example Street");
-    changeValue(input("guest-birthday"), "1992-06-17");
-    changeValue(input("guest-phone"), "+31600000001");
+    fillGuestRequiredFields();
     changeValue(input("guest-org"), "Larkspur Creative Studio");
     changeValue(input("guest-title"), "Senior Product Designer");
     await submit(document.querySelector<HTMLFormElement>("#guest-details-form")!);
@@ -1164,11 +1265,7 @@ describe("guest frontend", () => {
     vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
     await renderGuestPage(guestToken);
     await click(button("Download my card & share your details"));
-    changeValue(input("guest-name"), "Guest Example");
-    changeValue(input("guest-email"), "guest@example.invalid");
-    changeValue(input("guest-address"), "34 Example Street");
-    changeValue(input("guest-birthday"), "1992-06-17");
-    changeValue(input("guest-phone"), "+31600000001");
+    fillGuestRequiredFields();
 
     const pictureInput = input("guest-picture");
     const picture = new File(["synthetic image"], "guest.png", { type: "image/png" });
@@ -1179,6 +1276,7 @@ describe("guest frontend", () => {
     expect(document.querySelector("#guest-photo-heading")?.textContent).toBe("Profile photo");
     expect([...document.querySelectorAll("fieldset legend")].map((legend) => legend.textContent)).toEqual([
       "Your contact details",
+      "Your address",
       "Work details"
     ]);
     expect(URL.createObjectURL).toHaveBeenCalledWith(picture);
@@ -1204,7 +1302,7 @@ describe("guest frontend", () => {
     await submit(document.querySelector<HTMLFormElement>("#guest-details-form")!);
 
     expect(fetchMock.mock.calls.some(([url]) => url === `/api/guest/links/${guestToken}/submissions`)).toBe(false);
-    expect(input("guest-name").getAttribute("aria-invalid")).toBe("true");
+    expect(input("guest-firstName").getAttribute("aria-invalid")).toBe("true");
     expect(input("guest-phone").getAttribute("aria-invalid")).toBe("true");
     expect(document.body.textContent).toContain("A few details need fixing.");
   });
@@ -1215,11 +1313,7 @@ describe("guest frontend", () => {
     await renderGuestPage(guestToken);
     await click(button("Download my card & share your details"));
 
-    changeValue(input("guest-name"), "Guest Example");
-    changeValue(input("guest-email"), "guest@example.invalid");
-    changeValue(input("guest-address"), "34 Example Street");
-    changeValue(input("guest-birthday"), "1992-06-17");
-    changeValue(input("guest-phone"), "+31 6 0000 0000");
+    fillGuestRequiredFields("+31 6 0000 0000");
     await submit(document.querySelector<HTMLFormElement>("#guest-details-form")!);
 
     expect(input("guest-phone").type).toBe("tel");
@@ -1240,14 +1334,10 @@ describe("guest frontend", () => {
     vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
     await renderGuestPage(guestToken);
     await click(button("Download my card & share your details"));
-    changeValue(input("guest-name"), "Guest Example");
-    changeValue(input("guest-email"), "guest@example.invalid");
-    changeValue(input("guest-address"), "34 Example Street");
-    changeValue(input("guest-birthday"), "1992-06-17");
-    changeValue(input("guest-phone"), "+31600000001");
+    fillGuestRequiredFields();
     await submit(document.querySelector<HTMLFormElement>("#guest-details-form")!);
 
-    expect(input("guest-name").value).toBe("Guest Example");
+    expect(input("guest-firstName").value).toBe("Guest");
     expect(document.body.textContent).toContain("Check those details and try again.");
     expect(document.querySelector("#guest-details-form")).not.toBeNull();
   });
@@ -1291,11 +1381,7 @@ describe("guest frontend", () => {
     await renderGuestPage(guestToken);
     await click(button("Download my card & share your details"));
 
-    changeValue(input("guest-name"), "Guest Example");
-    changeValue(input("guest-email"), "guest@example.invalid");
-    changeValue(input("guest-address"), "34 Example Street");
-    changeValue(input("guest-birthday"), "1992-06-17");
-    changeValue(input("guest-phone"), "+31600000001");
+    fillGuestRequiredFields();
     await submit(document.querySelector<HTMLFormElement>("#guest-details-form")!);
 
     expect(document.querySelector("#guest-details-form")).toBeNull();

@@ -108,6 +108,8 @@ npm run infra:r2:lifecycle:list --workspace @contactswap/api
 
 The apply command replaces the bucket's complete lifecycle configuration. If you are applying this to a bucket that already has rules, list them first and preserve any required rules in [`infrastructure/r2-lifecycle.json`](infrastructure/r2-lifecycle.json) before applying. Confirm the enabled rule matches only `guest-submissions/`; owner photos must not expire. R2 processes expiration asynchronously, typically within 24 hours.
 
+Migration `0010_split_name_and_address_fields.sql` is intentionally destructive: it drops and recreates the owner profile, guest submissions, and notification outbox using the split fields. Existing rows and queued notifications are discarded; guest links are retained. Recreate the owner profile after applying it. The D1 migration cannot delete R2 objects, so remove existing objects under the `owner-profile/` and `guest-submissions/` prefixes from the configured photos bucket separately when applying the reset. Confirm the target account and bucket before deleting those private contact photos.
+
 `migrate:remote` explicitly uses `--remote`. `migrate:local` uses the `DB` binding with `--local`, so it continues to use Wrangler's local D1 simulator after the production database name and ID are set in `wrangler.jsonc`; it does not write to Cloudflare.
 
 ### 5. Create and deploy the API Worker with its required secrets

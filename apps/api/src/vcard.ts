@@ -1,11 +1,16 @@
 import { encodePhotoBase64 } from "./photo";
+import { formatDisplayName } from "./api-utils";
 
 const encoder = new TextEncoder();
 
 type VCardProfile = {
-  name: string;
+  firstName: string;
+  lastName: string;
   email: string;
-  address: string;
+  street: string;
+  city: string;
+  postalCode: string;
+  country: string;
   birthday: string;
   phone: string;
   org: string | null;
@@ -36,12 +41,11 @@ function foldLine(line: string): string {
   return folded;
 }
 
-export function vCardDownloadFilename(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  const selectedParts = parts.length > 1 ? [parts[0], parts[parts.length - 1]] : parts;
-  const filenameParts = selectedParts
+export function vCardDownloadFilename(firstName: string, lastName: string): string {
+  const filenameParts = [firstName, lastName]
     .map((part) =>
       part
+        .trim()
         .normalize("NFKD")
         .replace(/[\u0300-\u036f]/g, "")
         .toLowerCase()
@@ -54,16 +58,18 @@ export function vCardDownloadFilename(name: string): string {
 }
 
 export function renderVCard(profile: VCardProfile, photo?: Uint8Array): string {
-  const name = escapeText(profile.name);
+  const firstName = escapeText(profile.firstName);
+  const lastName = escapeText(profile.lastName);
+  const displayName = escapeText(formatDisplayName(profile.firstName, profile.lastName));
   const lines = [
     "BEGIN:VCARD",
     "VERSION:3.0",
-    `FN:${name}`,
-    `N:${name};;;;`,
+    `FN:${displayName}`,
+    `N:${lastName};${firstName};;;`,
     `EMAIL:${escapeText(profile.email)}`,
     `TEL;TYPE=CELL,VOICE,PREF:${profile.phone}`,
     `BDAY:${profile.birthday}`,
-    `ADR;TYPE=home:;;${escapeText(profile.address)};;;;`
+    `ADR;TYPE=home:;;${escapeText(profile.street)};${escapeText(profile.city)};;${escapeText(profile.postalCode)};${escapeText(profile.country)}`
   ];
 
   if (profile.org) {

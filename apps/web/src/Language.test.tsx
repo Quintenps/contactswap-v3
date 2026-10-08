@@ -134,9 +134,13 @@ describe("frontend language support", () => {
 
   it("translates validation feedback immediately and preserves edited contact fields", async () => {
     const profile = {
-      name: "Quinten Example",
+      firstName: "Quinten",
+      lastName: "Example",
       email: "quinten@example.invalid",
-      address: "12 Main Street",
+      street: "12 Main Street",
+      city: "Amsterdam",
+      postalCode: "1012 AB",
+      country: "The Netherlands",
       birthday: "1990-02-28",
       phone: "+31600000000",
       org: null,

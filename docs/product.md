@@ -27,16 +27,16 @@ The following decisions are resolved for this version:
 - Quinten is the only profile owner.
 - Quinten's editable profile fields are persisted in D1. Generate his current vCard 3.0 when requested from those fields and his optional optimized photo in private R2; do not store the rendered vCard or image data in D1.
 - An active guest link may show Quinten's name and optional profile picture on its landing page. If no picture is set, show an initials avatar. Do not show other owner contact fields in this preview; it is not a public profile and is available only through an active guest link.
-- Name, email, address, birthday, and phone number are required for both profiles; picture is optional. Phone numbers use international E.164 format and are included in every generated vCard. Dutch-facing examples use the `+31` country code; other valid international numbers are accepted.
+- First name, last name, email, street, city, postal code, country, birthday, and phone number are required for both profiles; picture is optional. New owner and guest forms default Country to `The Netherlands`, and the owner sees the saved country when editing an existing profile. Phone numbers use international E.164 format and are included in every generated vCard. Dutch-facing phone examples use the `+31` country code; other valid international numbers are accepted.
 - Organization and job title are optional for both the owner profile and guest submissions. When supplied, they are included in the corresponding generated vCard.
-- Downloaded vCards use a personal `firstname-lastname.vcf` filename derived from the card owner's name.
+- Downloaded vCards use a personal `firstname-lastname.vcf` filename derived from the card owner's first and last names.
 - Guest submissions are retained for 30 days and then deleted automatically.
 - Links do not expire by age; they can be manually deleted and are consumed after the first successful card download. A link accepts at most one successful guest submission.
 - The frontend welcome page is at `/`, with a cheerful, animated introduction and no owner-dashboard link. Owner pages are at `/quinten`, `/quinten/links`, and `/quinten/submissions`; shareable guest links are at `/token/{token}`. The owner link-creation API returns the absolute guest URL in that form.
 
 ## 5. Proposed solution
 
-Quinten maintains his editable profile in D1 through an owner-only interface authorized by a secret token. His optional organization and title are stored alongside the required contact fields, and his optional optimized photo is stored in private R2. Contactswap generates his current vCard 3.0 when requested, assembling it from the profile fields in D1 and the photo in R2; the vCard is not stored in D1. Both Quinten and each guest provide a phone number in international E.164 format. Dutch-facing examples use the `+31` country code, while other valid international numbers are accepted. Every generated vCard includes the number as a vCard 3.0 text telephone property and includes optional organization and title as `ORG` and `TITLE` properties when supplied. For each unique guest link, Contactswap creates a signed URL that grants access to Quinten's current vCard specifically through that link. The active link's landing page may also show only Quinten's name and optional profile picture, served through link-scoped access; if no picture is set, it shows an initials avatar. The guest can use the link to access Quinten's card and submit their own contact information through a form.
+Quinten maintains his editable profile in D1 through an owner-only interface authorized by a secret token. His required first name, last name, street, city, postal code, and country are stored as separate fields alongside his other contact fields. His optional organization and title are stored with the profile, and his optional optimized photo is stored in private R2. Contactswap generates his current vCard 3.0 when requested, assembling it from the profile fields in D1 and the photo in R2; the vCard is not stored in D1. Both Quinten and each guest provide a phone number in international E.164 format. Dutch-facing examples use the `+31` country code, while other valid international numbers are accepted. Every generated vCard includes the number as a vCard 3.0 text telephone property and includes optional organization and title as `ORG` and `TITLE` properties when supplied. The vCard `N` and `ADR` properties use the structured component order and delimiters defined in RFC 2426. For each unique guest link, Contactswap creates a signed URL that grants access to Quinten's current vCard specifically through that link. The active link's landing page may also show only Quinten's joined first and last name and optional profile picture, served through link-scoped access; if no picture is set, it shows an initials avatar. The guest can use the link to access Quinten's card and submit their own contact information through a form.
 
 The guest's combined form action submits their details first. After the API confirms a successful submission, Contactswap stores the guest data, sends a webhook notification to Quinten saying that a form was completed, and downloads Quinten's current vCard 3.0. The signed link remains usable until a successful card download consumes it. If the card download fails after submission, the guest can retry the download without submitting again. The guest may also choose to download the card without submitting details; a successful download consumes the link. Quinten can then open the authorized owner page and download a vCard 3.0 generated from the stored guest record.
 
@@ -75,8 +75,8 @@ The system is web-based, mobile-first, and deployed on Cloudflare Pages. vCard 3
 - The combined guest action submits the form first and downloads Quinten's card only after a successful submission. After the card is downloaded, the guest sees a thank-you page.
 - A successful submission prevents further submissions through that link but leaves its signed vCard URL available until the card download succeeds. The guest can retry the card download without submitting again.
 - The guest may download the card without submitting; a successful card download consumes the link.
-- Both owner and guest forms require name, email, address, birthday, and an international E.164 phone number; organization, title, and picture are optional.
-- Downloaded owner and guest vCards use a sanitized `firstname-lastname.vcf` filename derived from that card's name.
+- Both owner and guest forms require first name, last name, email, street, city, postal code, country, birthday, and an international E.164 phone number; organization, title, and picture are optional. New forms default Country to `The Netherlands`.
+- Downloaded owner and guest vCards use a sanitized `firstname-lastname.vcf` filename derived from that card's first and last names.
 - The app is fully web-based and deployed on Cloudflare Pages.
 
 ### Should have
@@ -92,12 +92,12 @@ The system is web-based, mobile-first, and deployed on Cloudflare Pages. vCard 3
 
 ## 8. Information and content
 
-- Quinten's profile contains name, email, address, birthday, an international E.164 phone number, optional organization and title, and an optional picture.
+- Quinten's profile contains first name, last name, email, street, city, postal code, country, birthday, an international E.164 phone number, optional organization and title, and an optional picture.
 - Quinten's editable profile fields are persisted in D1 and reused without re-entering or extracting details from a downloaded vCard. The optional photo is stored in private R2, not D1.
-- A guest may submit the same data types: name, email, address, birthday, an international E.164 phone number, optional organization and title, and an optional picture.
+- A guest may submit the same data types: first name, last name, email, street, city, postal code, country, birthday, an international E.164 phone number, optional organization and title, and an optional picture.
 - Quinten's profile fields are stored in D1; the optional optimized photo is stored in private R2. Generate the vCard 3.0 on request and embed the photo as base64 using vCard 3.0 binary photo syntax when present. Do not store image bytes, base64 image data, or the rendered vCard in D1.
 - Guest-submitted fields are stored in a database and used to generate a vCard 3.0 for Quinten when needed.
-- Name, email, address, birthday, and phone number are required for both owner and guest forms. Phone numbers use international E.164 format and are included in every generated vCard as a telephone property.
+- First name, last name, email, street, city, postal code, country, birthday, and phone number are required for both owner and guest forms. New forms default Country to `The Netherlands`. Phone numbers use international E.164 format and are included in every generated vCard as a telephone property.
 - Organization and title are optional for owner and guest forms. Include supplied values as vCard 3.0 `ORG` and `TITLE` properties, respectively; omit either property when its value is unset.
 - Guest submissions and associated stored files are retained for 30 days, then automatically deleted.
 - Contact details, birthdays, addresses, and pictures are personal information and should only be exposed through the intended owner flow or an active guest link. The guest landing-page preview is limited to Quinten's name and optional profile picture; do not expose other owner fields there. Keep profile photos private in R2 and serve any guest preview only through a link-scoped resource that rejects deleted or consumed links.
@@ -164,13 +164,13 @@ The system is web-based, mobile-first, and deployed on Cloudflare Pages. vCard 3
 
 ## 14. Example scenarios
 
-- Submitting details: A family member opens Quinten's guest link, submits their name, email, address, birthday, and international E.164 phone number, with a picture if they choose, then receives Quinten's card after the submission succeeds. Contactswap stores the submission and sends Quinten a notification. The link is consumed after the card download succeeds.
+- Submitting details: A family member opens Quinten's guest link, submits their first name, last name, email, street, city, postal code, country, birthday, and international E.164 phone number, with a picture if they choose, then receives Quinten's card after the submission succeeds. Contactswap stores the submission and sends Quinten a notification. The link is consumed after the card download succeeds.
 - Downloading for Quinten: Quinten opens the authorized owner page, clicks Download, and Contactswap generates and downloads a vCard 3.0 from the guest's stored data in the database.
 
 ## 15. Implementation guidance for the agent
 
 - Preserve the single-owner model and the described guest flow.
 - Do not expose the owner token or webhook secret to the browser.
-- Keep the 30-day retention period and single-use guest submission and card-download behavior. Submission succeeds before the combined flow downloads the card; the link is consumed only after a successful card download. Owner and guest forms require name, email, address, birthday, and phone number unless explicitly revised.
+- Keep the 30-day retention period and single-use guest submission and card-download behavior. Submission succeeds before the combined flow downloads the card; the link is consumed only after a successful card download. Owner and guest forms require first name, last name, email, street, city, postal code, country, birthday, and phone number.
 - Prefer simple, reliable implementation choices over broad feature expansion.
 - When a requirement is ambiguous, resolve it in favor of the final product decisions above instead of leaving it unresolved.

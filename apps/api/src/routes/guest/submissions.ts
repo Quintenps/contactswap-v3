@@ -21,7 +21,20 @@ routes.post("/links/:token/submissions", async (context) => {
       );
     }
 
-    const allowedFields = new Set(["name", "email", "address", "birthday", "phone", "org", "title", "picture"]);
+    const allowedFields = new Set([
+      "firstName",
+      "lastName",
+      "email",
+      "street",
+      "city",
+      "postalCode",
+      "country",
+      "birthday",
+      "phone",
+      "org",
+      "title",
+      "picture"
+    ]);
     let invalid = false;
     form.forEach((_value, field) => {
       if (!allowedFields.has(field)) {
@@ -30,7 +43,17 @@ routes.post("/links/:token/submissions", async (context) => {
     });
 
     const values: Record<string, string> = {};
-    for (const field of ["name", "email", "address", "birthday", "phone"]) {
+    for (const field of [
+      "firstName",
+      "lastName",
+      "email",
+      "street",
+      "city",
+      "postalCode",
+      "country",
+      "birthday",
+      "phone"
+    ]) {
       const entries = form.getAll(field);
       if (entries.length !== 1 || typeof entries[0] !== "string") {
         invalid = true;
@@ -161,16 +184,21 @@ routes.post("/links/:token/submissions", async (context) => {
     const results = await context.env.DB.batch([
       context.env.DB.prepare(
         `INSERT INTO guest_submissions
-           (id, link_id, name, email, address, birthday, phone, org, title, photo_key, created_at, expires_at)
-         SELECT ?, id, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+           (id, link_id, first_name, last_name, email, street, city, postal_code,
+            country, birthday, phone, org, title, photo_key, created_at, expires_at)
+         SELECT ?, id, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
          FROM guest_links
          WHERE token_hash = ? AND consumed_at IS NULL AND revoked_at IS NULL
            AND submitted_at IS NULL`
       ).bind(
         submissionId,
-        submission.name,
+        submission.firstName,
+        submission.lastName,
         submission.email,
-        submission.address,
+        submission.street,
+        submission.city,
+        submission.postalCode,
+        submission.country,
         submission.birthday,
         submission.phone,
         submission.org,
