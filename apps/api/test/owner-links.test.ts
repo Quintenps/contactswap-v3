@@ -9,7 +9,7 @@ const testEnv: Env = {
   ...env,
   ADMIN_TOKEN: adminToken,
   LINK_SIGNING_KEY: linkSigningKey,
-  PUBLIC_APP_ORIGIN: "https://contactswap.pages.dev"
+  PUBLIC_APP_ORIGIN: "https://contactswap.quinten.dev"
 };
 const profile = {
   name: "Quinten Example",
@@ -125,7 +125,7 @@ describe("owner guest-link API", () => {
     expect(secondResponse.status).toBe(201);
     expect(firstResponse.headers.get("Cache-Control")).toBe("no-store");
     expect(firstResponse.headers.get("Content-Type")).toContain("application/json");
-    expect(firstUrl.origin).toBe("https://contactswap.pages.dev");
+    expect(firstUrl.origin).toBe("https://contactswap.quinten.dev");
     expect(firstUrl.pathname).toMatch(/^\/token\/[A-Za-z0-9_-]{43}$/);
     expect(secondUrl.pathname).toMatch(/^\/token\/[A-Za-z0-9_-]{43}$/);
     expect(firstBody.guestUrl).not.toBe(secondBody.guestUrl);

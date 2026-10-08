@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { OwnerPageHeader, useOwnerSession } from "../app/OwnerSession";
-import { errorCode, isProfile, ownerAuthorization, photoErrorKey } from "../lib/api";
+import { apiUrl,
+errorCode, isProfile, ownerAuthorization, photoErrorKey } from "../lib/api";
 import { emptyFields, fields, validateProfile } from "../lib/forms";
 import { useLanguage, type MessageKey } from "../lib/i18n";
 import type { FieldName, ProfileFields } from "../types";
@@ -56,7 +57,7 @@ export default function OwnerProfilePage() {
     let objectUrl: string | undefined;
     async function loadPhoto() {
       try {
-        const response = await fetch("/api/owner/profile/photo", {
+        const response = await fetch(apiUrl("/api/owner/profile/photo"), {
           headers: { Authorization: ownerAuthorization(activeToken) },
           cache: "no-store"
         });
@@ -112,7 +113,7 @@ export default function OwnerProfilePage() {
       title: values.title.trim() || null
     };
     try {
-      const response = await fetch("/api/owner/profile", {
+      const response = await fetch(apiUrl("/api/owner/profile"), {
         method: "PUT",
         headers: {
           Authorization: ownerAuthorization(token),
@@ -166,7 +167,7 @@ export default function OwnerProfilePage() {
     setBusy("upload");
     setMessage("");
     try {
-      const response = await fetch("/api/owner/profile/photo", {
+      const response = await fetch(apiUrl("/api/owner/profile/photo"), {
         method: "PUT",
         headers: { Authorization: ownerAuthorization(token), "Content-Type": file.type },
         body: file,
@@ -200,7 +201,7 @@ export default function OwnerProfilePage() {
     setBusy("remove");
     setMessage("");
     try {
-      const response = await fetch("/api/owner/profile/photo", {
+      const response = await fetch(apiUrl("/api/owner/profile/photo"), {
         method: "DELETE",
         headers: { Authorization: ownerAuthorization(token) },
         cache: "no-store"

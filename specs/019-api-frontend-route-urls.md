@@ -17,7 +17,7 @@ Replace the frontend's existing owner and guest URL structure with a named owner
 - ContactSwap remains a single-owner application. The owner route name is a URL organization choice, not a new account or authorization mechanism.
 - The owner profile page moves from `/` to `/quinten`. The owner link and submission pages move from `/owner/...` to `/quinten/...`.
 - The root route `/` displays a cheerful welcome page without an owner-dashboard link. It does not load or expose owner or guest data, and its decorative animations respect reduced-motion preferences.
-- Guest links use the existing opaque link token after the `/token` path prefix, for example `https://contactswap.pages.dev/token/{token}`.
+- Guest links use the existing opaque link token after the `/token` path prefix, for example `https://contactswap.quinten.dev/token/{token}`.
 - The application is not yet in production. Supporting or redirecting the old `/guest/{token}` and `/owner/...` URLs is not required.
 - Changing a page route does not change owner authorization, guest-link access, link lifecycle, or any API authorization boundary.
 

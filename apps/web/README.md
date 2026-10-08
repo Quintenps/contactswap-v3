@@ -38,4 +38,18 @@ The production build is written to `apps/web/dist`.
 
 ## Deployment
 
-The frontend deploys separately to Cloudflare Pages. See the [repository README](../../README.md) for Pages configuration and deployment steps.
+The frontend deploys separately to Cloudflare Pages. The Pages project name and output directory are configured in [`wrangler.jsonc`](wrangler.jsonc).
+
+Create the Pages project once, if it does not already exist. From `apps/web`, run `npm exec -- wrangler pages project create contactswap` and select the intended production branch when prompted. For each deployment, run from `apps/web`:
+
+```sh
+npm run deploy
+```
+
+This command builds the static site and deploys `dist/` to the configured Pages project. It does not deploy the API Worker. Attach `contactswap.quinten.dev` to the `contactswap` Pages project as a custom domain. Set `VITE_API_BASE_URL` to the API Worker's custom domain in the environment running the command:
+
+```sh
+VITE_API_BASE_URL="https://contactswap-api.quinten.dev" npm run deploy
+```
+
+This value is public build-time configuration, not a secret. Pages dashboard build variables do not affect this local-build-and-Direct-Upload workflow. If unset, the frontend keeps relative `/api` requests for local Vite proxy use. The API allows `PUBLIC_APP_ORIGIN` (`https://contactswap.quinten.dev`) and HTTPS origins matching `CORS_ALLOWED_ORIGIN_PATTERN` in the API Worker's configuration. See the [repository README](../../README.md) for Cloudflare resource and API deployment steps.

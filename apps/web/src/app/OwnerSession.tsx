@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, type Dispatch, type FormEvent, type ReactNode, type SetStateAction } from "react";
 import { NavLink, Outlet } from "react-router-dom";
-import { errorCode, isProfile, ownerAuthorization, tokenStorageKey } from "../lib/api";
+import { apiUrl, errorCode, isProfile, ownerAuthorization, tokenStorageKey } from "../lib/api";
 import { useLanguage, type MessageKey } from "../lib/i18n";
 import type { Profile } from "../types";
 
@@ -56,7 +56,7 @@ export function OwnerSessionProvider() {
     setStatus("checking");
     setLoginMessage("");
     try {
-      const response = await fetch("/api/owner/profile", {
+      const response = await fetch(apiUrl("/api/owner/profile"), {
         headers: { Authorization: ownerAuthorization(value) },
         cache: "no-store"
       });
