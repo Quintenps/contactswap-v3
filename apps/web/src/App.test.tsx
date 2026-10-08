@@ -999,8 +999,10 @@ describe("guest frontend", () => {
     expect(document.querySelector(".guest-owner-card")).toBeNull();
     expect(document.querySelector(".guest-download-panel")).toBeNull();
     expect(document.querySelector("#guest-form-heading")?.textContent).toBe(
-      "Share your details with Quinten Example"
+      "Share your details and get Quinten's contact card"
     );
+    expect(document.querySelector(".guest-form-panel .section-description")).toBeNull();
+    expect(document.querySelector(".guest-form-actions button")?.textContent).toBe("Share");
     expect(document.activeElement?.id).toBe("guest-form-heading");
 
     await click(button("Close"));

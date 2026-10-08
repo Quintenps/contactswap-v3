@@ -27,6 +27,7 @@ export default function GuestPage() {
   const [guestPageState, setGuestPageState] = useState<GuestPageState>("loading");
   const [guestRetry, setGuestRetry] = useState(0);
   const [ownerName, setOwnerName] = useState("");
+  const ownerFirstName = ownerName.trim().split(/\s+/)[0] ?? ownerName;
   const [ownerProfilePhotoUrl, setOwnerProfilePhotoUrl] = useState<string | null>(null);
   const [ownerProfilePhotoFailed, setOwnerProfilePhotoFailed] = useState(false);
   const [guestVCardUrl, setGuestVCardUrl] = useState<string | null>(null);
@@ -417,7 +418,6 @@ export default function GuestPage() {
               )}
             </div>
             <div className="guest-owner-card-copy">
-              <p className="guest-owner-card-label">{t("upToDateCard")}</p>
               <h2 id="guest-owner-name" className="guest-owner-name">{ownerName}</h2>
             </div>
           </section>
@@ -430,11 +430,8 @@ export default function GuestPage() {
             <div>
               <p className="eyebrow">ContactSwap</p>
               <h1 id="guest-form-heading" ref={guestFormHeading} tabIndex={-1}>
-                {t("shareDetailsHeading", { ownerName })}
+                {t("shareDetailsHeading", { ownerFirstName })}
               </h1>
-              <p className="section-description">
-                {t("guestFormPrivacy")}
-              </p>
             </div>
             <button
               className="quiet-button guest-close-button"
@@ -571,7 +568,7 @@ export default function GuestPage() {
             {guestMessage && <p className="notice" role="alert" aria-live="polite">{t(guestMessage)}</p>}
             <div className="guest-form-actions">
               <button className="primary-button" type="submit" disabled={guestSubmitting || guestDownloading}>
-                {guestSubmitting ? t("sending") : t("submitAndDownload")}
+                {guestSubmitting ? t("sending") : t("shareDetails")}
               </button>
             </div>
           </form>
