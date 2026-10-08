@@ -10,7 +10,7 @@
     "build": "wrangler deploy --dry-run --outdir dist",
     "deploy": "wrangler deploy",
     "migrate:local": "wrangler d1 migrations apply DB --local",
-    "migrate:remote": "wrangler d1 migrations apply contactswap_production --remote",
+    "migrate:remote": "wrangler d1 migrations apply DB --remote",
     "infra:r2:lifecycle:list": "wrangler r2 bucket lifecycle list contactswap-photos",
     "infra:r2:lifecycle:apply": "wrangler r2 bucket lifecycle set contactswap-photos --file infrastructure/r2-lifecycle.json"
   },
