@@ -50,6 +50,7 @@ Let ContactSwap's owner and guests use the frontend in Dutch or English, with Du
 - Use locale-aware formatting for dates and times displayed by the frontend. Keep machine-readable form values, API payloads, phone numbers, and vCard data unchanged by the selected language.
 - Keep phone-number validation unchanged: accept valid international E.164 numbers, and retain the existing Dutch `+31` example where used. Translate surrounding labels and guidance without implying that only Dutch numbers are accepted.
 - Localize guest-form examples with the selected language, using realistic Dutch-format values in Dutch and English-format values in English. Keep examples out of submitted data unless the guest enters them.
+- Initialize the country value in new owner and guest forms in the selected language: `Nederland` in Dutch and `The Netherlands` in English. Keep saved or already-entered country values unchanged when the language changes.
 - Use semantic controls, a visible focus state, and an accessible label for the language selector. Expose the selected language programmatically and announce language changes where appropriate.
 
 ## Functional and Privacy Requirements
@@ -68,6 +69,7 @@ Let ContactSwap's owner and guests use the frontend in Dutch or English, with Du
 - A valid saved selection is restored after reload and on later visits in the same browser. Missing or invalid stored values result in Dutch.
 - All frontend-authored visible text, form validation and feedback, and accessible labels/announcements are available in both languages; no missing key, untranslated frontend copy, or raw backend error is shown.
 - Guest-form placeholders match the selected language, and switching languages preserves any entered values.
+- New owner and guest forms use the selected language's country default; saved or already-entered country values remain unchanged when switching languages.
 - Frontend-generated dates and times use the selected language's locale, while form values, API payloads, phone validation, and vCard contents remain unchanged.
 - The language preference is the only new value persisted by this feature; it is not sent to the server or included in URLs.
 - Owner authentication, profile editing, link management, submissions and downloads, guest submission, and error handling continue to work in both languages.

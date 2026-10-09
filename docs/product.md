@@ -27,7 +27,7 @@ The following decisions are resolved for this version:
 - Quinten is the only profile owner.
 - Quinten's editable profile fields are persisted in D1. Generate his current vCard 3.0 when requested from those fields and his optional optimized photo in private R2; do not store the rendered vCard or image data in D1.
 - An active guest link may show Quinten's name and optional profile picture on its landing page. If no picture is set, show an initials avatar. Do not show other owner contact fields in this preview; it is not a public profile and is available only through an active guest link.
-- First name, last name, email, street, city, postal code, country, birthday, and phone number are required for both profiles; picture is optional. New owner and guest forms default Country to `The Netherlands`, and the owner sees the saved country when editing an existing profile. Phone numbers use international E.164 format and are included in every generated vCard. Dutch-facing phone examples use the `+31` country code; other valid international numbers are accepted.
+- First name, last name, email, street, city, postal code, country, birthday, and phone number are required for both profiles; picture is optional. New owner and guest forms default Country to `The Netherlands` in English and `Nederland` in Dutch, and the owner sees the saved country when editing an existing profile. Phone numbers use international E.164 format and are included in every generated vCard. Dutch-facing phone examples use the `+31` country code; other valid international numbers are accepted.
 - Organization and job title are optional for both the owner profile and guest submissions. When supplied, they are included in the corresponding generated vCard.
 - Downloaded vCards use a personal `firstname-lastname.vcf` filename derived from the card owner's first and last names.
 - Guest submissions are retained for 30 days and then deleted automatically.
@@ -75,7 +75,7 @@ The system is web-based, mobile-first, and deployed on Cloudflare Pages. vCard 3
 - The combined guest action submits the form first and downloads Quinten's card only after a successful submission. After the card is downloaded, the guest sees a thank-you page.
 - A successful submission prevents further submissions through that link but leaves its signed vCard URL available until the card download succeeds. The guest can retry the card download without submitting again.
 - The guest may download the card without submitting; a successful card download consumes the link.
-- Both owner and guest forms require first name, last name, email, street, city, postal code, country, birthday, and an international E.164 phone number; organization, title, and picture are optional. New forms default Country to `The Netherlands`.
+- Both owner and guest forms require first name, last name, email, street, city, postal code, country, birthday, and an international E.164 phone number; organization, title, and picture are optional. New forms default Country to `The Netherlands` in English and `Nederland` in Dutch.
 - Downloaded owner and guest vCards use a sanitized `firstname-lastname.vcf` filename derived from that card's first and last names.
 - The app is fully web-based and deployed on Cloudflare Pages.
 
@@ -97,7 +97,7 @@ The system is web-based, mobile-first, and deployed on Cloudflare Pages. vCard 3
 - A guest may submit the same data types: first name, last name, email, street, city, postal code, country, birthday, an international E.164 phone number, optional organization and title, and an optional picture.
 - Quinten's profile fields are stored in D1; the optional optimized photo is stored in private R2. Generate the vCard 3.0 on request and embed the photo as base64 using vCard 3.0 binary photo syntax when present. Do not store image bytes, base64 image data, or the rendered vCard in D1.
 - Guest-submitted fields are stored in a database and used to generate a vCard 3.0 for Quinten when needed.
-- First name, last name, email, street, city, postal code, country, birthday, and phone number are required for both owner and guest forms. New forms default Country to `The Netherlands`. Phone numbers use international E.164 format and are included in every generated vCard as a telephone property.
+- First name, last name, email, street, city, postal code, country, birthday, and phone number are required for both owner and guest forms. New forms default Country to `The Netherlands` in English and `Nederland` in Dutch. Phone numbers use international E.164 format and are included in every generated vCard as a telephone property.
 - Organization and title are optional for owner and guest forms. Include supplied values as vCard 3.0 `ORG` and `TITLE` properties, respectively; omit either property when its value is unset.
 - Guest submissions and associated stored files are retained for 30 days, then automatically deleted.
 - Contact details, birthdays, addresses, and pictures are personal information and should only be exposed through the intended owner flow or an active guest link. The guest landing-page preview is limited to Quinten's name and optional profile picture; do not expose other owner fields there. Keep profile photos private in R2 and serve any guest preview only through a link-scoped resource that rejects deleted or consumed links.

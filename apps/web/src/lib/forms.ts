@@ -58,19 +58,21 @@ export const contactFields = fields.filter(
 export const addressFields = fields.filter(({ name }) => addressFieldNames.has(name));
 export const workFields = fields.filter(({ optional }) => optional);
 
-export const emptyFields: ProfileFields = {
-  firstName: "",
-  lastName: "",
-  email: "",
-  street: "",
-  city: "",
-  postalCode: "",
-  country: "The Netherlands",
-  birthday: "",
-  phone: "",
-  org: "",
-  title: ""
-};
+export function createEmptyFields(country = "The Netherlands"): ProfileFields {
+  return {
+    firstName: "",
+    lastName: "",
+    email: "",
+    street: "",
+    city: "",
+    postalCode: "",
+    country,
+    birthday: "",
+    phone: "",
+    org: "",
+    title: ""
+  };
+}
 
 export function validateProfile(values: ProfileFields): Partial<Record<FieldName, MessageKey>> {
   const errors: Partial<Record<FieldName, MessageKey>> = {};

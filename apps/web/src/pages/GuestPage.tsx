@@ -8,7 +8,7 @@ import {
   isGuestSubmissionSuccess,
   vCardFilename
 } from "../lib/api";
-import { addressFields, contactFields, emptyFields, fields, validateProfile, workFields } from "../lib/forms";
+import { addressFields, contactFields, createEmptyFields, fields, validateProfile, workFields } from "../lib/forms";
 import { useLanguage, type MessageKey } from "../lib/i18n";
 import type { FieldName, GuestPageState, ProfileFields } from "../types";
 
@@ -37,7 +37,7 @@ export default function GuestPage() {
   const [ownerProfilePhotoFailed, setOwnerProfilePhotoFailed] = useState(false);
   const [guestVCardUrl, setGuestVCardUrl] = useState<string | null>(null);
   const [guestFormOpen, setGuestFormOpen] = useState(false);
-  const [guestValues, setGuestValues] = useState<ProfileFields>(emptyFields);
+  const [guestValues, setGuestValues] = useState<ProfileFields>(() => createEmptyFields(t("defaultCountry")));
   const [guestFieldErrors, setGuestFieldErrors] = useState<Partial<Record<FieldName, MessageKey>>>({});
   const [guestPictureError, setGuestPictureError] = useState<MessageKey | "">("");
   const [guestPicturePreviewUrl, setGuestPicturePreviewUrl] = useState<string | null>(null);
@@ -126,7 +126,7 @@ export default function GuestPage() {
     setGuestPageState("unavailable");
     setGuestVCardUrl(null);
     setGuestFormOpen(false);
-    setGuestValues(emptyFields);
+    setGuestValues(createEmptyFields(t("defaultCountry")));
     setGuestFieldErrors({});
     setGuestPictureError("");
     setGuestPicturePreview(null);
@@ -157,7 +157,7 @@ export default function GuestPage() {
       setOwnerName(payload.ownerName);
       setOwnerProfilePhotoUrl(payload.profilePhotoUrl ? apiUrl(payload.profilePhotoUrl) : null);
       setGuestVCardUrl(apiUrl(payload.vcardUrl));
-      setGuestValues(emptyFields);
+      setGuestValues(createEmptyFields(t("defaultCountry")));
       setGuestFieldErrors({});
       setGuestPictureError("");
       setGuestPicturePreview(null);
@@ -281,7 +281,7 @@ export default function GuestPage() {
         setGuestMessage("guestSubmissionCouldNotConfirm");
         return;
       }
-      setGuestValues(emptyFields);
+      setGuestValues(createEmptyFields(t("defaultCountry")));
       setGuestFieldErrors({});
       setGuestPictureError("");
       setGuestPicturePreview(null);

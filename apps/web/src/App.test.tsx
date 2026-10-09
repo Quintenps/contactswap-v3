@@ -983,6 +983,16 @@ describe("owner profile frontend", () => {
   });
 });
 
+it("defaults a new owner profile country to Dutch when the selected language is Dutch", async () => {
+  window.localStorage.setItem(languageStorageKey, "nl");
+  window.localStorage.setItem(tokenStorageKey, token);
+  installFetch(async () => response({ error: { code: "profile_not_found" } }, 404));
+
+  await renderApp();
+
+  expect(input("country").value).toBe("Nederland");
+});
+
 describe("guest frontend", () => {
   const guestToken = "guest-test-token";
   const vcardUrl = "/api/guest/vcard/00000000-0000-4000-8000-000000000001/test-signature";
@@ -1081,6 +1091,15 @@ describe("guest frontend", () => {
     expect(input("guest-title").placeholder).toBe("Vakkenvuller");
     expect(input("guest-firstName").value).toBe("A name in progress");
     expect(fetchMock).toHaveBeenCalledTimes(requestCount);
+  });
+
+  it("defaults a new guest form country to Dutch when the selected language is Dutch", async () => {
+    window.localStorage.setItem(languageStorageKey, "nl");
+    installActiveGuestLink();
+    await renderGuestPage(guestToken);
+    await click(button("Mijn gegevens delen en daarna de kaart ophalen"));
+
+    expect(input("guest-country").value).toBe("Nederland");
   });
 
   it("previews the owner's picture without a referrer and falls back to initials if it fails", async () => {

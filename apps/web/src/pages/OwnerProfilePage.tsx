@@ -8,7 +8,7 @@ import {
   photoErrorKey,
   vCardFilename
 } from "../lib/api";
-import { addressFields, contactFields, emptyFields, fields, validateProfile, workFields } from "../lib/forms";
+import { addressFields, contactFields, createEmptyFields, fields, validateProfile, workFields } from "../lib/forms";
 import { useLanguage, type MessageKey } from "../lib/i18n";
 import type { FieldName, ProfileFields } from "../types";
 
@@ -29,7 +29,7 @@ export default function OwnerProfilePage() {
         org: profile.org ?? "",
         title: profile.title ?? ""
       }
-    : emptyFields);
+    : createEmptyFields(t("defaultCountry")));
   const [hasPhoto, setHasPhoto] = useState(profile?.hasPhoto ?? false);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [photoRevision, setPhotoRevision] = useState(0);
@@ -55,7 +55,7 @@ export default function OwnerProfilePage() {
       });
       setHasPhoto(profile.hasPhoto);
     } else {
-      setValues(emptyFields);
+      setValues(createEmptyFields(t("defaultCountry")));
       setHasPhoto(false);
     }
   }, [profile]);
