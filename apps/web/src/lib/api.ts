@@ -87,6 +87,28 @@ export function isGuestUrl(value: unknown): value is string {
   }
 }
 
+export function getPublicGuestUrl(value: unknown): string | null {
+  if (!isGuestUrl(value)) return null;
+
+  const guestUrl = new URL(value);
+  const configuredOrigin = import.meta.env.VITE_PUBLIC_APP_ORIGIN?.trim();
+  if (!configuredOrigin) return guestUrl.toString();
+
+  const publicOrigin = new URL(configuredOrigin);
+  if (
+    !["http:", "https:"].includes(publicOrigin.protocol) ||
+    publicOrigin.username ||
+    publicOrigin.password ||
+    publicOrigin.pathname !== "/" ||
+    publicOrigin.search ||
+    publicOrigin.hash
+  ) {
+    throw new Error("VITE_PUBLIC_APP_ORIGIN must be an HTTP(S) origin.");
+  }
+
+  return new URL(guestUrl.pathname, publicOrigin).toString();
+}
+
 function isGuestApiPath(value: unknown, expectedPath: RegExp): value is string {
   if (typeof value !== "string" || value.startsWith("//")) return false;
   try {

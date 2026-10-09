@@ -84,15 +84,15 @@ Attach `contactswap.quinten.dev` as a custom domain to the `contactswap` Pages p
 
 Create the Pages project once if it does not already exist. From `apps/web`, run `npm exec -- wrangler pages project create contactswap` and select the intended production branch when prompted. The project name and build output are in `apps/web/wrangler.jsonc`.
 
-Deploy the static frontend from `apps/web`, using the API Worker's custom domain:
+Deploy the static frontend from `apps/web`; `npm run deploy` uses the API Worker's custom domain and the Pages custom domain by default:
 
 ```sh
-VITE_API_BASE_URL="https://contactswap-api.quinten.dev" npm run deploy
+npm run deploy
 ```
 
-`VITE_API_BASE_URL` is non-secret build-time configuration. Because this command performs a local Vite build and Direct Upload, setting it in Pages dashboard build settings is not sufficient.
+`VITE_API_BASE_URL` (`https://contactswap-api.quinten.dev`) configures API requests, while `VITE_PUBLIC_APP_ORIGIN` (`https://contactswap.quinten.dev`) configures generated guest-link URLs. Both are non-secret build-time settings and can be overridden when running `npm run deploy`. Because this command performs a local Vite build and Direct Upload, setting them in Pages dashboard build settings is not sufficient.
 
-The Pages deployment publishes static assets only; it does not deploy the API Worker. The frontend keeps relative `/api` requests and Vite's proxy locally, while production requests use `VITE_API_BASE_URL`. The API allows cross-origin requests from `PUBLIC_APP_ORIGIN` and HTTPS subdomains matching `CORS_ALLOWED_ORIGIN_PATTERN`. The admin token belongs in the API Worker's Cloudflare Worker Secrets, never in Pages variables, frontend code, or committed files. Local secret files such as `.env` and `.dev.vars` are ignored by Git.
+The Pages deployment publishes static assets only; it does not deploy the API Worker. The frontend keeps relative `/api` requests and Vite's proxy locally, while production requests use `VITE_API_BASE_URL`. When `VITE_PUBLIC_APP_ORIGIN` is unset during local development, the frontend preserves the origin returned by the local API. The API allows cross-origin requests from `PUBLIC_APP_ORIGIN` and HTTPS subdomains matching `CORS_ALLOWED_ORIGIN_PATTERN`. The admin token belongs in the API Worker's Cloudflare Worker Secrets, never in Pages variables, frontend code, or committed files. Local secret files such as `.env` and `.dev.vars` are ignored by Git.
 
 ## Project Docs
 

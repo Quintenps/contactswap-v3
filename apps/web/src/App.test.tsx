@@ -209,6 +209,7 @@ afterEach(async () => {
   window.history.replaceState({}, "", "/");
   Reflect.deleteProperty(navigator, "clipboard");
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
   vi.restoreAllMocks();
 });
 
@@ -557,12 +558,14 @@ describe("owner profile frontend", () => {
 
   it("creates a guest link, refreshes the overview, and confirms successful copying", async () => {
     window.localStorage.setItem(tokenStorageKey, token);
-    const guestUrl = "https://contactswap.example/token/new-secret-token";
+    vi.stubEnv("VITE_PUBLIC_APP_ORIGIN", "https://contactswap.quinten.dev");
+    const apiGuestUrl = "http://contactswap-api.quinten.dev/token/new-secret-token";
+    const guestUrl = "https://contactswap.quinten.dev/token/new-secret-token";
     const copied = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: copied } });
     let linkReads = 0;
     const fetchMock = installFetch(async (url, init) => {
-      if (url === "/api/owner/links" && init?.method === "POST") return response({ guestUrl }, 201);
+      if (url === "/api/owner/links" && init?.method === "POST") return response({ guestUrl: apiGuestUrl }, 201);
       if (url === "/api/owner/links") {
         linkReads += 1;
         return response({ links: linkReads === 1 ? [] : [
@@ -596,10 +599,12 @@ describe("owner profile frontend", () => {
 
   it("keeps the generated URL available when refreshing the overview fails", async () => {
     window.localStorage.setItem(tokenStorageKey, token);
-    const guestUrl = "https://contactswap.example/token/one-time-token";
+    vi.stubEnv("VITE_PUBLIC_APP_ORIGIN", "https://contactswap.quinten.dev");
+    const apiGuestUrl = "http://contactswap-api.quinten.dev/token/one-time-token";
+    const guestUrl = "https://contactswap.quinten.dev/token/one-time-token";
     let linkReads = 0;
     installFetch(async (url, init) => {
-      if (url === "/api/owner/links" && init?.method === "POST") return response({ guestUrl }, 201);
+      if (url === "/api/owner/links" && init?.method === "POST") return response({ guestUrl: apiGuestUrl }, 201);
       if (url === "/api/owner/links") {
         linkReads += 1;
         return linkReads === 1 ? response({ links: [] }) : response({ error: { code: "service_error" } }, 500);
@@ -616,13 +621,15 @@ describe("owner profile frontend", () => {
 
   it("provides a manual copy fallback when clipboard access fails", async () => {
     window.localStorage.setItem(tokenStorageKey, token);
-    const guestUrl = "https://contactswap.example/token/manual-copy-token";
+    vi.stubEnv("VITE_PUBLIC_APP_ORIGIN", "https://contactswap.quinten.dev");
+    const apiGuestUrl = "http://contactswap-api.quinten.dev/token/manual-copy-token";
+    const guestUrl = "https://contactswap.quinten.dev/token/manual-copy-token";
     Object.defineProperty(navigator, "clipboard", {
       configurable: true,
       value: { writeText: vi.fn().mockRejectedValue(new Error("clipboard unavailable")) }
     });
     installFetch(async (url, init) => {
-      if (url === "/api/owner/links" && init?.method === "POST") return response({ guestUrl }, 201);
+      if (url === "/api/owner/links" && init?.method === "POST") return response({ guestUrl: apiGuestUrl }, 201);
       if (url === "/api/owner/links") return response({ links: [] });
       return response(profile);
     });

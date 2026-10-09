@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { apiUrl, isGuestProfilePhotoPath, isGuestVCardPath } from "./api";
+import { apiUrl, getPublicGuestUrl, isGuestProfilePhotoPath, isGuestVCardPath } from "./api";
 
 const workerOrigin = "https://contactswap-api.example.workers.dev";
 const linkId = "123e4567-e89b-12d3-a456-426614174000";
@@ -44,5 +44,28 @@ describe("frontend API origin", () => {
     vi.stubEnv("VITE_API_BASE_URL", "http://contactswap-api.example.workers.dev");
 
     expect(() => apiUrl("/api/owner/profile")).toThrow("VITE_API_BASE_URL must be an HTTPS origin.");
+  });
+});
+
+describe("public guest-link origin", () => {
+  it("uses the configured app origin instead of the API response origin", () => {
+    vi.stubEnv("VITE_PUBLIC_APP_ORIGIN", "https://contactswap.quinten.dev");
+
+    expect(getPublicGuestUrl("http://contactswap-api.quinten.dev/token/guest-token"))
+      .toBe("https://contactswap.quinten.dev/token/guest-token");
+  });
+
+  it("keeps the API-provided origin when no public app origin is configured", () => {
+    vi.stubEnv("VITE_PUBLIC_APP_ORIGIN", "");
+
+    expect(getPublicGuestUrl("http://127.0.0.1:5173/token/guest-token"))
+      .toBe("http://127.0.0.1:5173/token/guest-token");
+  });
+
+  it("rejects a configured public app value that is not an origin", () => {
+    vi.stubEnv("VITE_PUBLIC_APP_ORIGIN", "https://contactswap.quinten.dev/token");
+
+    expect(() => getPublicGuestUrl("https://api.example.com/token/guest-token"))
+      .toThrow("VITE_PUBLIC_APP_ORIGIN must be an HTTP(S) origin.");
   });
 });

@@ -46,10 +46,10 @@ Create the Pages project once, if it does not already exist. From `apps/web`, ru
 npm run deploy
 ```
 
-This command builds the static site and deploys `dist/` to the configured Pages project. It does not deploy the API Worker. Attach `contactswap.quinten.dev` to the `contactswap` Pages project as a custom domain. Set `VITE_API_BASE_URL` to the API Worker's custom domain in the environment running the command:
+This command builds the static site with `VITE_API_BASE_URL` set to the production API origin (`https://contactswap-api.quinten.dev`) and `VITE_PUBLIC_APP_ORIGIN` set to the production site origin (`https://contactswap.quinten.dev`) by default, then deploys `dist/` to the configured Pages project. Guest links use `VITE_PUBLIC_APP_ORIGIN`, not the API origin. The command does not deploy the API Worker. Attach `contactswap.quinten.dev` to the `contactswap` Pages project as a custom domain. Override either value when needed:
 
 ```sh
-VITE_API_BASE_URL="https://contactswap-api.quinten.dev" npm run deploy
+VITE_API_BASE_URL="https://your-api.example.com" VITE_PUBLIC_APP_ORIGIN="https://your-site.example.com" npm run deploy
 ```
 
-This value is public build-time configuration, not a secret. Pages dashboard build variables do not affect this local-build-and-Direct-Upload workflow. If unset, the frontend keeps relative `/api` requests for local Vite proxy use. The API allows `PUBLIC_APP_ORIGIN` (`https://contactswap.quinten.dev`) and HTTPS origins matching `CORS_ALLOWED_ORIGIN_PATTERN` in the API Worker's configuration. See the [repository README](../../README.md) for Cloudflare resource and API deployment steps.
+Both values are public build-time configuration, not secrets. Pages dashboard build variables do not affect this local-build-and-Direct-Upload workflow. During local development, leave `VITE_API_BASE_URL` unset to keep relative `/api` requests for the Vite proxy; when `VITE_PUBLIC_APP_ORIGIN` is unset, the frontend preserves the absolute origin returned by the local API. The API allows `PUBLIC_APP_ORIGIN` (`https://contactswap.quinten.dev`) and HTTPS origins matching `CORS_ALLOWED_ORIGIN_PATTERN` in the API Worker's configuration. See the [repository README](../../README.md) for Cloudflare resource and API deployment steps.

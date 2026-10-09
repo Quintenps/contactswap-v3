@@ -5,7 +5,7 @@ import {
   apiUrl,
   errorCode,
   fetchOwnerLinks,
-  isGuestUrl,
+  getPublicGuestUrl,
   OwnerApiError,
   ownerAuthorization
 } from "../lib/api";
@@ -75,12 +75,15 @@ export default function OwnerLinksPage() {
       }
 
       const payload: unknown = await response.json();
-      if (typeof payload !== "object" || payload === null || !("guestUrl" in payload) || !isGuestUrl(payload.guestUrl)) {
+      const guestUrl = typeof payload === "object" && payload !== null && "guestUrl" in payload
+        ? getPublicGuestUrl(payload.guestUrl)
+        : null;
+      if (!guestUrl) {
         setLinkMessage("createdUrlCouldNotDisplay");
         return;
       }
 
-      setGeneratedGuestUrl(payload.guestUrl);
+      setGeneratedGuestUrl(guestUrl);
       try {
         setGuestLinks(await fetchOwnerLinks(token));
         setLinkMessage("linkCreatedCopyNow");

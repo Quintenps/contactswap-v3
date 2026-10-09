@@ -41,12 +41,14 @@ This is infrastructure configuration as code, but it is not a general Cloudflare
 ## Frontend-to-API Connection
 
 - Use a non-secret `VITE_API_BASE_URL` containing the API Worker's origin for production builds. The frontend must use it for every API request, including owner operations, guest operations, and link-scoped vCard/photo downloads.
+- Use a non-secret `VITE_PUBLIC_APP_ORIGIN` containing the frontend's public origin for guest links. The deployment command must default it to `https://contactswap.quinten.dev` and allow an explicit override; do not derive this origin from `window.location`.
 - When `VITE_API_BASE_URL` is unset in local development, keep using relative `/api/...` paths so the existing Vite proxy continues to forward requests to the local Worker.
-- Because the Pages workflow performs a local Vite build followed by Direct Upload, `VITE_API_BASE_URL` must be present in the environment that runs `npm run deploy`; a Pages dashboard build variable does not configure this local build.
+- When `VITE_PUBLIC_APP_ORIGIN` is unset in local development, preserve the absolute guest-link origin returned by the local API.
+- Because the Pages workflow performs a local Vite build followed by Direct Upload, `npm run deploy` must build with the production API and frontend origins by default, while allowing both to be overridden; Pages dashboard build variables do not configure this local build.
 - Attach `contactswap.quinten.dev` as a custom domain to the `contactswap` Pages project, and set the API Worker's `PUBLIC_APP_ORIGIN` to `https://contactswap.quinten.dev`.
 - Configure the API Worker to allow cross-origin requests from the exact production Pages origin and configured HTTPS subdomains matching `CORS_ALLOWED_ORIGIN_PATTERN`. Allow the headers and methods the frontend uses, including the owner `Authorization` header, and expose `Content-Disposition` so the frontend can read vCard filenames. Do not use a global wildcard origin or credentialed cookies.
 - Resolve API-returned relative vCard and profile-photo paths against the configured API origin, while preserving validation that these URLs target the expected API routes.
-- Keep `PUBLIC_APP_ORIGIN` in the API Worker's configuration set to `https://contactswap.quinten.dev`; it controls generated guest-share URLs and is distinct from `VITE_API_BASE_URL`, which is set to `https://contactswap-api.quinten.dev`.
+- Keep `PUBLIC_APP_ORIGIN` in the API Worker's configuration set to `https://contactswap.quinten.dev`; it controls the origin in API-generated guest URLs and is distinct from `VITE_API_BASE_URL` (`https://contactswap-api.quinten.dev`) and `VITE_PUBLIC_APP_ORIGIN` (`https://contactswap.quinten.dev`).
 - Do not add Pages Functions or embed API secrets in the static frontend. The API continues to enforce owner authorization independently of CORS.
 
 ## Configuration Sources
