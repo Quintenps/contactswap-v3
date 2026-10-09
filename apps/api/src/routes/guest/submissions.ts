@@ -1,9 +1,24 @@
 import { Hono } from "hono";
 import { PhotoRequestError, optimizeProfilePhoto, photoLimits, readPhotoBody } from "../../photo";
 import type { GuestSubmission } from "../../api-types";
-import { hashGuestToken, parseGuestSubmission, retentionMilliseconds } from "../../api-utils";
+import {
+  hashGuestToken,
+  retentionMilliseconds,
+  validateGuestSubmission,
+  type ProfileFieldErrors
+} from "../../api-utils";
 
 const routes = new Hono<{ Bindings: Env }>();
+
+function invalidSubmissionResponse(fieldErrors: ProfileFieldErrors = {}) {
+  return {
+    error: {
+      code: "invalid_submission",
+      message: "The submission request is invalid.",
+      ...(Object.keys(fieldErrors).length > 0 ? { fields: fieldErrors } : {})
+    }
+  };
+}
 
 routes.post("/links/:token/submissions", async (context) => {
   const contentType = context.req.header("Content-Type")?.split(";")[0].trim().toLowerCase();
@@ -15,10 +30,7 @@ routes.post("/links/:token/submissions", async (context) => {
     try {
       form = await context.req.formData();
     } catch {
-      return context.json(
-        { error: { code: "invalid_submission", message: "The submission request is invalid." } },
-        400
-      );
+      return context.json(invalidSubmissionResponse(), 400);
     }
 
     const allowedFields = new Set([
@@ -36,6 +48,7 @@ routes.post("/links/:token/submissions", async (context) => {
       "picture"
     ]);
     let invalid = false;
+    const fieldErrors: ProfileFieldErrors = {};
     form.forEach((_value, field) => {
       if (!allowedFields.has(field)) {
         invalid = true;
@@ -53,22 +66,25 @@ routes.post("/links/:token/submissions", async (context) => {
       "country",
       "birthday",
       "phone"
-    ]) {
+    ] as const) {
       const entries = form.getAll(field);
       if (entries.length !== 1 || typeof entries[0] !== "string") {
         invalid = true;
+        fieldErrors[field] = entries.length === 0 ? "required" : "invalid_value";
       } else {
         values[field] = entries[0];
       }
     }
-    for (const field of ["org", "title"]) {
+    for (const field of ["org", "title"] as const) {
       const entries = form.getAll(field);
       if (entries.length > 1) {
         invalid = true;
+        fieldErrors[field] = "invalid_value";
       } else if (entries.length === 1) {
         const entry = entries[0];
         if (typeof entry !== "string") {
           invalid = true;
+          fieldErrors[field] = "invalid_value";
         } else {
           values[field] = entry;
         }
@@ -83,16 +99,19 @@ routes.post("/links/:token/submissions", async (context) => {
       uploadedPhoto = photoEntry;
     }
 
-    if (!invalid) {
-      submission = parseGuestSubmission(values);
+    if (invalid) {
+      return context.json(invalidSubmissionResponse(fieldErrors), 400);
     }
+
+    const validation = validateGuestSubmission(values);
+    if (!validation.profile) {
+      return context.json(invalidSubmissionResponse(validation.fieldErrors), 400);
+    }
+    submission = validation.profile;
   }
 
   if (!submission) {
-    return context.json(
-      { error: { code: "invalid_submission", message: "The submission request is invalid." } },
-      400
-    );
+    return context.json(invalidSubmissionResponse(), 400);
   }
 
   const tokenHash = await hashGuestToken(context.req.param("token"));

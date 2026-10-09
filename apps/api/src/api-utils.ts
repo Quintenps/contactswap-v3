@@ -80,68 +80,178 @@ export function isValidPhone(value: string): boolean {
   return /^\+[1-9]\d{1,14}$/.test(value);
 }
 
+const requiredProfileFields = [
+  "firstName",
+  "lastName",
+  "email",
+  "street",
+  "city",
+  "postalCode",
+  "country",
+  "birthday",
+  "phone"
+] as const;
+
+const optionalProfileFields = ["org", "title"] as const;
+
+export type ProfileFieldName =
+  | (typeof requiredProfileFields)[number]
+  | (typeof optionalProfileFields)[number];
+
+export type ProfileValidationCode =
+  | "required"
+  | "invalid_value"
+  | "invalid_email"
+  | "invalid_birthday"
+  | "future_birthday"
+  | "invalid_phone"
+  | "too_long"
+  | "control_character";
+
+export type ProfileFieldErrors = Partial<Record<ProfileFieldName, ProfileValidationCode>>;
+
+export type ProfileValidationResult = {
+  profile: OwnerProfile | null;
+  fieldErrors: ProfileFieldErrors;
+};
+
+const controlCharacters = /[\u0000-\u001f\u007f-\u009f]/u;
+const textFields = new Set<ProfileFieldName>([
+  "firstName",
+  "lastName",
+  "street",
+  "city",
+  "postalCode",
+  "country",
+  "org",
+  "title"
+]);
+const controlCharacterFields = new Set<ProfileFieldName>([...textFields, "email"]);
+
+function codePointLength(value: string): number {
+  return Array.from(value).length;
+}
+
+function currentUtcDate(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
 export function formatDisplayName(firstName: string, lastName: string): string {
   return [firstName.trim(), lastName.trim()].filter(Boolean).join(" ");
 }
 
-export function parseProfile(value: unknown): OwnerProfile | null {
+export function validateProfile(value: unknown): ProfileValidationResult {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return null;
+    return { profile: null, fieldErrors: {} };
   }
 
   const fields = value as Record<string, unknown>;
-  if (
-    ["firstName", "lastName", "email", "street", "city", "postalCode", "country", "birthday", "phone"]
-      .some((field) => typeof fields[field] !== "string")
-  ) {
-    return null;
-  }
-  if (
-    ["org", "title"].some(
-      (field) =>
-        Object.hasOwn(fields, field) &&
-        fields[field] !== null &&
-        typeof fields[field] !== "string"
-    )
-  ) {
-    return null;
+  const fieldErrors: ProfileFieldErrors = {};
+  if (Object.hasOwn(fields, "picture")) {
+    return { profile: null, fieldErrors };
   }
 
-  const profile = {
-    firstName: (fields.firstName as string).trim(),
-    lastName: (fields.lastName as string).trim(),
-    email: (fields.email as string).trim(),
-    street: (fields.street as string).trim(),
-    city: (fields.city as string).trim(),
-    postalCode: (fields.postalCode as string).trim(),
-    country: (fields.country as string).trim(),
-    birthday: (fields.birthday as string).trim(),
-    phone: (fields.phone as string).trim(),
-    org: typeof fields.org === "string" ? fields.org.trim() || null : null,
-    title: typeof fields.title === "string" ? fields.title.trim() || null : null
+  const values: Record<ProfileFieldName, string> = {
+    firstName: "",
+    lastName: "",
+    email: "",
+    street: "",
+    city: "",
+    postalCode: "",
+    country: "",
+    birthday: "",
+    phone: "",
+    org: "",
+    title: ""
   };
-
-  if (
-    !profile.firstName ||
-    !profile.lastName ||
-    !profile.street ||
-    !profile.city ||
-    !profile.postalCode ||
-    !profile.country ||
-    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(profile.email) ||
-    !isValidBirthday(profile.birthday) ||
-    !isValidPhone(profile.phone) ||
-    Object.hasOwn(fields, "picture")
-  ) {
-    return null;
+  for (const field of requiredProfileFields) {
+    const value = fields[field];
+    if (typeof value !== "string") {
+      fieldErrors[field] = "required";
+      values[field] = "";
+      continue;
+    }
+    if (controlCharacterFields.has(field) && controlCharacters.test(value)) {
+      fieldErrors[field] = "control_character";
+    }
+    const trimmed = value.trim();
+    if (!trimmed && !fieldErrors[field]) {
+      fieldErrors[field] = "required";
+    }
+    if (!fieldErrors[field] && textFields.has(field) && codePointLength(trimmed) > 255) {
+      fieldErrors[field] = "too_long";
+    }
+    values[field] = trimmed;
   }
 
-  return profile;
+  for (const field of optionalProfileFields) {
+    const value = fields[field];
+    if (value === undefined || value === null) {
+      values[field] = "";
+      continue;
+    }
+    if (typeof value !== "string") {
+      fieldErrors[field] = "invalid_value";
+      values[field] = "";
+      continue;
+    }
+    if (controlCharacters.test(value)) {
+      fieldErrors[field] = "control_character";
+    }
+    const trimmed = value.trim();
+    if (!fieldErrors[field] && codePointLength(trimmed) > 255) {
+      fieldErrors[field] = "too_long";
+    }
+    values[field] = trimmed;
+  }
+
+  if (!fieldErrors.email && values.email && codePointLength(values.email) > 254) {
+    fieldErrors.email = "too_long";
+  } else if (!fieldErrors.email && values.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(values.email)) {
+    fieldErrors.email = "invalid_email";
+  }
+
+  if (!fieldErrors.birthday && values.birthday) {
+    if (!isValidBirthday(values.birthday)) {
+      fieldErrors.birthday = "invalid_birthday";
+    } else if (values.birthday > currentUtcDate()) {
+      fieldErrors.birthday = "future_birthday";
+    }
+  }
+
+  if (!fieldErrors.phone && values.phone && !isValidPhone(values.phone)) {
+    fieldErrors.phone = "invalid_phone";
+  }
+
+  if (Object.keys(fieldErrors).length > 0) {
+    return { profile: null, fieldErrors };
+  }
+
+  return {
+    profile: {
+      firstName: values.firstName,
+      lastName: values.lastName,
+      email: values.email,
+      street: values.street,
+      city: values.city,
+      postalCode: values.postalCode,
+      country: values.country,
+      birthday: values.birthday,
+      phone: values.phone,
+      org: values.org || null,
+      title: values.title || null
+    },
+    fieldErrors
+  };
 }
 
-export function parseGuestSubmission(value: unknown): GuestSubmission | null {
+export function parseProfile(value: unknown): OwnerProfile | null {
+  return validateProfile(value).profile;
+}
+
+export function validateGuestSubmission(value: unknown): ProfileValidationResult {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return null;
+    return { profile: null, fieldErrors: {} };
   }
 
   const fields = value as Record<string, unknown>;
@@ -159,8 +269,12 @@ export function parseGuestSubmission(value: unknown): GuestSubmission | null {
     "title"
   ]);
   if (Object.keys(fields).some((field) => !allowedFields.has(field))) {
-    return null;
+    return { profile: null, fieldErrors: {} };
   }
 
-  return parseProfile(fields);
+  return validateProfile(fields);
+}
+
+export function parseGuestSubmission(value: unknown): GuestSubmission | null {
+  return validateGuestSubmission(value).profile;
 }

@@ -143,7 +143,7 @@ describe("owner profile API", () => {
   it("trims optional organization and title values and escapes them in the vCard", async () => {
     const optionalProfile = {
       ...baseProfile,
-      org: "  Example, Inc.; Europe\nMünchen  ",
+      org: "  Example, Inc.; Europe München  ",
       title: "  Senior\\Architect  "
     };
     const saveResponse = await call("/api/owner/profile", profileRequest(optionalProfile));
@@ -151,14 +151,14 @@ describe("owner profile API", () => {
     expect(saveResponse.status).toBe(200);
     expect(await saveResponse.json()).toEqual({
       ...baseProfile,
-      org: "Example, Inc.; Europe\nMünchen",
+      org: "Example, Inc.; Europe München",
       title: "Senior\\Architect",
       hasPhoto: false
     });
 
     const cardResponse = await call("/api/owner/profile/vcard");
     const card = await cardResponse.text();
-    expect(card).toContain("ORG:Example\\, Inc.\\; Europe\\nMünchen\r\n");
+    expect(card).toContain("ORG:Example\\, Inc.\\; Europe München\r\n");
     expect(card).toContain("TITLE:Senior\\\\Architect\r\n");
 
     const clearedResponse = await call(
@@ -169,6 +169,23 @@ describe("owner profile API", () => {
     const clearedCard = await (await call("/api/owner/profile/vcard")).text();
     expect(clearedCard).not.toContain("ORG:");
     expect(clearedCard).not.toContain("TITLE:");
+  });
+
+  it("trims surrounding whitespace from phone and birthday before format validation", async () => {
+    const response = await call(
+      "/api/owner/profile",
+      profileRequest({
+        ...baseProfile,
+        birthday: " 1990-02-28 ",
+        phone: "\t+31600000000 "
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      birthday: "1990-02-28",
+      phone: "+31600000000"
+    });
   });
 
   it("rejects malformed and invalid profiles without changing saved data", async () => {
@@ -209,6 +226,58 @@ describe("owner profile API", () => {
     const stored = await env.DB.prepare("SELECT photo_key FROM owner_profile WHERE id = 1")
       .first<{ photo_key: string | null }>();
     expect(stored?.photo_key).toBeNull();
+  });
+
+  it("enforces date, character, and control-character rules with safe field errors", async () => {
+    const unicodeBoundary = await call(
+      "/api/owner/profile",
+      profileRequest({ ...baseProfile, firstName: "😀".repeat(255) })
+    );
+    expect(unicodeBoundary.status).toBe(200);
+
+    const overlongResponse = await call(
+      "/api/owner/profile",
+      profileRequest({ ...baseProfile, firstName: "😀".repeat(256) })
+    );
+    expect(overlongResponse.status).toBe(400);
+    expect(await overlongResponse.json()).toEqual({
+      error: {
+        code: "invalid_profile",
+        message: "The profile request is invalid.",
+        fields: { firstName: "too_long" }
+      }
+    });
+
+    const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const invalidResponse = await call(
+      "/api/owner/profile",
+      profileRequest({
+        ...baseProfile,
+        email: "bad email",
+        birthday: tomorrow,
+        street: "12 Main\tStreet",
+        org: "x".repeat(256)
+      })
+    );
+    expect(invalidResponse.status).toBe(400);
+    const errorBody = await invalidResponse.json();
+    expect(errorBody).toEqual({
+      error: {
+        code: "invalid_profile",
+        message: "The profile request is invalid.",
+        fields: {
+          email: "invalid_email",
+          birthday: "future_birthday",
+          street: "control_character",
+          org: "too_long"
+        }
+      }
+    });
+    expect(JSON.stringify(errorBody)).not.toContain("bad email");
+    expect(JSON.stringify(errorBody)).not.toContain("Main");
+
+    const savedResponse = await call("/api/owner/profile");
+    expect(await savedResponse.json()).toMatchObject({ firstName: "😀".repeat(255) });
   });
 
   it("folds long UTF-8 vCard lines without exceeding 75 octets", async () => {

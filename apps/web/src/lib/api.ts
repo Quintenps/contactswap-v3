@@ -1,4 +1,4 @@
-import type { GuestLink, GuestLinkResolution, OwnerSubmission, Profile } from "../types";
+import type { FieldName, GuestLink, GuestLinkResolution, OwnerSubmission, Profile } from "../types";
 import type { Language, MessageKey } from "./i18n";
 
 export const tokenStorageKey = "contactswap-owner-token";
@@ -211,24 +211,77 @@ export function isProfile(value: unknown): value is Profile {
   );
 }
 
-export async function errorCode(response: Response): Promise<string | undefined> {
+const profileFieldNames: readonly FieldName[] = [
+  "firstName",
+  "lastName",
+  "email",
+  "street",
+  "city",
+  "postalCode",
+  "country",
+  "birthday",
+  "phone",
+  "org",
+  "title"
+];
+
+const requiredFieldMessages: Partial<Record<FieldName, MessageKey>> = {
+  firstName: "enterFirstName",
+  lastName: "enterLastName",
+  email: "enterEmail",
+  street: "enterStreet",
+  city: "enterCity",
+  postalCode: "enterPostalCode",
+  country: "enterCountry",
+  birthday: "enterBirthday",
+  phone: "enterPhone"
+};
+
+const validationCodeMessages: Record<string, MessageKey> = {
+  invalid_value: "invalidFieldValue",
+  invalid_email: "validEmail",
+  invalid_birthday: "validBirthday",
+  future_birthday: "futureBirthday",
+  invalid_phone: "validPhone",
+  too_long: "fieldTooLong",
+  control_character: "controlCharactersNotAllowed"
+};
+
+export type ApiErrorDetails = {
+  code?: string;
+  fieldErrors: Partial<Record<FieldName, MessageKey>>;
+};
+
+export async function readApiError(response: Response): Promise<ApiErrorDetails> {
+  const details: ApiErrorDetails = { fieldErrors: {} };
   try {
     const body: unknown = await response.json();
     if (typeof body === "object" && body !== null && "error" in body) {
       const error = body.error;
-      if (
-        typeof error === "object" &&
-        error !== null &&
-        "code" in error &&
-        typeof error.code === "string"
-      ) {
-        return error.code;
+      if (typeof error === "object" && error !== null) {
+        const candidate = error as Record<string, unknown>;
+        if (typeof candidate.code === "string") {
+          details.code = candidate.code;
+        }
+        if (typeof candidate.fields === "object" && candidate.fields !== null) {
+          for (const [field, code] of Object.entries(candidate.fields)) {
+            const name = profileFieldNames.find((profileField) => profileField === field);
+            if (!name || typeof code !== "string") continue;
+            details.fieldErrors[name] = code === "required"
+              ? requiredFieldMessages[name] ?? "invalidFieldValue"
+              : validationCodeMessages[code] ?? "invalidFieldValue";
+          }
+        }
       }
     }
   } catch {
-    return undefined;
+    return details;
   }
-  return undefined;
+  return details;
+}
+
+export async function errorCode(response: Response): Promise<string | undefined> {
+  return (await readApiError(response)).code;
 }
 
 export function vCardFilename(contentDisposition: string | null): string {

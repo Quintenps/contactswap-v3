@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { optimizeProfilePhoto, PhotoRequestError, photoLimits, readPhotoBody } from "../../photo";
 import type { StoredOwnerProfile } from "../../api-types";
-import { getPhoto, isValidPhone, parseProfile } from "../../api-utils";
+import { getPhoto, isValidPhone, validateProfile } from "../../api-utils";
 import { renderVCard, vCardDownloadFilename } from "../../vcard";
 
 const routes = new Hono<{ Bindings: Env }>();
@@ -36,14 +36,23 @@ routes.put("/profile", async (context) => {
     );
   }
 
-  const profile = parseProfile(input);
-  if (!profile) {
+  const validation = validateProfile(input);
+  if (!validation.profile) {
     return context.json(
-      { error: { code: "invalid_profile", message: "The profile request is invalid." } },
+      {
+        error: {
+          code: "invalid_profile",
+          message: "The profile request is invalid.",
+          ...(Object.keys(validation.fieldErrors).length > 0
+            ? { fields: validation.fieldErrors }
+            : {})
+        }
+      },
       400
     );
   }
 
+  const profile = validation.profile;
   await context.env.DB.prepare(
     `INSERT INTO owner_profile
        (id, first_name, last_name, email, street, city, postal_code, country, birthday, phone, org, title, updated_at)

@@ -74,47 +74,122 @@ export function createEmptyFields(country = "The Netherlands"): ProfileFields {
   };
 }
 
-export function validateProfile(values: ProfileFields): Partial<Record<FieldName, MessageKey>> {
-  const errors: Partial<Record<FieldName, MessageKey>> = {};
-  const trimmed = {
-    firstName: values.firstName.trim(),
-    lastName: values.lastName.trim(),
-    email: values.email.trim(),
-    street: values.street.trim(),
-    city: values.city.trim(),
-    postalCode: values.postalCode.trim(),
-    country: values.country.trim(),
-    birthday: values.birthday.trim(),
-    phone: values.phone.trim()
-  };
+export const fieldMaxLengths: Partial<Record<FieldName, number>> = {
+  firstName: 255,
+  lastName: 255,
+  email: 254,
+  street: 255,
+  city: 255,
+  postalCode: 255,
+  country: 255,
+  org: 255,
+  title: 255
+};
 
-  if (!trimmed.firstName) errors.firstName = "enterFirstName";
-  if (!trimmed.lastName) errors.lastName = "enterLastName";
-  if (!trimmed.email) errors.email = "enterEmail";
-  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed.email)) {
-    errors.email = "validEmail";
-  }
-  if (!trimmed.street) errors.street = "enterStreet";
-  if (!trimmed.city) errors.city = "enterCity";
-  if (!trimmed.postalCode) errors.postalCode = "enterPostalCode";
-  if (!trimmed.country) errors.country = "enterCountry";
-  if (!trimmed.phone) {
-    errors.phone = "enterPhone";
-  } else if (!/^\+[1-9]\d{1,14}$/.test(trimmed.phone)) {
-    errors.phone = "validPhone";
-  }
-  if (!trimmed.birthday) {
-    errors.birthday = "enterBirthday";
-  } else {
-    const date = new Date(`${trimmed.birthday}T00:00:00.000Z`);
-    if (
-      !/^\d{4}-\d{2}-\d{2}$/.test(trimmed.birthday) ||
-      Number(trimmed.birthday.slice(0, 4)) < 1 ||
-      !Number.isFinite(date.valueOf()) ||
-      date.toISOString().slice(0, 10) !== trimmed.birthday
-    ) {
-      errors.birthday = "validBirthday";
+const controlCharacters = /[\u0000-\u001f\u007f-\u009f]/u;
+const controlCharacterFields = new Set<FieldName>([
+  "firstName",
+  "lastName",
+  "email",
+  "street",
+  "city",
+  "postalCode",
+  "country",
+  "org",
+  "title"
+]);
+
+export function codePointLength(value: string): number {
+  return Array.from(value).length;
+}
+
+export function exceedsFieldLimit(name: FieldName, value: string): boolean {
+  const maxLength = fieldMaxLengths[name];
+  return maxLength !== undefined && codePointLength(value.trim()) > maxLength;
+}
+
+export function currentUtcDate(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+export function validateTouchedProfile(
+  values: ProfileFields,
+  touched: Partial<Record<FieldName, boolean>>
+): Partial<Record<FieldName, MessageKey>> {
+  const allErrors = validateProfile(values);
+  const errors: Partial<Record<FieldName, MessageKey>> = {};
+  for (const { name } of fields) {
+    if (touched[name] && allErrors[name]) {
+      errors[name] = allErrors[name];
     }
   }
+  return errors;
+}
+
+export function allProfileFieldsTouched(): Partial<Record<FieldName, boolean>> {
+  const touched: Partial<Record<FieldName, boolean>> = {};
+  for (const { name } of fields) {
+    touched[name] = true;
+  }
+  return touched;
+}
+
+export function validateProfile(
+  values: ProfileFields,
+  today = currentUtcDate()
+): Partial<Record<FieldName, MessageKey>> {
+  const errors: Partial<Record<FieldName, MessageKey>> = {};
+
+  const requiredMessages: Partial<Record<FieldName, MessageKey>> = {
+    firstName: "enterFirstName",
+    lastName: "enterLastName",
+    email: "enterEmail",
+    street: "enterStreet",
+    city: "enterCity",
+    postalCode: "enterPostalCode",
+    country: "enterCountry",
+    birthday: "enterBirthday",
+    phone: "enterPhone"
+  };
+
+  for (const { name, optional } of fields) {
+    const raw = values[name] ?? "";
+    const trimmed = raw.trim();
+    const maxLength = fieldMaxLengths[name];
+
+    if (controlCharacterFields.has(name) && controlCharacters.test(raw)) {
+      errors[name] = "controlCharactersNotAllowed";
+    } else if (!optional && !trimmed) {
+      errors[name] = requiredMessages[name];
+    } else if (maxLength !== undefined && codePointLength(trimmed) > maxLength) {
+      errors[name] = "fieldTooLong";
+    }
+  }
+
+  const email = values.email.trim();
+  if (!errors.email && email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(email)) {
+    errors.email = "validEmail";
+  }
+
+  const phone = values.phone.trim();
+  if (!errors.phone && phone && !/^\+[1-9]\d{1,14}$/.test(phone)) {
+    errors.phone = "validPhone";
+  }
+
+  const birthday = values.birthday.trim();
+  if (!errors.birthday && birthday) {
+    const date = new Date(`${birthday}T00:00:00.000Z`);
+    if (
+      !/^\d{4}-\d{2}-\d{2}$/.test(birthday) ||
+      Number(birthday.slice(0, 4)) < 1 ||
+      !Number.isFinite(date.valueOf()) ||
+      date.toISOString().slice(0, 10) !== birthday
+    ) {
+      errors.birthday = "validBirthday";
+    } else if (birthday > today) {
+      errors.birthday = "futureBirthday";
+    }
+  }
+
   return errors;
 }

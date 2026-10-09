@@ -285,6 +285,38 @@ describe("guest URL API flow", () => {
     expect(await env.DB.prepare("SELECT id FROM guest_submissions").first()).toBeNull();
   });
 
+  it("returns safe field validation errors without persisting or consuming a guest link", async () => {
+    const { token } = await createGuestLink();
+    const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const response = await submit(token, {
+      ...submission,
+      email: "bad email",
+      birthday: tomorrow,
+      city: "Lon\ndon",
+      org: "x".repeat(256)
+    });
+
+    expect(response.status).toBe(400);
+    const errorBody = await response.json();
+    expect(errorBody).toEqual({
+      error: {
+        code: "invalid_submission",
+        message: "The submission request is invalid.",
+        fields: {
+          email: "invalid_email",
+          birthday: "future_birthday",
+          city: "control_character",
+          org: "too_long"
+        }
+      }
+    });
+    expect(JSON.stringify(errorBody)).not.toContain("bad email");
+    expect(JSON.stringify(errorBody)).not.toContain("Lon");
+    expect((await call(`/api/guest/links/${token}`)).status).toBe(200);
+    expect(await env.DB.prepare("SELECT id FROM guest_submissions").first()).toBeNull();
+    expect(await env.DB.prepare("SELECT id FROM notification_outbox").first()).toBeNull();
+  });
+
   it("atomically stores one submission, keeps the card available, and schedules a private notification", async () => {
     const { token } = await createGuestLink();
     const response = await submit(token);
