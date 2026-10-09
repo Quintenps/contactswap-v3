@@ -873,6 +873,51 @@ describe("owner profile frontend", () => {
     expect(fetchMock.mock.calls.some(([, init]) => init?.method === "PUT")).toBe(false);
   });
 
+  it("shows owner field validation during editing and maps safe server field errors", async () => {
+    window.localStorage.setItem(tokenStorageKey, token);
+    const fetchMock = installFetch(async (url, init) => {
+      if (url === "/api/owner/profile" && init?.method === "PUT") {
+        return response({
+          error: {
+            code: "invalid_profile",
+            fields: { firstName: "too_long" }
+          }
+        }, 400);
+      }
+      return response(profile);
+    });
+    await renderApp();
+
+    changeValue(input("email"), "not-an-email");
+    expect(document.body.textContent).toContain("That email address doesn't look right.");
+    expect(input("email").getAttribute("aria-invalid")).toBe("true");
+    expect(fetchMock.mock.calls.some(([, init]) => init?.method === "PUT")).toBe(false);
+
+    changeValue(input("email"), profile.email);
+    expect(document.body.textContent).not.toContain("That email address doesn't look right.");
+    expect(input("email").getAttribute("aria-invalid")).toBe("false");
+
+    await submit(input("firstName").form!);
+    expect(document.body.textContent).toContain("Use no more than 255 characters.");
+    expect(input("firstName").getAttribute("aria-invalid")).toBe("true");
+    expect(input("firstName").value).toBe(profile.firstName);
+  });
+
+  it("enforces field limits by Unicode code point in the owner form", async () => {
+    window.localStorage.setItem(tokenStorageKey, token);
+    installFetch(async () => response(profile));
+    await renderApp();
+
+    const nameInput = input("firstName");
+    changeValue(nameInput, "😀".repeat(256));
+    expect(document.body.textContent).toContain("Use no more than 255 characters.");
+    expect(nameInput.value).toBe(profile.firstName);
+
+    changeValue(nameInput, "😀".repeat(255));
+    expect(nameInput.value).toBe("😀".repeat(255));
+    expect(document.body.textContent).not.toContain("Use no more than 255 characters.");
+  });
+
   it("shows field errors without sending an invalid profile and preserves edits after a service error", async () => {
     window.localStorage.setItem(tokenStorageKey, token);
     const fetchMock = installFetch(async (url, init) => {
@@ -1091,6 +1136,43 @@ describe("guest frontend", () => {
     expect(input("guest-title").placeholder).toBe("Vakkenvuller");
     expect(input("guest-firstName").value).toBe("A name in progress");
     expect(fetchMock).toHaveBeenCalledTimes(requestCount);
+  });
+
+  it("shows guest field errors as values are edited and maps API field errors", async () => {
+    const fetchMock = installFetch(async (url, init) => {
+      if (url === `/api/guest/links/${guestToken}/submissions` && init?.method === "POST") {
+        return response({
+          error: {
+            code: "invalid_submission",
+            fields: { city: "control_character" }
+          }
+        }, 400);
+      }
+      if (url === vcardUrl) return vcardResponse();
+      return response({
+        ownerName: "Quinten Example",
+        profilePhotoUrl: null,
+        vcardUrl,
+        submissionComplete: false
+      });
+    });
+    await renderGuestPage(guestToken);
+    await click(button("Download my card & share your details"));
+
+    changeValue(input("guest-email"), "not-an-email");
+    expect(document.body.textContent).toContain("That email address doesn't look right.");
+    expect(input("guest-email").getAttribute("aria-invalid")).toBe("true");
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/submissions"))).toBe(false);
+
+    changeValue(input("guest-email"), "guest@example.com");
+    expect(document.body.textContent).not.toContain("That email address doesn't look right.");
+    fillGuestRequiredFields();
+    changeValue(input("guest-country"), "The Netherlands");
+    await submit(input("guest-firstName").form!);
+
+    expect(document.body.textContent).toContain("Remove tabs, line breaks, and other control characters.");
+    expect(input("guest-city").getAttribute("aria-invalid")).toBe("true");
+    expect(input("guest-firstName").value).toBe("Guest");
   });
 
   it("defaults a new guest form country to Dutch when the selected language is Dutch", async () => {

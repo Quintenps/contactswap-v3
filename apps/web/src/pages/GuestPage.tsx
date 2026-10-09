@@ -2,13 +2,25 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useParams } from "react-router-dom";
 import {
   apiUrl,
-  errorCode,
   guestSubmissionErrorKey,
   isGuestLinkResolution,
   isGuestSubmissionSuccess,
+  readApiError,
   vCardFilename
 } from "../lib/api";
-import { addressFields, contactFields, createEmptyFields, fields, validateProfile, workFields } from "../lib/forms";
+import {
+  addressFields,
+  allProfileFieldsTouched,
+  contactFields,
+  createEmptyFields,
+  currentUtcDate,
+  exceedsFieldLimit,
+  fieldMaxLengths,
+  fields,
+  validateProfile,
+  validateTouchedProfile,
+  workFields
+} from "../lib/forms";
 import { useLanguage, type MessageKey } from "../lib/i18n";
 import type { FieldName, GuestPageState, ProfileFields } from "../types";
 
@@ -39,6 +51,7 @@ export default function GuestPage() {
   const [guestFormOpen, setGuestFormOpen] = useState(false);
   const [guestValues, setGuestValues] = useState<ProfileFields>(() => createEmptyFields(t("defaultCountry")));
   const [guestFieldErrors, setGuestFieldErrors] = useState<Partial<Record<FieldName, MessageKey>>>({});
+  const [guestTouchedFields, setGuestTouchedFields] = useState<Partial<Record<FieldName, boolean>>>({});
   const [guestPictureError, setGuestPictureError] = useState<MessageKey | "">("");
   const [guestPicturePreviewUrl, setGuestPicturePreviewUrl] = useState<string | null>(null);
   const [guestMessage, setGuestMessage] = useState<MessageKey | "">("");
@@ -128,6 +141,7 @@ export default function GuestPage() {
     setGuestFormOpen(false);
     setGuestValues(createEmptyFields(t("defaultCountry")));
     setGuestFieldErrors({});
+    setGuestTouchedFields({});
     setGuestPictureError("");
     setGuestPicturePreview(null);
     if (guestPictureInput.current) guestPictureInput.current.value = "";
@@ -159,6 +173,7 @@ export default function GuestPage() {
       setGuestVCardUrl(apiUrl(payload.vcardUrl));
       setGuestValues(createEmptyFields(t("defaultCountry")));
       setGuestFieldErrors({});
+      setGuestTouchedFields({});
       setGuestPictureError("");
       setGuestPicturePreview(null);
       setGuestFormOpen(false);
@@ -227,6 +242,7 @@ export default function GuestPage() {
     event.preventDefault();
     if (!token || guestSubmitting || guestDownloading) return;
 
+    setGuestTouchedFields(allProfileFieldsTouched());
     const errors = validateProfile(guestValues);
     setGuestFieldErrors(errors);
     if (Object.keys(errors).length > 0) {
@@ -268,7 +284,11 @@ export default function GuestPage() {
         return;
       }
       if (!response.ok) {
-        setGuestMessage(guestSubmissionErrorKey(await errorCode(response)));
+        const { code, fieldErrors } = await readApiError(response);
+        setGuestMessage(guestSubmissionErrorKey(code));
+        if (Object.keys(fieldErrors).length > 0) {
+          setGuestFieldErrors(fieldErrors);
+        }
         return;
       }
       if (response.status !== 201) {
@@ -283,6 +303,7 @@ export default function GuestPage() {
       }
       setGuestValues(createEmptyFields(t("defaultCountry")));
       setGuestFieldErrors({});
+      setGuestTouchedFields({});
       setGuestPictureError("");
       setGuestPicturePreview(null);
       setGuestFormOpen(false);
@@ -514,6 +535,7 @@ export default function GuestPage() {
                         autoComplete={autoComplete}
                         placeholder={example}
                         inputMode={name === "phone" ? "tel" : undefined}
+                        max={name === "birthday" ? currentUtcDate() : undefined}
                         value={guestValues[name]}
                         required
                         aria-invalid={Boolean(guestFieldErrors[name])}
@@ -522,14 +544,35 @@ export default function GuestPage() {
                           guestFieldErrors[name] ? `guest-${name}-error` : undefined
                         ].filter(Boolean).join(" ") || undefined}
                         onChange={(event) => {
-                          setGuestValues((current) => ({ ...current, [name]: event.target.value }));
-                          setGuestFieldErrors((current) => ({ ...current, [name]: undefined }));
+                          const value = event.target.value;
+                          if (exceedsFieldLimit(name, value)) {
+                            const nextTouched = { ...guestTouchedFields, [name]: true };
+                            setGuestTouchedFields(nextTouched);
+                            setGuestFieldErrors({
+                              ...validateTouchedProfile(guestValues, nextTouched),
+                              [name]: "fieldTooLong"
+                            });
+                            setGuestMessage("");
+                            return;
+                          }
+                          const nextValues = { ...guestValues, [name]: value };
+                          const nextTouched = { ...guestTouchedFields, [name]: true };
+                          setGuestValues(nextValues);
+                          setGuestTouchedFields(nextTouched);
+                          setGuestFieldErrors(validateTouchedProfile(nextValues, nextTouched));
                           setGuestMessage("");
+                        }}
+                        onBlur={() => {
+                          const nextTouched = { ...guestTouchedFields, [name]: true };
+                          setGuestTouchedFields(nextTouched);
+                          setGuestFieldErrors(validateTouchedProfile(guestValues, nextTouched));
                         }}
                       />
                       {hintKey && <span className="field-hint" id={`guest-${name}-hint`}>{t("guestPhoneHint", { example })}</span>}
                       {guestFieldErrors[name] && (
-                        <span className="field-error" id={`guest-${name}-error`}>{t(guestFieldErrors[name])}</span>
+                        <span className="field-error" id={`guest-${name}-error`} role="status" aria-live="polite">
+                          {t(guestFieldErrors[name], { max: String(fieldMaxLengths[name] ?? 255) })}
+                        </span>
                       )}
                     </div>
                   );
@@ -553,18 +596,40 @@ export default function GuestPage() {
                         type={type}
                         autoComplete={autoComplete}
                         placeholder={example}
+                        max={name === "birthday" ? currentUtcDate() : undefined}
                         value={guestValues[name]}
                         required
                         aria-invalid={Boolean(guestFieldErrors[name])}
                         aria-describedby={guestFieldErrors[name] ? `guest-${name}-error` : undefined}
                         onChange={(event) => {
-                          setGuestValues((current) => ({ ...current, [name]: event.target.value }));
-                          setGuestFieldErrors((current) => ({ ...current, [name]: undefined }));
+                          const value = event.target.value;
+                          if (exceedsFieldLimit(name, value)) {
+                            const nextTouched = { ...guestTouchedFields, [name]: true };
+                            setGuestTouchedFields(nextTouched);
+                            setGuestFieldErrors({
+                              ...validateTouchedProfile(guestValues, nextTouched),
+                              [name]: "fieldTooLong"
+                            });
+                            setGuestMessage("");
+                            return;
+                          }
+                          const nextValues = { ...guestValues, [name]: value };
+                          const nextTouched = { ...guestTouchedFields, [name]: true };
+                          setGuestValues(nextValues);
+                          setGuestTouchedFields(nextTouched);
+                          setGuestFieldErrors(validateTouchedProfile(nextValues, nextTouched));
                           setGuestMessage("");
+                        }}
+                        onBlur={() => {
+                          const nextTouched = { ...guestTouchedFields, [name]: true };
+                          setGuestTouchedFields(nextTouched);
+                          setGuestFieldErrors(validateTouchedProfile(guestValues, nextTouched));
                         }}
                       />
                       {guestFieldErrors[name] && (
-                        <span className="field-error" id={`guest-${name}-error`}>{t(guestFieldErrors[name])}</span>
+                        <span className="field-error" id={`guest-${name}-error`} role="status" aria-live="polite">
+                          {t(guestFieldErrors[name], { max: String(fieldMaxLengths[name] ?? 255) })}
+                        </span>
                       )}
                     </div>
                   );
@@ -586,17 +651,39 @@ export default function GuestPage() {
                         type={type}
                         autoComplete={autoComplete}
                         placeholder={example}
+                        max={name === "birthday" ? currentUtcDate() : undefined}
                         value={guestValues[name]}
                         aria-invalid={Boolean(guestFieldErrors[name])}
                         aria-describedby={guestFieldErrors[name] ? `guest-${name}-error` : undefined}
                         onChange={(event) => {
-                          setGuestValues((current) => ({ ...current, [name]: event.target.value }));
-                          setGuestFieldErrors((current) => ({ ...current, [name]: undefined }));
+                          const value = event.target.value;
+                          if (exceedsFieldLimit(name, value)) {
+                            const nextTouched = { ...guestTouchedFields, [name]: true };
+                            setGuestTouchedFields(nextTouched);
+                            setGuestFieldErrors({
+                              ...validateTouchedProfile(guestValues, nextTouched),
+                              [name]: "fieldTooLong"
+                            });
+                            setGuestMessage("");
+                            return;
+                          }
+                          const nextValues = { ...guestValues, [name]: value };
+                          const nextTouched = { ...guestTouchedFields, [name]: true };
+                          setGuestValues(nextValues);
+                          setGuestTouchedFields(nextTouched);
+                          setGuestFieldErrors(validateTouchedProfile(nextValues, nextTouched));
                           setGuestMessage("");
+                        }}
+                        onBlur={() => {
+                          const nextTouched = { ...guestTouchedFields, [name]: true };
+                          setGuestTouchedFields(nextTouched);
+                          setGuestFieldErrors(validateTouchedProfile(guestValues, nextTouched));
                         }}
                       />
                       {guestFieldErrors[name] && (
-                        <span className="field-error" id={`guest-${name}-error`}>{t(guestFieldErrors[name])}</span>
+                        <span className="field-error" id={`guest-${name}-error`} role="status" aria-live="polite">
+                          {t(guestFieldErrors[name], { max: String(fieldMaxLengths[name] ?? 255) })}
+                        </span>
                       )}
                     </div>
                   );

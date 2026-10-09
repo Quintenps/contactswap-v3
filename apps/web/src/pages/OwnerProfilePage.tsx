@@ -6,9 +6,22 @@ import {
   isProfile,
   ownerAuthorization,
   photoErrorKey,
+  readApiError,
   vCardFilename
 } from "../lib/api";
-import { addressFields, contactFields, createEmptyFields, fields, validateProfile, workFields } from "../lib/forms";
+import {
+  addressFields,
+  allProfileFieldsTouched,
+  contactFields,
+  createEmptyFields,
+  currentUtcDate,
+  exceedsFieldLimit,
+  fieldMaxLengths,
+  fields,
+  validateProfile,
+  validateTouchedProfile,
+  workFields
+} from "../lib/forms";
 import { useLanguage, type MessageKey } from "../lib/i18n";
 import type { FieldName, ProfileFields } from "../types";
 
@@ -35,6 +48,7 @@ export default function OwnerProfilePage() {
   const [photoRevision, setPhotoRevision] = useState(0);
   const [message, setMessage] = useState<MessageKey | "">(profile ? "" : "noProfileYet");
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<FieldName, MessageKey>>>({});
+  const [touchedFields, setTouchedFields] = useState<Partial<Record<FieldName, boolean>>>({});
   const [busy, setBusy] = useState<"save" | "upload" | "remove" | "download" | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -54,9 +68,13 @@ export default function OwnerProfilePage() {
         title: profile.title ?? ""
       });
       setHasPhoto(profile.hasPhoto);
+      setFieldErrors({});
+      setTouchedFields({});
     } else {
       setValues(createEmptyFields(t("defaultCountry")));
       setHasPhoto(false);
+      setFieldErrors({});
+      setTouchedFields({});
     }
   }, [profile]);
 
@@ -108,6 +126,7 @@ export default function OwnerProfilePage() {
   async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!token || busy) return;
+    setTouchedFields(allProfileFieldsTouched());
     const errors = validateProfile(values);
     setFieldErrors(errors);
     if (Object.keys(errors).length > 0) {
@@ -145,12 +164,17 @@ export default function OwnerProfilePage() {
         return;
       }
       if (!response.ok) {
-        const code = await errorCode(response);
+        const { code, fieldErrors: serverFieldErrors } = await readApiError(response);
         setMessage(
           code === "invalid_profile"
             ? "invalidProfileFields"
             : "saveFailedChangesKept"
         );
+        if (code === "invalid_profile") {
+          setFieldErrors(Object.keys(serverFieldErrors).length > 0
+            ? serverFieldErrors
+            : validateProfile(values));
+        }
         return;
       }
       const data: unknown = await response.json();
@@ -312,6 +336,7 @@ export default function OwnerProfilePage() {
         autoComplete={autoComplete}
         placeholder={placeholderKey ? t(placeholderKey) : placeholder}
         inputMode={name === "phone" ? "tel" : undefined}
+        max={name === "birthday" ? currentUtcDate() : undefined}
         value={values[name] ?? ""}
         required={!optional}
         aria-invalid={Boolean(fieldErrors[name])}
@@ -320,13 +345,36 @@ export default function OwnerProfilePage() {
           fieldErrors[name] ? `${name}-error` : undefined
         ].filter(Boolean).join(" ") || undefined}
         onChange={(event) => {
-          setValues((current) => ({ ...current, [name]: event.target.value }));
-          setFieldErrors((current) => ({ ...current, [name]: undefined }));
+          const value = event.target.value;
+          if (exceedsFieldLimit(name, value)) {
+            const nextTouched = { ...touchedFields, [name]: true };
+            setTouchedFields(nextTouched);
+            setFieldErrors({
+              ...validateTouchedProfile(values, nextTouched),
+              [name]: "fieldTooLong"
+            });
+            setMessage("");
+            return;
+          }
+          const nextValues = { ...values, [name]: value };
+          const nextTouched = { ...touchedFields, [name]: true };
+          setValues(nextValues);
+          setTouchedFields(nextTouched);
+          setFieldErrors(validateTouchedProfile(nextValues, nextTouched));
           setMessage("");
+        }}
+        onBlur={() => {
+          const nextTouched = { ...touchedFields, [name]: true };
+          setTouchedFields(nextTouched);
+          setFieldErrors(validateTouchedProfile(values, nextTouched));
         }}
       />
       {hintKey && <span className="field-hint" id={`${name}-hint`}>{t(hintKey)} {t("exampleWithValue", { example: placeholder ?? "" })}</span>}
-      {fieldErrors[name] && <span className="field-error" id={`${name}-error`}>{t(fieldErrors[name])}</span>}
+      {fieldErrors[name] && (
+        <span className="field-error" id={`${name}-error`} role="status" aria-live="polite">
+          {t(fieldErrors[name], { max: String(fieldMaxLengths[name] ?? 255) })}
+        </span>
+      )}
     </div>
   );
 
