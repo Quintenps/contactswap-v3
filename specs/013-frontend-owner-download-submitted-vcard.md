@@ -22,7 +22,7 @@ Let Quinten find retained guest submissions in the owner interface and download 
 - Changes to guest submission, retention, or vCard generation API behavior.
 - Displaying full guest contact details, editing or deleting submissions, or adding search and filtering.
 - Changes to the profile or guest-link management workflows.
-- Owner or guest account features, multiple owners, or changes to the 30-day retention period.
+- Owner or guest account features, multiple owners, or changes to the 48-hour retention period.
 
 ## Owner Flow
 

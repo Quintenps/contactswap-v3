@@ -1,7 +1,7 @@
 {
   "rules": [
     {
-      "id": "expire-guest-photos-after-30-days",
+      "id": "expire-guest-photos-after-48-hours",
       "conditions": {
         "prefix": "guest-submissions/"
       },
@@ -9,7 +9,7 @@
       "deleteObjectsTransition": {
         "condition": {
           "type": "Age",
-          "maxAge": 2592000
+          "maxAge": 172800
         }
       }
     }

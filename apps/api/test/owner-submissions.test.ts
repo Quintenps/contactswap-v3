@@ -242,6 +242,24 @@ describe("owner submissions API", () => {
     expect(await expiredResponse.text()).not.toContain(expired.email);
   });
 
+  it("hides submissions at and after their expiration deadline", async () => {
+    const expired = await insertSubmission(
+      "Expired Contact",
+      "2026-10-01T12:00:00.000Z",
+      new Date(Date.now() - 1000).toISOString()
+    );
+
+    const listResponse = await call("/api/owner/submissions");
+    const listBody = (await listResponse.json()) as {
+      submissions: Array<{ id: string }>;
+    };
+
+    expect(listResponse.status).toBe(200);
+    expect(listBody.submissions.some(({ id }) => id === expired.id)).toBe(false);
+    expect((await call(`/api/owner/submissions/${expired.id}`)).status).toBe(404);
+    expect((await call(`/api/owner/submissions/${expired.id}/vcard`)).status).toBe(404);
+  });
+
   it("omits unset organization and title from the guest vCard", async () => {
     const submission = await insertSubmission("Guest Without Optional Fields", "2026-10-01T12:00:00.000Z");
     await env.DB.prepare("UPDATE guest_submissions SET org = NULL, title = NULL WHERE id = ?")

@@ -16,7 +16,7 @@ Implement the guest-facing API flow for a link created by spec 003. An unauthent
 - Store guest submissions in D1 and record the successful submission without consuming the link.
 - Consume the link after its first successful signed vCard response.
 - Send the configured summary webhook after a successful submission without guest contact details.
-- Retain submissions and associated stored files for 30 days, then delete them through the scheduled cleanup process.
+- Retain submissions and associated stored files for 48 hours from successful submission, then delete them through the scheduled cleanup process.
 - Add migrations, local `.http` examples, and focused API tests for link access, signing, validation, single-use behavior, webhook delivery, and retention.
 
 ## Out of Scope
@@ -59,10 +59,10 @@ All guest endpoints are unauthenticated in the account sense. The link token or 
 
 ## Data and Behavior
 
-- Store only the guest fields needed for Quinten's owner review and vCard 3.0 download, plus timestamps required for the 30-day retention rule. Do not duplicate Quinten's profile or store the generated guest vCard unless separately required.
-- Each guest submission is retained for 30 days from successful submission. Scheduled cleanup deletes expired guest records and any associated stored files.
+- Store only the guest fields needed for Quinten's owner review and vCard 3.0 download, plus timestamps required for the 48-hour retention rule. Do not duplicate Quinten's profile or store the generated guest vCard unless separately required.
+- Each guest submission is retained for 48 hours from successful submission. Scheduled cleanup deletes expired guest records and any associated stored files.
 - Use a D1 transaction or equivalent conditional write so concurrent requests cannot both submit through the same link. The submission record, link submission timestamp, and notification outbox entry either all succeed or none do.
-- Persist the submission timestamp independently of the retained guest record so deletion after 30 days does not make a used-for-submission link accept another submission.
+- Persist the submission timestamp independently of the retained guest record so deletion after 48 hours does not make a used-for-submission link accept another submission.
 - Use a conditional D1 update after preparing the vCard so concurrent card requests cannot both consume and download through the same link. Failed vCard requests leave the link active.
 - On successful submission, send a webhook summary that says a submission was completed and contains no guest contact details. Webhook credentials remain Worker Secrets.
 - Do not include signed URL signatures in page URLs that make external requests; the guest frontend must not leak them through referrers. Responses containing the signed vCard path and the vCard file must be non-cacheable.
@@ -79,9 +79,9 @@ All guest endpoints are unauthenticated in the account sense. The link token or 
 - One successful submission stores exactly one guest record, records the link's submitted state, and sends the privacy-safe webhook summary while leaving the card available. Repeated and concurrent submissions cannot store a second record.
 - One successful vCard response consumes the link. Failed and concurrent vCard requests cannot produce more than one successful card download.
 - Guest submission, submitted state, and notification enqueue are atomic; a failed persistence operation leaves the link active and unsubmitted.
-- Guest records and associated stored files are removed after 30 days by the scheduled cleanup process.
+- Guest records and associated stored files are removed after 48 hours by the scheduled cleanup process.
 - Error responses do not disclose guest or owner contact values, credentials, signatures, or internal exception details.
-- Automated tests cover active, unknown, consumed, and revoked links; valid and invalid signatures; current vCard delivery; field validation; single-use and concurrent submissions; webhook privacy; and 30-day cleanup using local Workers bindings only.
+- Automated tests cover active, unknown, consumed, and revoked links; valid and invalid signatures; current vCard delivery; field validation; single-use and concurrent submissions; webhook privacy; and 48-hour cleanup using local Workers bindings only.
 - Local `.http` requests demonstrate guest link resolution, vCard download, and submission without committed tokens or personal contact data.
 - Type checking, the API test suite, and production builds pass.
 

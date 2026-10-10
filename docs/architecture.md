@@ -12,7 +12,7 @@ ContactSwap runs primarily on Cloudflare's platform.
 
 TypeScript-based, mobile-first web application with an owner interface and a guest submission form. The combined guest action submits details before downloading the card, and shows a thank-you state after a successful card download. If the download fails after submission, offer a retry without resubmitting.
 
-The frontend communicates with Workers through HTTP APIs. Owner-only operations must be authorized server-side; the admin token and webhook configuration must never be embedded in or exposed to the browser.
+The frontend communicates with Workers through HTTP APIs. Owner-only operations must be authorized server-side; the admin token and webhook configuration must never be embedded in or exposed to the browser. Before a guest submits, the form states that submitted contact details and any optional picture are stored for 48 hours and then automatically deleted.
 
 The frontend uses `/` for a cheerful, animated welcome page with a button to `/quinten` shown only when the owner is authenticated, `/quinten` for the owner profile, `/quinten/links` for link management, `/quinten/submissions` for submissions, and `/token/{token}` for the guest flow. Welcome-page animations respect the reduced-motion preference. The owner link-creation API returns absolute share URLs using `/token/{token}`. These page routes do not change the `/api/...` endpoints.
 
@@ -45,7 +45,7 @@ The split-name and structured-address schema replaces the legacy single `name` a
 
 The owner's organization and title are nullable canonical profile fields. Guest submission organization and title are nullable canonical submission fields.
 
-Guest submissions are retained for 30 days. A scheduled Worker process deletes expired submissions and any associated stored guest files. Guest links do not expire by age; they are deleted manually by the owner or consumed after a successful card download. A submission timestamp remains on the link so it cannot accept a second submission after the guest record's retention period ends.
+Guest submissions and any associated stored files are retained for 48 hours from successful submission. At the 48-hour deadline they are no longer available through the application and a scheduled Worker cleanup deletes the expired D1 records and associated files. Guest links do not expire by age; they are deleted manually by the owner or consumed after a successful card download. A submission timestamp remains on the link so it cannot accept a second submission after the guest record's retention period ends.
 
 Signed vCard URLs follow the lifecycle of their guest link and do not expire by age while that link remains active. Treat each URL as a bearer credential: do not log its signature, prevent it from leaking through referrers, and return vCard responses with `Cache-Control: no-store`.
 
@@ -53,7 +53,7 @@ Only data required for ContactSwap functionality should be stored, and contact d
 
 ## Storage
 
-Use a private Cloudflare R2 bucket for optimized owner photos. Do not configure public delivery. Any stored guest picture must be deleted with its associated guest submission after 30 days.
+Use a private Cloudflare R2 bucket for optimized owner photos. Do not configure public delivery. Any stored guest picture must be deleted with its associated guest submission after 48 hours.
 
 ## Secrets and integrations
 

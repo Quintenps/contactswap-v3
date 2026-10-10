@@ -26,10 +26,10 @@ The API's D1 and R2 bindings are declared in [`wrangler.jsonc`](wrangler.jsonc).
 
 Wrangler runs the Worker's scheduled handler every five minutes (`*/5 * * * *`), as configured in [`wrangler.jsonc`](wrangler.jsonc). The handler in [`src/scheduled.ts`](src/scheduled.ts):
 
-1. Deletes D1 guest submissions past their 30-day retention deadline.
+1. Deletes D1 guest submissions and associated guest photos after their 48-hour retention deadline.
 2. Processes up to ten due webhook notification jobs. Successful deliveries are removed from the outbox; failures are retried with exponential backoff, capped at 24 hours between attempts. Notifications contain a summary, not guest contact details.
 
-Guest photo files are **not** removed by the D1 cleanup. R2 expires them separately through the lifecycle rule for the `guest-submissions/` prefix. Keep that rule scoped to guest photos; owner photos must be retained.
+Expired guest photo files are removed by the scheduled cleanup. The R2 lifecycle rule for the `guest-submissions/` prefix is an additional 48-hour expiration safeguard; keep it scoped to guest photos so owner photos are retained.
 
 ## Local development and checks
 
@@ -99,14 +99,14 @@ npm run migrate:remote --workspace @contactswap/api
 
 Wrangler prompts for confirmation. Check that the prompt identifies the intended production database before confirming.
 
-The newly created R2 bucket has no existing lifecycle rules. Apply the checked-in 30-day guest-photo expiration rule and verify it:
+The newly created R2 bucket has no existing lifecycle rules. Apply the checked-in 48-hour guest-photo expiration rule and verify it:
 
 ```sh
 npm run infra:r2:lifecycle:apply --workspace @contactswap/api
 npm run infra:r2:lifecycle:list --workspace @contactswap/api
 ```
 
-The apply command replaces the bucket's complete lifecycle configuration. If you are applying this to a bucket that already has rules, list them first and preserve any required rules in [`infrastructure/r2-lifecycle.json`](infrastructure/r2-lifecycle.json) before applying. Confirm the enabled rule matches only `guest-submissions/`; owner photos must not expire. R2 processes expiration asynchronously, typically within 24 hours.
+The apply command replaces the bucket's complete lifecycle configuration. If you are applying this to a bucket that already has rules, list them first and preserve any required rules in [`infrastructure/r2-lifecycle.json`](infrastructure/r2-lifecycle.json) before applying. Confirm the enabled rule matches only `guest-submissions/`; owner photos must not expire. R2 processes lifecycle expiration asynchronously, typically within 24 hours; the five-minute scheduled cleanup removes expired guest photos at the application retention deadline.
 
 Migration `0010_split_name_and_address_fields.sql` is intentionally destructive: it drops and recreates the owner profile, guest submissions, and notification outbox using the split fields. Existing rows and queued notifications are discarded; guest links are retained. Recreate the owner profile after applying it. The D1 migration cannot delete R2 objects, so remove existing objects under the `owner-profile/` and `guest-submissions/` prefixes from the configured photos bucket separately when applying the reset. Confirm the target account and bucket before deleting those private contact photos.
 

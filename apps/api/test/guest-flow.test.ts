@@ -347,7 +347,7 @@ describe("guest URL API flow", () => {
       expiresAt: expect.any(String)
     });
     expect(Date.parse(stored!.expiresAt) - Date.parse(stored!.createdAt)).toBe(
-      30 * 24 * 60 * 60 * 1000
+      48 * 60 * 60 * 1000
     );
     expect(await env.DB.prepare("SELECT id FROM guest_submissions").all()).toMatchObject({
       results: [{ id: expect.any(String) }]
@@ -491,20 +491,45 @@ describe("guest URL API flow", () => {
     expect(await env.DB.prepare("SELECT id FROM notification_outbox").first()).toBeNull();
   });
 
-  it("deletes expired guest data and its queued notification", async () => {
+  it("deletes expired guest data, its photo, and its queued notification without touching active files", async () => {
     const { token, linkId } = await createGuestLink();
     await submit(token);
     await env.DB.prepare("DELETE FROM guest_links WHERE id = ?").bind(linkId).run();
-    expect(await env.DB.prepare("SELECT id FROM guest_submissions").first()).not.toBeNull();
-    await env.DB.prepare("UPDATE guest_submissions SET expires_at = ?")
-      .bind(new Date(0).toISOString())
+
+    const expiredPhotoKey = `guest-submissions/${crypto.randomUUID()}.jpg`;
+    const activePhotoKey = `guest-submissions/${crypto.randomUUID()}.jpg`;
+    const ownerPhotoKey = `owner-profile/${crypto.randomUUID()}.jpg`;
+    await Promise.all([
+      env.PHOTOS.put(expiredPhotoKey, "expired"),
+      env.PHOTOS.put(activePhotoKey, "active"),
+      env.PHOTOS.put(ownerPhotoKey, "owner")
+    ]);
+    await env.DB.prepare("UPDATE guest_submissions SET photo_key = ?, expires_at = ?")
+      .bind(expiredPhotoKey, new Date(0).toISOString())
       .run();
+
+    const active = await createGuestLink();
+    await submit(active.token);
+    await env.DB.prepare("UPDATE guest_submissions SET photo_key = ? WHERE link_id = ?")
+      .bind(activePhotoKey, active.linkId)
+      .run();
+
+    expect(await env.DB.prepare("SELECT id FROM guest_submissions").first()).not.toBeNull();
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 204 }));
 
     await runScheduledTasks(testEnv);
 
-    expect(await env.DB.prepare("SELECT id FROM guest_submissions").first()).toBeNull();
+    const submissions = await env.DB.prepare("SELECT id FROM guest_submissions").all<{ id: string }>();
+    expect(submissions.results.map(({ id }) => id)).toEqual([expect.any(String)]);
     expect(await env.DB.prepare("SELECT id FROM notification_outbox").first()).toBeNull();
+    expect(await env.PHOTOS.get(expiredPhotoKey)).toBeNull();
+    expect(await env.PHOTOS.get(activePhotoKey)).not.toBeNull();
+    expect(await env.PHOTOS.get(ownerPhotoKey)).not.toBeNull();
+
+    await Promise.all([
+      env.PHOTOS.delete(activePhotoKey),
+      env.PHOTOS.delete(ownerPhotoKey)
+    ]);
   });
 
   it("returns unavailable for revoked and consumed vCard links", async () => {

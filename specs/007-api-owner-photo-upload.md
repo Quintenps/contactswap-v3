@@ -72,7 +72,7 @@ All routes require `Authorization: Bearer <admin-token>`, following the existing
 - Generate object keys server-side; never derive them from client filenames or accept keys from clients.
 - Replacing a photo must not discard the old photo until optimization succeeds, the new object is written, and the D1 photo reference is updated. If the D1 update fails, remove the newly written object and leave the old photo available. Do not return success unless the replacement works through both the owner preview and on-demand vCard endpoints.
 - Removing a photo clears its D1 reference and deletes the old R2 object. Handle partial failures without returning success for a stale profile reference.
-- Owner photos are not subject to the 30-day guest-submission retention policy. They remain until replaced or explicitly removed.
+- Owner photos are not subject to the 48-hour guest-submission retention policy. They remain until replaced or explicitly removed.
 - The base64 image data adds about one third to the binary image size. With the 75 KiB optimized-image cap, the generated vCard payload is at most 100 KiB of base64 image data before line folding and other fields; this size is held in Worker memory and in the HTTP response only, never in D1.
 - A downloaded vCard contains a self-contained copy of the photo and cannot be remotely changed or revoked after download. Link revocation prevents future retrieval of the vCard but cannot retract copies already downloaded.
 

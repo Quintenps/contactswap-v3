@@ -8,7 +8,7 @@ Done
 
 Make the guest's combined action submit their contact details first and download Quinten's current vCard only after the submission succeeds. Consume a guest link when its card download succeeds, not when the submission is stored.
 
-This spec intentionally revises the guest download and link-consumption behavior in specs 004 and 012. It does not change the required guest fields, submission validation, webhook privacy, or 30-day retention policy.
+This spec intentionally revises the guest download and link-consumption behavior in specs 004 and 012. It does not change the required guest fields, submission validation, webhook privacy, or 48-hour retention policy.
 
 ## Scope
 
@@ -39,7 +39,7 @@ This spec intentionally revises the guest download and link-consumption behavior
 ## API and Link Lifecycle
 
 - A successful form submission stores exactly one guest record and triggers the existing privacy-safe webhook, but does not consume the link or revoke its signed vCard URL.
-- Persist the submission timestamp on the link so deletion of the guest record after 30 days does not permit a second submission.
+- Persist the submission timestamp on the link so deletion of the guest record after 48 hours does not permit a second submission.
 - After one successful submission, the same link cannot create another submission. Repeated or concurrent submission requests must not create another guest record or send another submission notification.
 - Until a successful card response consumes the link, the signed vCard URL remains usable. This allows the combined flow to download the card after submission and to retry after a failed card request.
 - A successful `GET /api/guest/vcard/{linkId}/{signature}` response consumes the associated link. This applies both to a download-only request and to a request following form submission.

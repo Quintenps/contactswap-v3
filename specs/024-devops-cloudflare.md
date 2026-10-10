@@ -73,7 +73,7 @@ This is infrastructure configuration as code, but it is not a general Cloudflare
 ### R2
 
 - Add `apps/api/infrastructure/r2-lifecycle.json` as the complete desired lifecycle configuration for the configured photos bucket.
-- Include an enabled expiration rule for objects under the `guest-submissions/` prefix after 30 days.
+- Include an enabled expiration rule for objects under the `guest-submissions/` prefix after 48 hours.
 - Do not apply expiration to the whole bucket or to owner-photo keys. Owner photos must remain outside the guest prefix and must not be expired by this rule.
 - Keep the bucket private. Do not enable public access, a custom domain, browser-direct uploads, or public/presigned photo URLs.
 - Do not add a CORS policy: browser access to photos continues through the authorized Worker routes and R2 binding.
@@ -89,7 +89,7 @@ Wrangler's R2 lifecycle `set` operation replaces the bucket's lifecycle configur
 - Verify that the local `npm run deploy` build receives the production `VITE_API_BASE_URL`, and that deployed frontend API requests reach the API Worker. Test CORS preflight for owner `Authorization` requests and verify the frontend can read vCard `Content-Disposition`.
 - Document and provide repeatable commands to apply the versioned R2 lifecycle file and list the bucket's active lifecycle rules for verification.
 - Document local D1 migration application separately from remote migration application. Production migrations must require an explicit remote target and be run only after reviewing the migration and confirming the target database.
-- Verify that the configured Worker bindings point to the intended D1 database and private R2 bucket, and that the active R2 rule matches only the guest-photo prefix and 30-day retention.
+- Verify that the configured Worker bindings point to the intended D1 database and private R2 bucket, and that the active R2 rule matches only the guest-photo prefix and 48-hour retention.
 - Do not automate database/bucket deletion, replacement, or data migration. These are destructive operations and are outside the normal apply workflow.
 - Any command requiring Cloudflare authentication must use Wrangler's authenticated session or a narrowly scoped environment credential. Never place credentials in command arguments, tracked configuration, logs, or documentation.
 
@@ -111,7 +111,7 @@ Wrangler's R2 lifecycle `set` operation replaces the bucket's lifecycle configur
 - Pages deployment instructions confirm the Cloudflare account, project, and output directory and do not expose Worker Secrets to the frontend.
 - Production Vite builds use a non-secret API Worker origin, local development continues to use the Vite `/api` proxy, and the API Worker restricts CORS to the production Pages origin and configured HTTPS subdomains.
 - Frontend API, vCard, and photo requests reach the API Worker in production; CORS permits required headers and exposes `Content-Disposition` without weakening API authorization.
-- `apps/api/infrastructure/r2-lifecycle.json` exists, is valid for Wrangler's R2 lifecycle `set` command, and specifies only the enabled 30-day `guest-submissions/` expiration rule.
+- `apps/api/infrastructure/r2-lifecycle.json` exists, is valid for Wrangler's R2 lifecycle `set` command, and specifies only the enabled 48-hour `guest-submissions/` expiration rule.
 - No lifecycle rule expires the bucket generally or matches owner-photo objects.
 - The documented workflow uses the repository-pinned Wrangler version to apply and inspect the R2 lifecycle configuration and to apply D1 migrations.
 - Local development and tests continue to use local bindings by default; no routine command accesses or modifies production resources.

@@ -15,14 +15,14 @@ Allow a guest to include an optional photo in the same request as their contact 
 - Reuse the owner-photo image validation, optimization, output limits, private R2 bucket, and Cloudflare Images binding established by spec 007.
 - Persist only the guest photo's R2 object key in D1.
 - Include the optimized photo as a base64 vCard 3.0 `PHOTO;ENCODING=b;TYPE=JPEG` property in the owner-authorized vCard generated for that guest submission.
-- Store every guest photo under a dedicated R2 key prefix with a lifecycle expiration rule of 30 days. Keep owner photos under a separate prefix that is not covered by this rule.
+- Store every guest photo under a dedicated R2 key prefix with a lifecycle expiration rule of 48 hours. Keep owner photos under a separate prefix that is not covered by this rule.
 - Add a D1 migration, focused API tests, and a local `.http` example using synthetic data.
 
 ## Out of Scope
 
 - Guest-facing form or other frontend changes.
 - A standalone guest-photo preview, public image URL, or separate guest photo upload endpoint.
-- Changes to required guest fields, guest-link lifecycle (defined in spec 021), notification contents, or the 30-day retention period.
+- Changes to required guest fields, guest-link lifecycle (defined in spec 021), notification contents, or the 48-hour retention period.
 - Guest photo access through the owner's profile vCard or the link-scoped signed owner vCard.
 - Multiple photos, original-file retention, photo history, or general-purpose file management.
 
@@ -58,10 +58,10 @@ Allow a guest to include an optional photo in the same request as their contact 
 - Add a nullable `photo_key` column to `guest_submissions`. Existing records remain valid with no photo. Store no image bytes, original file, base64 data, public URL, or rendered vCard in D1.
 - The guest submission, persistent link submission timestamp, and notification-outbox record remain atomic in D1, including the new `photo_key`. A submission with no photo stores `NULL`. The submission timestamp remains after the guest row expires so the link cannot accept another submission.
 - Validate the link before doing photo processing or writing an object, but retain the existing conditional D1 write as the authority for single-use behavior. Concurrent requests must not both create a submission.
-- Generate keys for guest photos under a dedicated prefix such as `guest-submissions/`; do not use this prefix for owner photos or unrelated files. Configure an R2 object lifecycle expiration rule for this prefix at 30 days. The rule applies to every object under the prefix, including uploads left behind by failed submissions or concurrent requests that lose the single-use-link race.
+- Generate keys for guest photos under a dedicated prefix such as `guest-submissions/`; do not use this prefix for owner photos or unrelated files. Configure an R2 object lifecycle expiration rule for this prefix at 48 hours. The rule applies to every object under the prefix, including uploads left behind by failed submissions or concurrent requests that lose the single-use-link race.
 - Because R2 and D1 cannot share a transaction, write the optimized object before the conditional D1 batch. Do not report success unless both the R2 write and the D1 batch succeed. If persistence fails after an object is written, return a safe generic failure without marking the link submitted, consuming it, or enqueueing a notification. Do not add a D1 staging journal or perform manual R2 deletion; the lifecycle rule expires unreferenced guest objects automatically.
 - The owner vCard endpoint reads photo bytes from the referenced private R2 object. If the object is unexpectedly missing or unreadable, fail safely rather than returning a vCard that silently omits the stored photo; do not expose storage details or guest data in the error.
-- At the 30-day expiry boundary, an expired submission and its photo are unavailable to the owner API even if scheduled cleanup or R2 lifecycle processing has not completed. D1's `expires_at` remains the access-control boundary. Scheduled cleanup deletes expired submission rows as before but does not delete R2 objects. R2 lifecycle processing removes guest-prefix objects asynchronously; Cloudflare documents that objects are typically removed within 24 hours of their lifecycle expiration time.
+- At the 48-hour expiry boundary, an expired submission and its photo are unavailable to the owner API even if scheduled cleanup or R2 lifecycle processing has not completed. D1's `expires_at` remains the access-control boundary. Scheduled cleanup deletes expired submission rows and associated R2 objects. R2 lifecycle processing also removes guest-prefix objects asynchronously as a safeguard; Cloudflare documents that objects are typically removed within 24 hours of their lifecycle expiration time.
 - The notification continues to contain only the existing fixed submission summary. Never include guest contact fields, photo data, filenames, or object keys.
 
 ## Security and Privacy
@@ -72,7 +72,7 @@ Allow a guest to include an optional photo in the same request as their contact 
 - Do not expose `photo_key` in owner list or detail responses, guest responses, logs, or error messages.
 - Apply the existing owner authorization before reading a guest submission or its R2 object. Expired and missing submissions return the same not-found response.
 - Return generic safe errors for unexpected failures; never include exception details, credentials, personal data, or uploaded content.
-- A downloaded vCard contains a self-contained copy of the guest photo and cannot be revoked after download. The submission becomes unavailable through ContactSwap at the 30-day expiry boundary; the private R2 object is removed asynchronously by its lifecycle rule, and previously downloaded copies cannot be retracted.
+- A downloaded vCard contains a self-contained copy of the guest photo and cannot be revoked after download. The submission becomes unavailable through ContactSwap at the 48-hour expiry boundary; the private R2 object is removed by scheduled cleanup and its lifecycle rule, and previously downloaded copies cannot be retracted.
 
 ## Acceptance Criteria
 
@@ -82,12 +82,12 @@ Allow a guest to include an optional photo in the same request as their contact 
 - Unauthorized owner requests cannot retrieve contact data or photo content. The photo key is not exposed by owner list/detail responses or any guest response, and no guest or public route returns photo bytes or a URL.
 - Unknown, submitted, consumed, and revoked links retain the behavior defined by spec 021. Concurrent submissions cannot create more than one guest record. Any object written for a losing request remains private under the guest-photo prefix and is automatically expired by the R2 lifecycle rule.
 - Failed R2 or D1 persistence does not mark the link submitted or consume it, does not enqueue a notification, and does not return success. Any uploaded but unreferenced object is automatically expired by the same R2 lifecycle rule; no staging journal or manual object deletion is required.
-- Expired submissions are unavailable at the 30-day D1 boundary. Scheduled cleanup removes expired D1 records, and the R2 lifecycle rule asynchronously expires guest-photo objects within the documented lifecycle processing window.
+- Expired submissions are unavailable at the 48-hour D1 boundary. Scheduled cleanup removes expired D1 records and associated guest photos, and the R2 lifecycle rule asynchronously expires guest-photo objects as a safeguard.
 - Webhook notifications contain no contact values, photo content, filename, object key, or other guest-provided content.
-- Automated tests cover JSON rejection, multipart success, optional photos, field and file validation, image limits and normalization, link single-use and concurrency, R2 and D1 failures, vCard photo embedding, owner authorization, missing R2 objects, and expiry using local Workers bindings only. Verify the deployed R2 lifecycle rule targets only the guest-photo prefix and expires objects after 30 days.
+- Automated tests cover JSON rejection, multipart success, optional photos, field and file validation, image limits and normalization, link single-use and concurrency, R2 and D1 failures, vCard photo embedding, owner authorization, missing R2 objects, and expiry using local Workers bindings only. Verify the deployed R2 lifecycle rule targets only the guest-photo prefix and expires objects after 48 hours.
 - A local `.http` example demonstrates a multipart guest submission using synthetic data and no committed credentials or personal contact data.
 - Type checking, the API test suite, and production builds pass.
 
 ## Verification
 
-Run focused guest-photo API tests, then the repository type-check, test, and production build commands. Exercise photo submission and owner vCard download against local D1 and R2 bindings with generated test images. Verify the optimized bytes embedded in the vCard exactly match the stored R2 object, failed submissions do not consume links or enqueue notifications, D1 expiry blocks access at 30 days, the deployed R2 lifecycle rule expires guest-prefix objects without affecting owner photos, and no photo data or object keys appear in API responses, logs, or errors.
+Run focused guest-photo API tests, then the repository type-check, test, and production build commands. Exercise photo submission and owner vCard download against local D1 and R2 bindings with generated test images. Verify the optimized bytes embedded in the vCard exactly match the stored R2 object, failed submissions do not consume links or enqueue notifications, D1 expiry blocks access at 48 hours, scheduled cleanup removes expired guest photos without affecting active guest or owner photos, the deployed R2 lifecycle rule expires guest-prefix objects without affecting owner photos, and no photo data or object keys appear in API responses, logs, or errors.
