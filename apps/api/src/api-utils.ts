@@ -127,9 +127,36 @@ const textFields = new Set<ProfileFieldName>([
   "title"
 ]);
 const controlCharacterFields = new Set<ProfileFieldName>([...textFields, "email"]);
+const titleCaseFields = new Set<ProfileFieldName>([
+  "firstName",
+  "lastName",
+  "street",
+  "city"
+]);
 
 function codePointLength(value: string): number {
   return Array.from(value).length;
+}
+
+function titleCaseWords(value: string): string {
+  return value
+    .split(/(\s+)/u)
+    .map((word) =>
+      /^\s+$/u.test(word)
+        ? word
+        : word.toLowerCase().replace(/\p{L}/u, (letter) => letter.toUpperCase())
+    )
+    .join("");
+}
+
+function normalizeProfileField(field: ProfileFieldName, value: string): string {
+  if (titleCaseFields.has(field)) {
+    return titleCaseWords(value);
+  }
+  if (field === "postalCode") {
+    return value.toUpperCase();
+  }
+  return value;
 }
 
 function currentUtcDate(): string {
@@ -178,10 +205,11 @@ export function validateProfile(value: unknown): ProfileValidationResult {
     if (!trimmed && !fieldErrors[field]) {
       fieldErrors[field] = "required";
     }
-    if (!fieldErrors[field] && textFields.has(field) && codePointLength(trimmed) > 255) {
+    const normalized = normalizeProfileField(field, trimmed);
+    if (!fieldErrors[field] && textFields.has(field) && codePointLength(normalized) > 255) {
       fieldErrors[field] = "too_long";
     }
-    values[field] = trimmed;
+    values[field] = normalized;
   }
 
   for (const field of optionalProfileFields) {

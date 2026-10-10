@@ -357,6 +357,34 @@ describe("guest URL API flow", () => {
     });
   });
 
+  it("normalizes guest name and address casing before persistence", async () => {
+    const { token, linkId } = await createGuestLink();
+    const response = await submit(token, {
+      ...submission,
+      firstName: "gUeSt",
+      lastName: "ÉXAMPLE",
+      street: "456 GUEST STREET",
+      city: "aMSTERDAM",
+      postalCode: "1013 ab"
+    });
+
+    expect(response.status).toBe(201);
+    const stored = await env.DB.prepare(
+      `SELECT first_name AS firstName, last_name AS lastName, street, city,
+              postal_code AS postalCode
+       FROM guest_submissions WHERE link_id = ?`
+    )
+      .bind(linkId)
+      .first();
+    expect(stored).toEqual({
+      firstName: "Guest",
+      lastName: "Éxample",
+      street: "456 Guest Street",
+      city: "Amsterdam",
+      postalCode: "1013 AB"
+    });
+  });
+
   it("accepts omitted or blank optional organization and title values", async () => {
     const omittedLink = await createGuestLink();
     const withoutOptionalFields = {

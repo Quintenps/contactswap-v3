@@ -17,6 +17,7 @@ import {
   exceedsFieldLimit,
   fieldMaxLengths,
   fields,
+  normalizeSubmittedFields,
   validateProfile,
   validateTouchedProfile,
   workFields
@@ -258,9 +259,10 @@ export default function GuestPage() {
 
     setGuestSubmitting(true);
     setGuestMessage("");
+    const normalizedValues = normalizeSubmittedFields(guestValues);
     const formData = new FormData();
     for (const field of fields) {
-      const value = guestValues[field.name].trim();
+      const value = normalizedValues[field.name].trim();
       if (!field.optional || value) formData.append(field.name, value);
     }
     if (picture) formData.append("picture", picture);

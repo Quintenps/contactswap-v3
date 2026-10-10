@@ -787,16 +787,17 @@ describe("owner profile frontend", () => {
     expect(fetchMock.mock.calls[0]?.[1]?.headers).toEqual({ Authorization: `Bearer ${token}` });
     expect(document.body.textContent).toContain("Not set up");
     expect(input("country").value).toBe("The Netherlands");
-    changeValue(input("firstName"), " Quinten ");
-    changeValue(input("lastName"), " Example ");
+    changeValue(input("firstName"), " QUINTEN ");
+    changeValue(input("lastName"), " EXAMPLE ");
     changeValue(input("email"), " quinten@example.invalid ");
-    changeValue(input("street"), " 12 Main Street ");
-    changeValue(input("city"), " Amsterdam ");
-    changeValue(input("postalCode"), " 1012 AB ");
+    changeValue(input("street"), " 12 MAIN STREET ");
+    changeValue(input("city"), " AMSTERDAM ");
+    changeValue(input("postalCode"), " 1012 ab ");
     changeValue(input("birthday"), "1990-02-28");
     changeValue(input("phone"), " +31600000000 ");
     changeValue(input("org"), " ContactSwap ");
     changeValue(input("title"), " Founder ");
+    expect(input("firstName").value).toBe(" QUINTEN ");
     await submit(input("firstName").form!);
 
     const saveCall = fetchMock.mock.calls.find(([, init]) => init?.method === "PUT");
@@ -1312,6 +1313,11 @@ describe("guest frontend", () => {
     await click(button("Download my card & share your details"));
 
     fillGuestRequiredFields();
+    changeValue(input("guest-firstName"), "gUeSt");
+    changeValue(input("guest-lastName"), "EXAMPLE");
+    changeValue(input("guest-street"), "34 EXAMPLE STREET");
+    changeValue(input("guest-city"), "aMSTERDAM");
+    changeValue(input("guest-postalCode"), "1013 ab");
     await submit(document.querySelector<HTMLFormElement>("#guest-details-form")!);
 
     const submission = fetchMock.mock.calls.find(([url]) => url === `/api/guest/links/${guestToken}/submissions`);

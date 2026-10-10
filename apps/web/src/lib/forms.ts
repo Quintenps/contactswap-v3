@@ -74,6 +74,28 @@ export function createEmptyFields(country = "The Netherlands"): ProfileFields {
   };
 }
 
+function titleCaseWords(value: string): string {
+  return value
+    .split(/(\s+)/u)
+    .map((word) =>
+      /^\s+$/u.test(word)
+        ? word
+        : word.toLowerCase().replace(/\p{L}/u, (letter) => letter.toUpperCase())
+    )
+    .join("");
+}
+
+export function normalizeSubmittedFields(values: ProfileFields): ProfileFields {
+  return {
+    ...values,
+    firstName: titleCaseWords(values.firstName.trim()),
+    lastName: titleCaseWords(values.lastName.trim()),
+    street: titleCaseWords(values.street.trim()),
+    city: titleCaseWords(values.city.trim()),
+    postalCode: values.postalCode.trim().toUpperCase()
+  };
+}
+
 export const fieldMaxLengths: Partial<Record<FieldName, number>> = {
   firstName: 255,
   lastName: 255,
@@ -139,6 +161,7 @@ export function validateProfile(
   today = currentUtcDate()
 ): Partial<Record<FieldName, MessageKey>> {
   const errors: Partial<Record<FieldName, MessageKey>> = {};
+  const normalizedValues = normalizeSubmittedFields(values);
 
   const requiredMessages: Partial<Record<FieldName, MessageKey>> = {
     firstName: "enterFirstName",
@@ -155,13 +178,14 @@ export function validateProfile(
   for (const { name, optional } of fields) {
     const raw = values[name] ?? "";
     const trimmed = raw.trim();
+    const normalized = normalizedValues[name];
     const maxLength = fieldMaxLengths[name];
 
     if (controlCharacterFields.has(name) && controlCharacters.test(raw)) {
       errors[name] = "controlCharactersNotAllowed";
     } else if (!optional && !trimmed) {
       errors[name] = requiredMessages[name];
-    } else if (maxLength !== undefined && codePointLength(trimmed) > maxLength) {
+    } else if (maxLength !== undefined && codePointLength(normalized) > maxLength) {
       errors[name] = "fieldTooLong";
     }
   }
