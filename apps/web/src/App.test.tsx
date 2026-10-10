@@ -138,6 +138,21 @@ describe("frontend routes", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("shows an owner profile button on the welcome page when authenticated", async () => {
+    window.localStorage.setItem(tokenStorageKey, token);
+    installFetch(async () => response(profile));
+    await renderApp("/");
+
+    const ownerLink = document.querySelector<HTMLAnchorElement>(".welcome-owner-link");
+    expect(ownerLink?.textContent).toBe("Go to your profile");
+    expect(ownerLink?.getAttribute("href")).toBe("/quinten");
+
+    if (!ownerLink) throw new Error("Missing owner profile link.");
+    await clickLink(ownerLink);
+    expect(window.location.pathname).toBe("/quinten");
+    expect(document.body.textContent).toContain("My profile");
+  });
+
   it("navigates between owner pages without a full page load and responds to history changes", async () => {
     window.localStorage.setItem(tokenStorageKey, token);
     const fetchMock = installFetch(async (url) => {

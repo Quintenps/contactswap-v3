@@ -32,7 +32,7 @@ The following decisions are resolved for this version:
 - Downloaded vCards use a personal `firstname-lastname.vcf` filename derived from the card owner's first and last names.
 - Guest submissions are retained for 30 days and then deleted automatically.
 - Links do not expire by age; they can be manually deleted and are consumed after the first successful card download. A link accepts at most one successful guest submission.
-- The frontend welcome page is at `/`, with a cheerful, animated introduction and no owner-dashboard link. Owner pages are at `/quinten`, `/quinten/links`, and `/quinten/submissions`; shareable guest links are at `/token/{token}`. The owner link-creation API returns the absolute guest URL in that form.
+- The frontend welcome page is at `/`, with a cheerful, animated introduction and an owner-profile button shown only when the owner is authenticated. Owner pages are at `/quinten`, `/quinten/links`, and `/quinten/submissions`; shareable guest links are at `/token/{token}`. The owner link-creation API returns the absolute guest URL in that form.
 
 ## 5. Proposed solution
 

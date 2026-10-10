@@ -1,7 +1,8 @@
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Link, Route, Routes } from "react-router-dom";
 import {
   OwnerSessionGate,
-  OwnerSessionProvider
+  OwnerSessionProvider,
+  useOwnerSession
 } from "./app/OwnerSession";
 import GuestPage from "./pages/GuestPage";
 import OwnerLinksPage from "./pages/OwnerLinksPage";
@@ -23,6 +24,7 @@ function NotFoundPage() {
 }
 
 function WelcomePage() {
+  const { status } = useOwnerSession();
   const { t } = useLanguage();
   return (
     <main className="welcome-shell">
@@ -30,6 +32,11 @@ function WelcomePage() {
         <div className="welcome-copy">
           <h1>{t("welcomeTitle")}</h1>
           <p className="welcome-description">{t("welcomeDescription")}</p>
+          {status === "authenticated" && (
+            <Link className="primary-button welcome-owner-link" to="/quinten">
+              {t("ownerHome")}
+            </Link>
+          )}
         </div>
         <div className="welcome-illustration" aria-hidden="true">
           <div className="welcome-phone">
@@ -64,15 +71,15 @@ export default function App() {
         <LanguageSwitcher />
         <Routes>
           <Route element={<OwnerSessionProvider />}>
+            <Route path="/" element={<WelcomePage />} />
+            <Route path="/token/:token" element={<GuestPage />} />
+            <Route path="*" element={<NotFoundPage />} />
             <Route element={<OwnerSessionGate />}>
               <Route path="/quinten" element={<OwnerProfilePage />} />
               <Route path="/quinten/links" element={<OwnerLinksPage />} />
               <Route path="/quinten/submissions" element={<OwnerSubmissionsPage />} />
             </Route>
           </Route>
-          <Route path="/" element={<WelcomePage />} />
-          <Route path="/token/:token" element={<GuestPage />} />
-          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </BrowserRouter>
     </LanguageProvider>

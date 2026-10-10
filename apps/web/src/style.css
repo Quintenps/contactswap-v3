@@ -193,6 +193,21 @@ a:focus-visible {
   line-height: 1.65;
 }
 
+.welcome-owner-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  margin-top: 24px;
+  border-radius: 8px;
+  text-decoration: none;
+  transition: background-color 140ms ease, transform 140ms ease;
+}
+
+.welcome-owner-link:hover {
+  background: var(--accent-dark);
+}
+
 .welcome-illustration {
   position: relative;
   width: min(100%, 440px);
