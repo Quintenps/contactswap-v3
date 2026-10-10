@@ -49,7 +49,7 @@ Collect first and last names and structured address components separately for th
 - No existing owner-profile or guest-submission rows need to survive this change. Do not add a parser or backfill for the legacy `name` and `address` values.
 - Use the existing versioned D1 migration workflow to establish the new schema. The migration may drop and recreate the affected profile and guest-submission tables if that is the simplest safe approach.
 - Discard any associated stored profile or guest photos when their records are discarded, so the reset does not leave orphaned personal data in R2.
-- Preserve the existing link lifecycle, authorization, and retention behavior for data created under the new schema. The reset is not a change to ongoing single-use links or 30-day submission retention.
+- Preserve the existing link lifecycle, authorization, and 48-hour retention behavior for data created under the new schema. The reset is not a change to ongoing single-use links or guest-submission retention.
 - Verify the resulting tables enforce the new required fields and that the migration is repeatable through the repository's normal local D1 setup.
 
 ## Frontend Behavior

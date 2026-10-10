@@ -63,7 +63,7 @@ Refresh ContactSwap's visual style with a light, white-and-blue palette across t
 - Preserve the guest flow, including active-link resolution, both download choices, explicit form submission before the combined card download, validation, recoverable errors, unavailable-link handling, and the thank-you state only after a successful card response.
 - Extend guest-link resolution only as needed to provide the active-link owner's display name and an optional link-scoped profile-picture resource. Require the link to remain active when serving the picture, and return no-store responses.
 - Do not expose additional owner profile fields, make the private R2 photo publicly addressable, or put photo bytes/base64 data into persistent storage.
-- Do not change the single-use link behavior or 30-day retention. Guest submissions still require name, email, address, birthday, and an international E.164 phone number; picture remains optional. Preserve vCard 3.0 behavior.
+- Do not change the single-use link behavior or 48-hour retention. Guest submissions still require name, email, address, birthday, and an international E.164 phone number; picture remains optional. Preserve vCard 3.0 behavior.
 - Do not add tracking, third-party assets, or requests that could expose guest tokens, signed vCard URLs, owner credentials, or personal contact data.
 - Keep guest form values out of browser storage and URLs; keep signed vCard URL handling and referrer protections unchanged.
 - Styling and client-side route state must not be treated as an authorization boundary.

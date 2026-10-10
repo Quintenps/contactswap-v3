@@ -20,7 +20,7 @@ Continue the guest URL flow from spec 004. After a guest successfully submits th
 
 - Guest submission, link resolution, link consumption, or retention-policy changes specified in 004.
 - Owner or guest interface changes.
-- Manually deleting submissions, changing the 30-day retention period, or adding search and filtering.
+- Manually deleting submissions, changing the 48-hour retention period, or adding search and filtering.
 - Sending guest contact details or other user-provided content to Discord.
 - Multiple owners, guest accounts, or unrelated account and management features.
 
@@ -67,7 +67,7 @@ All owner endpoints require `Authorization: Bearer <admin-token>`, following the
 
 - D1 remains the canonical source for guest submission fields. Generate owner responses and guest vCards from the stored record, not from client-provided data.
 - Only the owner-authorized API may return submitted contact details. Guest endpoints must not gain a way to read a submission after it is created.
-- Expired submissions are unavailable immediately at the 30-day `expires_at` boundary and are removed by the existing scheduled cleanup.
+- Expired submissions are unavailable immediately at the 48-hour `expires_at` boundary and are removed by the existing scheduled cleanup.
 - Do not add stored fields or duplicate contact data unless required by these endpoints.
 - Use the existing vCard renderer and output conventions. Escape contact values correctly and do not reveal a record when rendering fails.
 

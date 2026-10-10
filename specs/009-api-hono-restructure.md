@@ -82,7 +82,7 @@ The refactor must preserve these routes and their current behavior:
 | `POST` | `/api/guest/links/:token/submissions` | Guest |
 | `GET` | `/api/guest/vcard/:linkId/:signature` | Guest |
 
-All existing validation and response semantics remain intact, including required profile and submission fields, optional photo handling, active-link checks, single-use submission behavior, 30-day submission expiry, and privacy-minimizing webhook notifications, except for the guest lifecycle revision in spec 021.
+All existing validation and response semantics remain intact, including required profile and submission fields, optional photo handling, active-link checks, single-use submission behavior, 48-hour submission expiry, and privacy-minimizing webhook notifications, except for the guest lifecycle revision in spec 021.
 
 Preserve the existing response headers for binary content:
 

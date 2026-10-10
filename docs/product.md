@@ -30,7 +30,8 @@ The following decisions are resolved for this version:
 - First name, last name, email, street, city, postal code, country, birthday, and phone number are required for both profiles; picture is optional. New owner and guest forms default Country to `The Netherlands` in English and `Nederland` in Dutch, and the owner sees the saved country when editing an existing profile. Phone numbers use international E.164 format and are included in every generated vCard. Dutch-facing phone examples use the `+31` country code; other valid international numbers are accepted.
 - Organization and job title are optional for both the owner profile and guest submissions. When supplied, they are included in the corresponding generated vCard.
 - Downloaded vCards use a personal `firstname-lastname.vcf` filename derived from the card owner's first and last names.
-- Guest submissions are retained for 30 days and then deleted automatically.
+- Guest submissions and any associated stored files are retained for 48 hours from successful submission, then deleted automatically.
+- Before submitting, guests are told that their submitted contact details and optional picture are stored for 48 hours and then automatically deleted.
 - Links do not expire by age; they can be manually deleted and are consumed after the first successful card download. A link accepts at most one successful guest submission.
 - The frontend welcome page is at `/`, with a cheerful, animated introduction and an owner-profile button shown only when the owner is authenticated. Owner pages are at `/quinten`, `/quinten/links`, and `/quinten/submissions`; shareable guest links are at `/token/{token}`. The owner link-creation API returns the absolute guest URL in that form.
 
@@ -52,7 +53,7 @@ The system is web-based, mobile-first, and deployed on Cloudflare Pages. vCard 3
 6. For the combined action, Contactswap stores one guest record and sends Quinten a notification after successful submission, then downloads Quinten's current vCard for the guest.
 7. Quinten opens the authorized owner page and clicks Download.
 8. Contactswap generates a vCard 3.0 from the stored guest data and downloads it for Quinten.
-9. The link is consumed after the first successful card download. Guest submissions are deleted after 30 days.
+9. The link is consumed after the first successful card download. Guest submissions and associated stored files are deleted after 48 hours.
 
 ## 7. Features and scope
 
@@ -68,7 +69,7 @@ The system is web-based, mobile-first, and deployed on Cloudflare Pages. vCard 3
 - Every guest link has a distinct signed URL for accessing Quinten's current vCard 3.0; the card must not be available through a public profile URL.
 - A guest can open the link, access Quinten's vCard through its signed URL, and submit their own contact details through a form.
 - Guest submissions are stored in a database and used to generate a vCard 3.0 file for Quinten.
-- Guest submissions and related stored files are deleted after 30 days.
+- Guest submissions and related stored files are deleted after 48 hours.
 - Quinten receives a webhook notification after a successful guest submission.
 - Quinten can open the authorized owner page and click Download to generate a vCard from the stored guest database record.
 - Shared links and their signed vCard URLs do not expire by age. Quinten can delete a link, and each link and its signed vCard URL are revoked after its first successful card download.
@@ -99,7 +100,7 @@ The system is web-based, mobile-first, and deployed on Cloudflare Pages. vCard 3
 - Guest-submitted fields are stored in a database and used to generate a vCard 3.0 for Quinten when needed.
 - First name, last name, email, street, city, postal code, country, birthday, and phone number are required for both owner and guest forms. New forms default Country to `The Netherlands` in English and `Nederland` in Dutch. Phone numbers use international E.164 format and are included in every generated vCard as a telephone property.
 - Organization and title are optional for owner and guest forms. Include supplied values as vCard 3.0 `ORG` and `TITLE` properties, respectively; omit either property when its value is unset.
-- Guest submissions and associated stored files are retained for 30 days, then automatically deleted.
+- Guest submissions and associated stored files are retained for 48 hours from successful submission, then automatically deleted.
 - Contact details, birthdays, addresses, and pictures are personal information and should only be exposed through the intended owner flow or an active guest link. The guest landing-page preview is limited to Quinten's name and optional profile picture; do not expose other owner fields there. Keep profile photos private in R2 and serve any guest preview only through a link-scoped resource that rejects deleted or consumed links.
 - Treat each signed vCard URL as a bearer credential scoped to its guest link; do not expose it outside that sharing flow or include its signature in logs.
 - Before release, vCard import behavior should be validated on current iOS and Android contact apps; support may vary by device and app.
@@ -114,7 +115,7 @@ The system is web-based, mobile-first, and deployed on Cloudflare Pages. vCard 3
 - Incomplete profiles, invalid submissions, failed downloads, duplicate submissions, and service errors should show clear user-facing feedback and safe fallback behavior.
 - A successful owner-profile save updates the canonical D1 fields. Owner and guest-link vCard downloads are generated from the current D1 fields and optional R2 photo, so they always reflect the saved profile; do not persist rendered vCards in D1.
 - The thank-you page appears after a successful card download. If a guest submission succeeds but the card request fails, show that the details were submitted and allow the card request to be retried without resubmission.
-- Guest submissions are deleted automatically after 30 days.
+- Guest submissions are deleted automatically after 48 hours.
 - Quinten receives a webhook notification after a successful form submission. The notification should be a simple summary and should not include guest contact details unless explicitly approved.
 - Quinten must be able to open the authorized owner page and generate/download the vCard from the saved database record.
 
@@ -156,7 +157,7 @@ The system is web-based, mobile-first, and deployed on Cloudflare Pages. vCard 3
 - Quinten receives a notification when a guest submits the form.
 - Quinten can open the authorized owner page and generate/download a vCard 3.0 from the stored guest data.
 - Quinten can update his own profile through the secret-authorized page without a full account system.
-- Guest submissions are stored in a database, generate a vCard 3.0 for Quinten, trigger a webhook notification, and are deleted after 30 days.
+- Guest submissions are stored in a database, generate a vCard 3.0 for Quinten, trigger a webhook notification, and are deleted after 48 hours.
 - Shared links can be manually deleted and are consumed after the first successful card download. A successful submission can be followed by a retryable card download.
 - Quinten's vCard is not publicly accessible; each guest link provides only its own revocable signed URL to the current card.
 - The web app deploys successfully to Cloudflare Pages.
@@ -171,6 +172,6 @@ The system is web-based, mobile-first, and deployed on Cloudflare Pages. vCard 3
 
 - Preserve the single-owner model and the described guest flow.
 - Do not expose the owner token or webhook secret to the browser.
-- Keep the 30-day retention period and single-use guest submission and card-download behavior. Submission succeeds before the combined flow downloads the card; the link is consumed only after a successful card download. Owner and guest forms require first name, last name, email, street, city, postal code, country, birthday, and phone number.
+- Keep the 48-hour retention period and single-use guest submission and card-download behavior. Tell guests before submission that their data is stored for 48 hours. Submission succeeds before the combined flow downloads the card; the link is consumed only after a successful card download. Owner and guest forms require first name, last name, email, street, city, postal code, country, birthday, and phone number.
 - Prefer simple, reliable implementation choices over broad feature expansion.
 - When a requirement is ambiguous, resolve it in favor of the final product decisions above instead of leaving it unresolved.

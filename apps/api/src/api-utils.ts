@@ -4,7 +4,7 @@ import type {
 } from "./api-types";
 
 const encoder = new TextEncoder();
-export const retentionMilliseconds = 30 * 24 * 60 * 60 * 1000;
+export const retentionMilliseconds = 48 * 60 * 60 * 1000;
 
 export async function getPhoto(
   environment: Env,

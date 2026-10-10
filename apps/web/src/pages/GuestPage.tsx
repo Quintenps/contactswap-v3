@@ -709,6 +709,7 @@ export default function GuestPage() {
             </fieldset>
 
             {guestMessage && <p className="notice" role="alert" aria-live="polite">{t(guestMessage)}</p>}
+            <p className="notice guest-retention-notice">{t("guestRetentionNotice")}</p>
             <div className="guest-form-actions">
               <button className="primary-button" type="submit" disabled={guestSubmitting || guestDownloading}>
                 {guestSubmitting ? t("sending") : t("shareDetails")}

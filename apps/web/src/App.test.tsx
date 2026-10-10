@@ -1140,6 +1140,9 @@ describe("guest frontend", () => {
     expect(input("guest-title").placeholder).toBe("Senior Product Designer");
     expect(input("guest-org").required).toBe(false);
     expect(input("guest-title").required).toBe(false);
+    expect(document.body.textContent).toContain(
+      "When you submit, your contact details and any photo you include are stored for 48 hours, then automatically deleted."
+    );
 
     changeValue(input("guest-firstName"), "A name in progress");
     const requestCount = fetchMock.mock.calls.length;
@@ -1165,6 +1168,9 @@ describe("guest frontend", () => {
     expect(input("guest-org").placeholder).toBe("Albert Heijn");
     expect(input("guest-title").placeholder).toBe("Vakkenvuller");
     expect(input("guest-firstName").value).toBe("A name in progress");
+    expect(document.body.textContent).toContain(
+      "Als je je gegevens verstuurt, bewaren we je contactgegevens en eventuele foto 48 uur. Daarna worden ze automatisch verwijderd."
+    );
     expect(fetchMock).toHaveBeenCalledTimes(requestCount);
   });
 

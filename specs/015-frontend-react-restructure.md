@@ -13,7 +13,7 @@ Make the React frontend easier to read, test, and maintain by replacing the larg
 - This is a frontend maintainability change, not a change to ContactSwap's product behavior.
 - ContactSwap remains a single-owner application with the existing owner profile, guest-link management, guest-submission, and guest form flows.
 - The owner token continues to authorize owner API requests. Client-side routing is not an authorization boundary; the API remains responsible for enforcing owner access.
-- Guest links remain single-use for successful submissions, link-scoped signed vCard URLs remain revocable bearer credentials, and guest submissions retain their existing 30-day retention.
+- Guest links remain single-use for successful submissions, link-scoped signed vCard URLs remain revocable bearer credentials, and guest submissions retain their 48-hour retention.
 - Required profile and submission fields, optional pictures, vCard 3.0 behavior, and all existing privacy protections remain unchanged.
 
 ## Scope

@@ -39,7 +39,7 @@ Quinten maintains a persisted contact profile and shares one-time links so frien
 - Each guest link supports guest submission and has a distinct signed URL for Quinten's current vCard 3.0; there is no public profile URL. The signed URL is valid only while its link is active and is revoked when that link is deleted or consumed.
 - Owner and guest forms require name, email, address, and birthday. Picture is optional.
 - Owner profile fields persist in D1 for direct editing; optional optimized photos are stored in private R2. Generate the current owner vCard 3.0 when requested from the D1 fields and optional R2 photo, embedding photo data using vCard 3.0 binary `PHOTO` syntax. Never store image bytes, base64 photo data, or rendered owner vCard text in D1. Guest submissions are stored and used to generate vCard 3.0 downloads for the owner.
-- Guest submissions and associated stored files are retained for 30 days, then deleted.
+- Guest submissions and associated stored files are retained for 48 hours after submission, then deleted.
 - Guest links do not expire with age. The owner can delete them, and a link is removed after its first successful submission.
 - A successful submission stores the guest record, sends a summary webhook notification, and shows a thank-you page.
 - The admin token is configured as a Cloudflare Worker Secret on the API Worker and can be rotated there; no full account system is required.
@@ -62,7 +62,7 @@ When implementing a feature:
 
 `docs/product.md` is the source of truth for product behavior. Its final product decisions resolve any earlier conflicting descriptions in that document.
 
-Do not invent requirements or broaden v1 scope. Preserve the single-owner model, guest-submission flow, required fields, 30-day retention, and single-use link behavior unless the product brief is explicitly revised.
+Do not invent requirements or broaden v1 scope. Preserve the single-owner model, guest-submission flow, required fields, 48-hour retention, and single-use link behavior unless the product brief is explicitly revised.
 
 If the final product decisions do not resolve an ambiguity or contradiction, stop and ask for clarification rather than making assumptions.
 
