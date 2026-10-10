@@ -140,6 +140,34 @@ describe("owner profile API", () => {
     expect(count?.count).toBe(1);
   });
 
+  it("normalizes name and address casing for direct API profile writes", async () => {
+    const response = await call(
+      "/api/owner/profile",
+      profileRequest({
+        ...baseProfile,
+        firstName: " jOhN DOE ",
+        lastName: "ÉMILIE dUPONT",
+        street: " 12 MAIN STREET ",
+        city: " nEW   yORK ",
+        postalCode: " sw1a 1aa "
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const normalized = {
+      ...baseProfile,
+      firstName: "John Doe",
+      lastName: "Émilie Dupont",
+      street: "12 Main Street",
+      city: "New   York",
+      postalCode: "SW1A 1AA"
+    };
+    expect(await response.json()).toEqual({ ...normalized, hasPhoto: false });
+
+    const readResponse = await call("/api/owner/profile");
+    expect(await readResponse.json()).toEqual({ ...normalized, hasPhoto: false });
+  });
+
   it("trims optional organization and title values and escapes them in the vCard", async () => {
     const optionalProfile = {
       ...baseProfile,
@@ -246,6 +274,15 @@ describe("owner profile API", () => {
         message: "The profile request is invalid.",
         fields: { firstName: "too_long" }
       }
+    });
+
+    const expandedResponse = await call(
+      "/api/owner/profile",
+      profileRequest({ ...baseProfile, firstName: "ß".repeat(255) })
+    );
+    expect(expandedResponse.status).toBe(400);
+    expect(await expandedResponse.json()).toMatchObject({
+      error: { fields: { firstName: "too_long" } }
     });
 
     const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);

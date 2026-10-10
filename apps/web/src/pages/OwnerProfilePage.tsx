@@ -18,6 +18,7 @@ import {
   exceedsFieldLimit,
   fieldMaxLengths,
   fields,
+  normalizeSubmittedFields,
   validateProfile,
   validateTouchedProfile,
   workFields
@@ -136,13 +137,14 @@ export default function OwnerProfilePage() {
 
     setBusy("save");
     setMessage("");
+    const normalizedValues = normalizeSubmittedFields(values);
     const payload = {
-      firstName: values.firstName.trim(),
-      lastName: values.lastName.trim(),
+      firstName: normalizedValues.firstName,
+      lastName: normalizedValues.lastName,
       email: values.email.trim(),
-      street: values.street.trim(),
-      city: values.city.trim(),
-      postalCode: values.postalCode.trim(),
+      street: normalizedValues.street,
+      city: normalizedValues.city,
+      postalCode: normalizedValues.postalCode,
       country: values.country.trim(),
       birthday: values.birthday.trim(),
       phone: values.phone.trim(),

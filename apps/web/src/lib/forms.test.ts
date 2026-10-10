@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { codePointLength, createEmptyFields, validateProfile } from "./forms";
+import {
+  codePointLength,
+  createEmptyFields,
+  normalizeSubmittedFields,
+  validateProfile
+} from "./forms";
 
 function validProfile() {
   return {
@@ -39,6 +44,8 @@ describe("profile form validation", () => {
     expect(validateProfile({ ...validProfile(), firstName: "😀".repeat(255) }).firstName).toBeUndefined();
     expect(validateProfile({ ...validProfile(), firstName: "😀".repeat(256) }).firstName)
       .toBe("fieldTooLong");
+    expect(validateProfile({ ...validProfile(), firstName: "ß".repeat(255) }).firstName)
+      .toBe("fieldTooLong");
     expect(validateProfile({
       ...validProfile(),
       email: `${"a".repeat(242)}@example.com`
@@ -57,5 +64,43 @@ describe("profile form validation", () => {
       .toBe("controlCharactersNotAllowed");
     expect(validateProfile({ ...validProfile(), org: "Studio\nName" }).org)
       .toBe("controlCharactersNotAllowed");
+  });
+});
+
+describe("form submission normalization", () => {
+  it("title-cases names and address values and uppercases postal codes", () => {
+    const normalized = normalizeSubmittedFields({
+      ...validProfile(),
+      firstName: "  jOhN DOE ",
+      lastName: "ÉMILIE dUPONT",
+      street: "  12 MAIN STREET, APT 3 ",
+      city: " nEW   yORK ",
+      postalCode: " sw1a 1aa "
+    });
+
+    expect(normalized).toMatchObject({
+      firstName: "John Doe",
+      lastName: "Émilie Dupont",
+      street: "12 Main Street, Apt 3",
+      city: "New   York",
+      postalCode: "SW1A 1AA"
+    });
+  });
+
+  it("does not normalize fields outside names and address casing", () => {
+    const values = {
+      ...validProfile(),
+      email: "USER@EXAMPLE.COM",
+      country: "the NETHERLANDS",
+      org: "ACME INC",
+      title: "VICE PRESIDENT"
+    };
+
+    expect(normalizeSubmittedFields(values)).toMatchObject({
+      email: values.email,
+      country: values.country,
+      org: values.org,
+      title: values.title
+    });
   });
 });
