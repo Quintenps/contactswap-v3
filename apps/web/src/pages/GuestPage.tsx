@@ -56,6 +56,7 @@ export default function GuestPage() {
   const [guestPictureError, setGuestPictureError] = useState<MessageKey | "">("");
   const [guestPicturePreviewUrl, setGuestPicturePreviewUrl] = useState<string | null>(null);
   const [guestMessage, setGuestMessage] = useState<MessageKey | "">("");
+  const [guestDownloadPromptOpen, setGuestDownloadPromptOpen] = useState(false);
   const [guestDownloading, setGuestDownloading] = useState(false);
   const [guestDownloadMode, setGuestDownloadMode] = useState<
     "card-only" | "submission" | "retry" | null
@@ -65,6 +66,7 @@ export default function GuestPage() {
   const guestPictureObjectUrl = useRef<string | null>(null);
   const guestFormPanel = useRef<HTMLElement>(null);
   const guestFormHeading = useRef<HTMLHeadingElement>(null);
+  const guestDownloadPrompt = useRef<HTMLDialogElement>(null);
 
   useEffect(() => () => {
     if (guestPictureObjectUrl.current) URL.revokeObjectURL(guestPictureObjectUrl.current);
@@ -135,6 +137,18 @@ export default function GuestPage() {
       guestFormHeading.current?.focus({ preventScroll: true });
     }
   }, [guestPageState, guestFormOpen]);
+
+  useEffect(() => {
+    if (!guestDownloadPromptOpen) return;
+    const dialog = guestDownloadPrompt.current;
+    if (!dialog) return;
+
+    dialog.showModal();
+    dialog.querySelector<HTMLButtonElement>(".guest-download-prompt-primary")?.focus();
+    return () => {
+      if (dialog.open) dialog.close();
+    };
+  }, [guestDownloadPromptOpen]);
 
   function markGuestLinkUnavailable() {
     setGuestPageState("unavailable");
@@ -725,7 +739,7 @@ export default function GuestPage() {
             <button
               className="secondary-button guest-secondary-action"
               type="button"
-              onClick={() => void handleGuestDownload("card-only")}
+              onClick={() => setGuestDownloadPromptOpen(true)}
               disabled={!guestVCardUrl || guestDownloading}
             >
               {guestDownloading && guestDownloadMode === "card-only"
@@ -735,6 +749,41 @@ export default function GuestPage() {
           </div>
         </section>
       )}
+      <dialog
+        ref={guestDownloadPrompt}
+        className="guest-download-prompt"
+        aria-labelledby="guest-download-prompt-heading"
+        aria-describedby="guest-download-prompt-description"
+        aria-modal="true"
+        onClose={() => setGuestDownloadPromptOpen(false)}
+      >
+        <h2 id="guest-download-prompt-heading">{t("guestDownloadPromptHeading")}</h2>
+        <p id="guest-download-prompt-description">
+          {t("guestDownloadPromptDescription")}
+        </p>
+        <div className="guest-download-prompt-actions">
+          <button
+            className="primary-button guest-download-prompt-primary"
+            type="button"
+            onClick={() => {
+              setGuestDownloadPromptOpen(false);
+              setGuestFormOpen(true);
+            }}
+          >
+            {t("guestDownloadPromptShare")}
+          </button>
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={() => {
+              setGuestDownloadPromptOpen(false);
+              void handleGuestDownload("card-only");
+            }}
+          >
+            {t("guestDownloadPromptContinue")}
+          </button>
+        </div>
+      </dialog>
     </main>
   );
 }

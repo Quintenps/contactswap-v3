@@ -208,6 +208,20 @@ beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   window.localStorage.clear();
   window.localStorage.setItem(languageStorageKey, "en");
+  Object.defineProperty(HTMLDialogElement.prototype, "showModal", {
+    configurable: true,
+    value: vi.fn(function (this: HTMLDialogElement) {
+      this.setAttribute("open", "");
+    })
+  });
+  Object.defineProperty(HTMLDialogElement.prototype, "close", {
+    configurable: true,
+    value: vi.fn(function (this: HTMLDialogElement) {
+      if (!this.open) return;
+      this.removeAttribute("open");
+      this.dispatchEvent(new Event("close"));
+    })
+  });
   Object.defineProperty(URL, "createObjectURL", {
     configurable: true,
     value: vi.fn(() => "blob:private-profile-photo")
@@ -1248,9 +1262,33 @@ describe("guest frontend", () => {
 
     await click(button("Download card only"));
 
+    expect(document.querySelector("dialog")?.open).toBe(true);
+    expect(fetchMock.mock.calls.some(([url]) => url === vcardUrl)).toBe(false);
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
+    await click(button("Continue without sharing"));
+
     expect(fetchMock.mock.calls.some(([url]) => url === vcardUrl)).toBe(true);
     expect(document.querySelector("#guest-details-form")).toBeNull();
     expect(document.querySelector("#guest-downloaded-heading")?.textContent).toBe("Card downloaded");
+  });
+
+  it("lets guests open the form from the download prompt without downloading", async () => {
+    const fetchMock = installActiveGuestLink();
+    await renderGuestPage(guestToken);
+
+    await click(button("Download card only"));
+    expect(document.querySelector("dialog")?.open).toBe(true);
+    expect(document.body.textContent).toContain("Your details are only sent if you choose to submit the form.");
+    expect(fetchMock.mock.calls.some(([url]) => url === vcardUrl)).toBe(false);
+
+    const shareButton = [...document.querySelectorAll<HTMLButtonElement>("dialog button")]
+      .find((item) => item.textContent?.trim() === "Share my details");
+    if (!shareButton) throw new Error("Missing dialog share button.");
+    await click(shareButton);
+
+    expect(document.querySelector("dialog")?.open).toBe(false);
+    expect(document.querySelector("#guest-details-form")).not.toBeNull();
+    expect(fetchMock.mock.calls.some(([url]) => url === vcardUrl)).toBe(false);
   });
 
   it("restores a submitted guest's pending card download without reopening the form", async () => {

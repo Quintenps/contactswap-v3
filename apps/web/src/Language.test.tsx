@@ -178,8 +178,10 @@ describe("frontend language support", () => {
     expect(translate("en", "validPhone")).toContain("E.164 format");
     expect(translate("nl", "downloadCardOnly")).toBe("Alleen kaart downloaden");
     expect(translate("nl", "downloadAndShare")).toBe("Mijn gegevens delen en daarna de kaart ophalen");
+    expect(translate("nl", "guestDownloadPromptHeading")).toBe("Voordat je downloadt");
     expect(translate("en", "downloadCardOnly")).toBe("Download the card only");
     expect(translate("en", "downloadAndShare")).toBe("Share my details, then get the card");
+    expect(translate("en", "guestDownloadPromptHeading")).toBe("Before you download");
     expect(translate("nl", "requestFreshLink")).toBe("Vraag Quinten om een nieuwe link.");
     expect(translate("en", "requestFreshLink")).toBe("Ask Quinten for a new link.");
     expect(formatDateTime("2026-10-06T12:00:00.000Z", "nl", translate("nl", "dateUnavailable")))

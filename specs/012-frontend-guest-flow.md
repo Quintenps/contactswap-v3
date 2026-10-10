@@ -85,7 +85,7 @@ Provide a mobile-first guest experience for an active shared link. Let guests su
 - The combined action opens the form without downloading or submitting. The download-only alternative remains clear and available.
 - The profile-photo resource is available only through an active guest link, is returned with `Cache-Control: no-store`, and is not served after the link is deleted or consumed.
 - The landing page makes the combined submit-then-download flow the primary action and offers **Download the card only** as a secondary action.
-- Choosing the secondary download-only action downloads the owner's current vCard and leaves the submission form closed.
+- Choosing **Download the card only** opens a localized prompt encouraging the guest to share their details; dismissing it leaves the link active, while continuing downloads the owner's current vCard without submitting the form.
 - Choosing the combined action opens the form without requesting the vCard.
 - While the form is open, the owner-card and download-choice panels are hidden; closing the form restores them.
 - After the combined action, the form appears before the download options, scrolls near the top of the viewport, and receives keyboard focus.
