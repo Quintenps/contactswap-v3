@@ -1169,7 +1169,7 @@ describe("guest frontend", () => {
     expect(input("guest-title").placeholder).toBe("Vakkenvuller");
     expect(input("guest-firstName").value).toBe("A name in progress");
     expect(document.body.textContent).toContain(
-      "Als je je gegevens verstuurt, bewaren we je contactgegevens en eventuele foto 48 uur. Daarna worden ze automatisch verwijderd."
+      "Als je je gegevens verstuurt, bewaar ik je contactgegevens en eventuele foto 48 uur. Daarna worden ze automatisch verwijderd."
     );
     expect(fetchMock).toHaveBeenCalledTimes(requestCount);
   });

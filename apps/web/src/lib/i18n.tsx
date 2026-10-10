@@ -401,7 +401,7 @@ const dutch: DutchMessages = {
   guestWorkSection: "Werkgegevens",
   guestPhotoPanelHeading: "Profielfoto",
   guestPhotoPanelDescription: "Voeg een foto toe om samen met je contactgegevens te delen.",
-  guestRetentionNotice: "Als je je gegevens verstuurt, bewaren we je contactgegevens en eventuele foto 48 uur. Daarna worden ze automatisch verwijderd.",
+  guestRetentionNotice: "Als je je gegevens verstuurt, bewaar ik je contactgegevens en eventuele foto 48 uur. Daarna worden ze automatisch verwijderd.",
   guestPicturePreviewAlt: "Voorbeeld van je gekozen profielfoto",
   guestExampleFirstName: "Lotte",
   guestExampleLastName: "de Vries",
