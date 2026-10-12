@@ -10,6 +10,7 @@
     "typecheck": "npm run typecheck --workspace @contactswap/api && npm run typecheck --workspace @contactswap/web",
     "test": "npm test --workspace @contactswap/api",
     "build": "npm run build --workspace @contactswap/web && npm run build --workspace @contactswap/api",
+    "deploy": "npm run deploy --workspace @contactswap/api && npm run deploy --workspace @contactswap/web",
     "migrate:local": "npm run migrate:local --workspace @contactswap/api",
     "verify": "npm run typecheck && npm test && npm run build"
   },
