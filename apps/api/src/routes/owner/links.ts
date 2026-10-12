@@ -1,5 +1,11 @@
 import { Hono } from "hono";
-import { encodeBase64Url, getPublicAppOrigin, hashGuestToken, signVCardLink } from "../../api-utils";
+import {
+  encodeBase64Url,
+  getPublicAppOrigin,
+  hashGuestToken,
+  isGuestLinkExpired,
+  signVCardLink
+} from "../../api-utils";
 
 const routes = new Hono<{ Bindings: Env }>();
 
@@ -19,7 +25,13 @@ routes.get("/links", async (context) => {
     links: links.results.map((link) => ({
       id: link.id,
       createdAt: link.createdAt,
-      status: link.revokedAt ? "revoked" : link.consumedAt ? "consumed" : "active"
+      status: link.revokedAt
+        ? "revoked"
+        : link.consumedAt
+          ? "consumed"
+          : isGuestLinkExpired(link.createdAt)
+            ? "expired"
+            : "active"
     }))
   });
 });

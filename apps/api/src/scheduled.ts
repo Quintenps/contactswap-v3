@@ -1,7 +1,9 @@
 import type { NotificationJob } from "./api-types";
+import { guestLinkRecordRetentionMilliseconds } from "./api-utils";
 
 export async function runScheduledTasks(environment: Env): Promise<void> {
-  const now = new Date().toISOString();
+  const currentTime = Date.now();
+  const now = new Date(currentTime).toISOString();
   const expiredSubmissions = await environment.DB.prepare(
     "SELECT photo_key FROM guest_submissions WHERE expires_at <= ? AND photo_key IS NOT NULL"
   )
@@ -14,6 +16,13 @@ export async function runScheduledTasks(environment: Env): Promise<void> {
 
   await environment.DB.prepare("DELETE FROM guest_submissions WHERE expires_at <= ?")
     .bind(now)
+    .run();
+
+  const expiredLinksBefore = new Date(
+    currentTime - guestLinkRecordRetentionMilliseconds
+  ).toISOString();
+  await environment.DB.prepare("DELETE FROM guest_links WHERE created_at <= ?")
+    .bind(expiredLinksBefore)
     .run();
 
   const dueJobs = await environment.DB.prepare(

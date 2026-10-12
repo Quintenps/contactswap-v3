@@ -62,8 +62,11 @@ async function createGuestLink(): Promise<{ token: string; linkId: string }> {
   });
   const body = (await response.json()) as { guestUrl: string };
   const token = new URL(body.guestUrl).pathname.split("/").at(-1) as string;
-  const link = await env.DB.prepare("SELECT id FROM guest_links LIMIT 1").first<{ id: string }>();
-  return { token, linkId: link!.id };
+  const resolution = (await (
+    await call(`/api/guest/links/${token}`)
+  ).json()) as { vcardUrl: string };
+  const linkId = resolution.vcardUrl.split("/").at(-2) as string;
+  return { token, linkId };
 }
 
 function submissionForm(body: Record<string, string>): FormData {
@@ -91,6 +94,7 @@ describe("guest URL API flow", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
@@ -123,6 +127,60 @@ describe("guest URL API flow", () => {
     expect(await unknown.json()).toEqual({
       error: { code: "guest_link_not_found", message: "The guest link was not found." }
     });
+  });
+
+  it("expires every guest access path at 24 hours without waiting for scheduled cleanup", async () => {
+    vi.useFakeTimers();
+    const createdAt = new Date("2026-01-01T00:00:00.000Z");
+    vi.setSystemTime(createdAt);
+
+    const beforeResolution = await createGuestLink();
+    const beforePhoto = await createGuestLink();
+    const beforeVCard = await createGuestLink();
+    const beforeSubmission = await createGuestLink();
+    const expiredResolution = await createGuestLink();
+    const expiredPhoto = await createGuestLink();
+    const expiredVCard = await createGuestLink();
+    const expiredSubmission = await createGuestLink();
+
+    const photoKey = `owner-profile/expiry-${crypto.randomUUID()}.jpg`;
+    await env.PHOTOS.put(photoKey, new Uint8Array([0xff, 0xd8, 0xff, 0xd9]), {
+      httpMetadata: { contentType: "image/jpeg" }
+    });
+    await env.DB.prepare("UPDATE owner_profile SET photo_key = ? WHERE id = 1")
+      .bind(photoKey)
+      .run();
+
+    const beforePhotoResolution = (await (
+      await call(`/api/guest/links/${beforePhoto.token}`)
+    ).json()) as { profilePhotoUrl: string };
+    const beforeVCardResolution = (await (
+      await call(`/api/guest/links/${beforeVCard.token}`)
+    ).json()) as { vcardUrl: string };
+    const expiredPhotoResolution = (await (
+      await call(`/api/guest/links/${expiredPhoto.token}`)
+    ).json()) as { profilePhotoUrl: string };
+    const expiredVCardResolution = (await (
+      await call(`/api/guest/links/${expiredVCard.token}`)
+    ).json()) as { vcardUrl: string };
+
+    vi.setSystemTime(new Date(createdAt.getTime() + 24 * 60 * 60 * 1000 - 1));
+    expect((await call(`/api/guest/links/${beforeResolution.token}`)).status).toBe(200);
+    expect((await call(beforePhotoResolution.profilePhotoUrl)).status).toBe(200);
+    expect((await call(beforeVCardResolution.vcardUrl)).status).toBe(200);
+    expect((await submit(beforeSubmission.token)).status).toBe(201);
+
+    vi.setSystemTime(new Date(createdAt.getTime() + 24 * 60 * 60 * 1000));
+    expect((await call(`/api/guest/links/${expiredResolution.token}`)).status).toBe(410);
+    expect((await call(expiredPhotoResolution.profilePhotoUrl)).status).toBe(404);
+    expect((await call(expiredVCardResolution.vcardUrl)).status).toBe(404);
+    expect((await submit(expiredSubmission.token)).status).toBe(410);
+
+    vi.setSystemTime(new Date(createdAt.getTime() + 24 * 60 * 60 * 1000 + 1));
+    expect((await call(`/api/guest/links/${expiredResolution.token}`)).status).toBe(410);
+    expect((await submit(expiredSubmission.token)).status).toBe(410);
+
+    await env.PHOTOS.delete(photoKey);
   });
 
   it("serves the profile photo only while its guest link is active", async () => {
@@ -530,6 +588,78 @@ describe("guest URL API flow", () => {
       env.PHOTOS.delete(activePhotoKey),
       env.PHOTOS.delete(ownerPhotoKey)
     ]);
+  });
+
+  it("deletes links at 48 hours without deleting their still-retained submissions", async () => {
+    const oldLink = await createGuestLink();
+    expect((await submit(oldLink.token)).status).toBe(201);
+
+    const photoKey = `guest-submissions/retained-${crypto.randomUUID()}.jpg`;
+    await env.PHOTOS.put(photoKey, "retained guest photo");
+    await env.DB.prepare("UPDATE guest_submissions SET photo_key = ? WHERE link_id = ?")
+      .bind(photoKey, oldLink.linkId)
+      .run();
+    const cleanupCutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+    await env.DB.prepare("UPDATE guest_links SET created_at = ? WHERE id = ?")
+      .bind(cleanupCutoff, oldLink.linkId)
+      .run();
+    expect(
+      await env.DB.prepare("SELECT created_at FROM guest_links WHERE id = ?")
+        .bind(oldLink.linkId)
+        .first()
+    ).toEqual({ created_at: cleanupCutoff });
+    await env.DB.prepare("UPDATE notification_outbox SET next_attempt_at = ?")
+      .bind(new Date(Date.now() + 60 * 60 * 1000).toISOString())
+      .run();
+
+    const youngerLink = await createGuestLink();
+    await env.DB.prepare("UPDATE guest_links SET created_at = ? WHERE id = ?")
+      .bind(
+        new Date(Date.parse(cleanupCutoff) + 60 * 1000).toISOString(),
+        youngerLink.linkId
+      )
+      .run();
+
+    const linksDueForCleanup = await env.DB.prepare(
+      "SELECT id FROM guest_links WHERE created_at <= ?"
+    )
+      .bind(cleanupCutoff)
+      .all<{ id: string }>();
+    expect(linksDueForCleanup.results.map(({ id }) => id)).toContain(oldLink.linkId);
+
+    await runScheduledTasks(testEnv);
+
+    expect(
+      await env.DB.prepare("SELECT id FROM guest_links WHERE id = ?").bind(oldLink.linkId).first()
+    ).toBeNull();
+    expect(
+      await env.DB.prepare("SELECT id FROM guest_links WHERE id = ?")
+        .bind(youngerLink.linkId)
+        .first()
+    ).not.toBeNull();
+    expect(
+      await env.DB.prepare("SELECT id FROM guest_submissions WHERE link_id = ?")
+        .bind(oldLink.linkId)
+        .first()
+    ).not.toBeNull();
+    expect(await env.DB.prepare("SELECT id FROM notification_outbox").first()).not.toBeNull();
+    expect(await env.PHOTOS.get(photoKey)).not.toBeNull();
+
+    const ownerSubmissions = (await (
+      await call("/api/owner/submissions", {
+        headers: { Authorization: "Bearer " + adminToken }
+      })
+    ).json()) as { submissions: { id: string }[] };
+    expect(ownerSubmissions.submissions).toHaveLength(1);
+
+    await runScheduledTasks(testEnv);
+    expect(
+      await env.DB.prepare("SELECT id FROM guest_links WHERE id = ?").bind(oldLink.linkId).first()
+    ).toBeNull();
+    expect(await env.DB.prepare("SELECT id FROM guest_submissions").first()).not.toBeNull();
+    expect(await env.DB.prepare("SELECT id FROM notification_outbox").first()).not.toBeNull();
+
+    await env.PHOTOS.delete(photoKey);
   });
 
   it("returns unavailable for revoked and consumed vCard links", async () => {

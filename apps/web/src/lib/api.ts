@@ -65,7 +65,10 @@ export function isGuestLinkList(value: unknown): value is { links: GuestLink[] }
     return (
       typeof candidate.id === "string" &&
       typeof candidate.createdAt === "string" &&
-      (candidate.status === "active" || candidate.status === "consumed" || candidate.status === "revoked")
+      (candidate.status === "active" ||
+        candidate.status === "consumed" ||
+        candidate.status === "revoked" ||
+        candidate.status === "expired")
     );
   });
 }

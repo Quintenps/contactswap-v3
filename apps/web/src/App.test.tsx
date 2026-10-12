@@ -564,7 +564,8 @@ describe("owner profile frontend", () => {
     const links = [
       { id: "00000000-0000-4000-8000-000000000001", createdAt: "2026-10-06T12:00:00.000Z", status: "active" },
       { id: "00000000-0000-4000-8000-000000000002", createdAt: "2026-10-05T12:00:00.000Z", status: "consumed" },
-      { id: "00000000-0000-4000-8000-000000000003", createdAt: "2026-10-04T12:00:00.000Z", status: "revoked" }
+      { id: "00000000-0000-4000-8000-000000000003", createdAt: "2026-10-04T12:00:00.000Z", status: "revoked" },
+      { id: "00000000-0000-4000-8000-000000000004", createdAt: "2026-10-03T12:00:00.000Z", status: "expired" }
     ];
     const fetchMock = installFetch(async (url) => {
       if (url === "/api/owner/links") return response({ links });
@@ -579,6 +580,7 @@ describe("owner profile frontend", () => {
     expect(document.querySelector(".status-active")?.textContent).toBe("Active");
     expect(document.querySelector(".status-consumed")?.textContent).toBe("Used");
     expect(document.querySelector(".status-revoked")?.textContent).toBe("Revoked");
+    expect(document.querySelector(".status-expired")?.textContent).toBe("Expired");
     expect([...document.querySelectorAll(".link-card code")].map((item) => item.textContent)).toEqual(links.map((link) => link.id));
     expect(document.querySelectorAll(".link-card .danger-button")).toHaveLength(1);
     expect(fetchMock.mock.calls.some(([url, init]) => url === "/api/owner/links" && init?.cache === "no-store")).toBe(true);

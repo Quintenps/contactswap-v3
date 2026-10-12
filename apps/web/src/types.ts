@@ -18,7 +18,7 @@ export type Profile = Omit<ProfileFields, "org" | "title"> & {
   hasPhoto: boolean;
 };
 export type FieldName = keyof ProfileFields;
-export type LinkStatus = "active" | "consumed" | "revoked";
+export type LinkStatus = "active" | "consumed" | "revoked" | "expired";
 export type GuestLink = { id: string; createdAt: string; status: LinkStatus };
 export type OwnerSubmission = { id: string; name: string; createdAt: string; expiresAt: string };
 export type GuestPageState =

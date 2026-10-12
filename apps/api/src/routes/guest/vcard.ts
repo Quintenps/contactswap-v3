@@ -1,11 +1,12 @@
 import { Hono } from "hono";
 import type { StoredOwnerProfile } from "../../api-types";
-import { getPhoto, isValidPhone } from "../../api-utils";
+import { getPhoto, guestLinkActiveAfter, isValidPhone } from "../../api-utils";
 import { renderVCard, vCardDownloadFilename } from "../../vcard";
 
 const routes = new Hono<{ Bindings: Env }>();
 
 routes.get("/profile-photo/:linkId/:signature", async (context) => {
+  const activeAfter = guestLinkActiveAfter();
   const profile = await context.env.DB.prepare(
     `SELECT owner_profile.photo_key
      FROM guest_links
@@ -13,9 +14,10 @@ routes.get("/profile-photo/:linkId/:signature", async (context) => {
      WHERE guest_links.id = ?
        AND guest_links.vcard_signature = ?
        AND guest_links.consumed_at IS NULL
-       AND guest_links.revoked_at IS NULL`
+       AND guest_links.revoked_at IS NULL
+       AND guest_links.created_at > ?`
   )
-    .bind(context.req.param("linkId"), context.req.param("signature"))
+    .bind(context.req.param("linkId"), context.req.param("signature"), activeAfter)
     .first<{ photo_key: string | null }>();
 
   if (!profile?.photo_key) {
@@ -41,6 +43,7 @@ routes.get("/profile-photo/:linkId/:signature", async (context) => {
 });
 
 routes.get("/vcard/:linkId/:signature", async (context) => {
+  const activeAfter = guestLinkActiveAfter();
   const profile = await context.env.DB.prepare(
     `SELECT owner_profile.first_name AS firstName,
             owner_profile.last_name AS lastName, owner_profile.email,
@@ -53,9 +56,10 @@ routes.get("/vcard/:linkId/:signature", async (context) => {
      WHERE guest_links.id = ?
        AND guest_links.vcard_signature = ?
        AND guest_links.consumed_at IS NULL
-       AND guest_links.revoked_at IS NULL`
+       AND guest_links.revoked_at IS NULL
+       AND guest_links.created_at > ?`
   )
-    .bind(context.req.param("linkId"), context.req.param("signature"))
+    .bind(context.req.param("linkId"), context.req.param("signature"), activeAfter)
     .first<StoredOwnerProfile>();
 
   if (!profile) {
@@ -76,12 +80,14 @@ routes.get("/vcard/:linkId/:signature", async (context) => {
   const vcard = renderVCard(profile, photo);
   const consumed = await context.env.DB.prepare(
     `UPDATE guest_links SET consumed_at = ?
-     WHERE id = ? AND vcard_signature = ? AND consumed_at IS NULL AND revoked_at IS NULL`
+     WHERE id = ? AND vcard_signature = ? AND consumed_at IS NULL AND revoked_at IS NULL
+       AND created_at > ?`
   )
     .bind(
       new Date().toISOString(),
       context.req.param("linkId"),
-      context.req.param("signature")
+      context.req.param("signature"),
+      guestLinkActiveAfter()
     )
     .run();
 

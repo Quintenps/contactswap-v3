@@ -2,7 +2,9 @@ import { Hono } from "hono";
 import { PhotoRequestError, optimizeProfilePhoto, photoLimits, readPhotoBody } from "../../photo";
 import type { GuestSubmission } from "../../api-types";
 import {
+  guestLinkActiveAfter,
   hashGuestToken,
+  isGuestLinkExpired,
   retentionMilliseconds,
   validateGuestSubmission,
   type ProfileFieldErrors
@@ -116,13 +118,14 @@ routes.post("/links/:token/submissions", async (context) => {
 
   const tokenHash = await hashGuestToken(context.req.param("token"));
   const link = await context.env.DB.prepare(
-    `SELECT guest_links.id, guest_links.consumed_at, guest_links.revoked_at,
+    `SELECT guest_links.id, guest_links.created_at, guest_links.consumed_at, guest_links.revoked_at,
             guest_links.submitted_at
      FROM guest_links WHERE guest_links.token_hash = ?`
   )
     .bind(tokenHash)
     .first<{
       id: string;
+      created_at: string;
       consumed_at: string | null;
       revoked_at: string | null;
       submitted_at: string | null;
@@ -133,7 +136,12 @@ routes.post("/links/:token/submissions", async (context) => {
       404
     );
   }
-  if (link.consumed_at || link.revoked_at || link.submitted_at) {
+  if (
+    link.consumed_at ||
+    link.revoked_at ||
+    link.submitted_at ||
+    isGuestLinkExpired(link.created_at)
+  ) {
     return context.json(
       { error: { code: "guest_link_unavailable", message: "The guest link is no longer available." } },
       410
@@ -193,13 +201,16 @@ routes.post("/links/:token/submissions", async (context) => {
   const photoKey = optimizedPhoto ? `guest-submissions/${crypto.randomUUID()}.jpg` : null;
   let inserted = 0;
 
+  let photoStored = false;
   try {
     if (photoKey && optimizedPhoto) {
       await context.env.PHOTOS.put(photoKey, optimizedPhoto, {
         httpMetadata: { contentType: "image/jpeg" }
       });
+      photoStored = true;
     }
 
+    const activeAfter = guestLinkActiveAfter();
     const results = await context.env.DB.batch([
       context.env.DB.prepare(
         `INSERT INTO guest_submissions
@@ -208,7 +219,7 @@ routes.post("/links/:token/submissions", async (context) => {
          SELECT ?, id, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
          FROM guest_links
          WHERE token_hash = ? AND consumed_at IS NULL AND revoked_at IS NULL
-           AND submitted_at IS NULL`
+           AND submitted_at IS NULL AND created_at > ?`
       ).bind(
         submissionId,
         submission.firstName,
@@ -225,7 +236,8 @@ routes.post("/links/:token/submissions", async (context) => {
         photoKey,
         now,
         expiresAt,
-        tokenHash
+        tokenHash,
+        activeAfter
       ),
       context.env.DB.prepare(
         `UPDATE guest_links SET submitted_at = ?
@@ -240,11 +252,13 @@ routes.post("/links/:token/submissions", async (context) => {
     inserted = results[0].meta.changes;
   } catch {
     const link = await context.env.DB.prepare(
-      `SELECT guest_links.consumed_at, guest_links.revoked_at, guest_links.submitted_at
+      `SELECT guest_links.created_at, guest_links.consumed_at, guest_links.revoked_at,
+              guest_links.submitted_at
        FROM guest_links WHERE guest_links.token_hash = ?`
     )
       .bind(tokenHash)
       .first<{
+        created_at: string;
         consumed_at: string | null;
         revoked_at: string | null;
         submitted_at: string | null;
@@ -256,7 +270,12 @@ routes.post("/links/:token/submissions", async (context) => {
         404
       );
     }
-    if (link.consumed_at || link.revoked_at || link.submitted_at) {
+    if (
+      link.consumed_at ||
+      link.revoked_at ||
+      link.submitted_at ||
+      isGuestLinkExpired(link.created_at)
+    ) {
       return context.json(
         { error: { code: "guest_link_unavailable", message: "The guest link is no longer available." } },
         410
@@ -266,13 +285,18 @@ routes.post("/links/:token/submissions", async (context) => {
   }
 
   if (inserted !== 1) {
+    if (photoStored && photoKey) {
+      await context.env.PHOTOS.delete(photoKey);
+    }
     const link = await context.env.DB.prepare(
-      `SELECT guest_links.id, guest_links.consumed_at, guest_links.revoked_at, guest_links.submitted_at
+      `SELECT guest_links.id, guest_links.created_at, guest_links.consumed_at,
+              guest_links.revoked_at, guest_links.submitted_at
        FROM guest_links WHERE guest_links.token_hash = ?`
     )
       .bind(tokenHash)
       .first<{
         id: string;
+        created_at: string;
         consumed_at: string | null;
         revoked_at: string | null;
         submitted_at: string | null;

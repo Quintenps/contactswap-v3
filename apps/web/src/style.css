@@ -1260,6 +1260,12 @@ input[type="file"]::file-selector-button {
   color: #923b31;
 }
 
+.status-expired {
+  border-color: #eadcae;
+  background: #fff9e8;
+  color: #6e5a18;
+}
+
 @media (max-width: 560px) {
   .welcome-shell {
     width: min(100% - 32px, 560px);
