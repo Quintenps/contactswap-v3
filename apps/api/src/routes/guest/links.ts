@@ -1,12 +1,13 @@
 import { Hono } from "hono";
-import { formatDisplayName, hashGuestToken } from "../../api-utils";
+import { formatDisplayName, hashGuestToken, isGuestLinkExpired } from "../../api-utils";
 
 const routes = new Hono<{ Bindings: Env }>();
 
 routes.get("/links/:token", async (context) => {
   const tokenHash = await hashGuestToken(context.req.param("token"));
   const link = await context.env.DB.prepare(
-    `SELECT guest_links.id, guest_links.vcard_signature, guest_links.consumed_at, guest_links.revoked_at,
+    `SELECT guest_links.id, guest_links.vcard_signature, guest_links.created_at,
+            guest_links.consumed_at, guest_links.revoked_at,
             guest_links.submitted_at,
             owner_profile.first_name AS owner_first_name,
             owner_profile.last_name AS owner_last_name, owner_profile.photo_key
@@ -18,6 +19,7 @@ routes.get("/links/:token", async (context) => {
     .first<{
       id: string;
       vcard_signature: string;
+      created_at: string;
       consumed_at: string | null;
       revoked_at: string | null;
       submitted_at: string | null;
@@ -32,7 +34,7 @@ routes.get("/links/:token", async (context) => {
       404
     );
   }
-  if (link.consumed_at || link.revoked_at) {
+  if (link.consumed_at || link.revoked_at || isGuestLinkExpired(link.created_at)) {
     return context.json(
       { error: { code: "guest_link_unavailable", message: "The guest link is no longer available." } },
       410

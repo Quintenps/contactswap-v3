@@ -87,6 +87,7 @@ function guestSubmissionForm(): FormData {
 
 describe("owner guest-link API", () => {
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
@@ -251,6 +252,36 @@ describe("owner guest-link API", () => {
     const unauthorized = await call("/api/owner/links", {}, null);
     expect(unauthorized.status).toBe(401);
     expect(unauthorized.headers.get("Cache-Control")).toBe("no-store");
+  });
+
+  it("reports expired links using their original creation time and preserves consumed or revoked states", async () => {
+    vi.useFakeTimers();
+    const now = new Date("2026-10-12T12:00:00.000Z");
+    vi.setSystemTime(now);
+    const expiredLink = await createGuestLink();
+    const consumedLink = await createGuestLink();
+    const revokedLink = await createGuestLink();
+
+    const expiredAt = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+    await env.DB.prepare("UPDATE guest_links SET created_at = ? WHERE id = ?")
+      .bind(expiredAt, expiredLink.id)
+      .run();
+    await env.DB.prepare("UPDATE guest_links SET created_at = ?, consumed_at = ? WHERE id = ?")
+      .bind(expiredAt, now.toISOString(), consumedLink.id)
+      .run();
+    await env.DB.prepare("UPDATE guest_links SET created_at = ?, revoked_at = ? WHERE id = ?")
+      .bind(expiredAt, now.toISOString(), revokedLink.id)
+      .run();
+
+    const response = await call("/api/owner/links");
+    const body = (await response.json()) as {
+      links: { id: string; status: string }[];
+    };
+    const statusById = new Map(body.links.map((link) => [link.id, link.status]));
+
+    expect(statusById.get(expiredLink.id)).toBe("expired");
+    expect(statusById.get(consumedLink.id)).toBe("consumed");
+    expect(statusById.get(revokedLink.id)).toBe("revoked");
   });
 
   it("revokes a link, blocks its guest flow, and safely handles repeated revocation", async () => {

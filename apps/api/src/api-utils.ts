@@ -5,6 +5,20 @@ import type {
 
 const encoder = new TextEncoder();
 export const retentionMilliseconds = 48 * 60 * 60 * 1000;
+export const guestLinkLifetimeMilliseconds = 24 * 60 * 60 * 1000;
+export const guestLinkRecordRetentionMilliseconds = 48 * 60 * 60 * 1000;
+
+export function isGuestLinkExpired(createdAt: string, now = Date.now()): boolean {
+  const createdAtMilliseconds = Date.parse(createdAt);
+  return (
+    !Number.isFinite(createdAtMilliseconds) ||
+    createdAtMilliseconds + guestLinkLifetimeMilliseconds <= now
+  );
+}
+
+export function guestLinkActiveAfter(now = Date.now()): string {
+  return new Date(now - guestLinkLifetimeMilliseconds).toISOString();
+}
 
 export async function getPhoto(
   environment: Env,

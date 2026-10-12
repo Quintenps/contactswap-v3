@@ -21,7 +21,7 @@ People's contact details change over time, including addresses, email addresses,
 The following decisions are resolved for this version:
 
 - Each guest link supports guest form submission and has its own signed URL for accessing Quinten's current vCard 3.0; there is no public profile URL.
-- A signed vCard URL is unique to and valid only for its associated guest link. It is revoked when that link is manually deleted or consumed by a successful card download; it does not expire by age while the link remains active.
+- A signed vCard URL is unique to and valid only for its associated guest link. It expires 24 hours after link creation and is also revoked when that link is manually deleted or consumed by a successful card download.
 - After a guest submits the form, Quinten receives a notification that a form was completed.
 - Quinten then opens the authorized owner page, where he can click Download to generate and download a vCard from the database record.
 - Quinten is the only profile owner.
@@ -32,7 +32,7 @@ The following decisions are resolved for this version:
 - Downloaded vCards use a personal `firstname-lastname.vcf` filename derived from the card owner's first and last names.
 - Guest submissions and any associated stored files are retained for 48 hours from successful submission, then deleted automatically.
 - Before submitting, guests are told that their submitted contact details and optional picture are stored for 48 hours and then automatically deleted.
-- Links do not expire by age; they can be manually deleted and are consumed after the first successful card download. A link accepts at most one successful guest submission.
+- Guest links expire 24 hours after creation and their records are automatically deleted after 48 hours. They can also be manually deleted and are consumed after the first successful card download. A link accepts at most one successful guest submission.
 - The frontend welcome page is at `/`, with a cheerful, animated introduction and an owner-profile button shown only when the owner is authenticated. Owner pages are at `/quinten`, `/quinten/links`, and `/quinten/submissions`; shareable guest links are at `/token/{token}`. The owner link-creation API returns the absolute guest URL in that form.
 
 ## 5. Proposed solution
@@ -72,7 +72,7 @@ The system is web-based, mobile-first, and deployed on Cloudflare Pages. vCard 3
 - Guest submissions and related stored files are deleted after 48 hours.
 - Quinten receives a webhook notification after a successful guest submission.
 - Quinten can open the authorized owner page and click Download to generate a vCard from the stored guest database record.
-- Shared links and their signed vCard URLs do not expire by age. Quinten can delete a link, and each link and its signed vCard URL are revoked after its first successful card download.
+- Shared links and their signed vCard URLs expire 24 hours after link creation. Link records are automatically deleted after 48 hours. Quinten can delete a link, and each link and its signed vCard URL are revoked after its first successful card download.
 - The combined guest action submits the form first and downloads Quinten's card only after a successful submission. After the card is downloaded, the guest sees a thank-you page.
 - A successful submission prevents further submissions through that link but leaves its signed vCard URL available until the card download succeeds. The guest can retry the card download without submitting again.
 - The guest may download the card without submitting; a successful card download consumes the link.
@@ -141,7 +141,7 @@ The system is web-based, mobile-first, and deployed on Cloudflare Pages. vCard 3
 ## 12. Constraints and risks
 
 - Contact data is personal and potentially sensitive, including address, birthday, and picture data.
-- Shared links do not expire by age, are consumed by a successful card download, and may be manually deleted.
+- Shared links expire after 24 hours, are deleted after 48 hours, are consumed by a successful card download, and may be manually deleted.
 - Guest submissions and generated vCards must be protected and access-controlled.
 - The product should stay within Cloudflare free-tier services by default unless usage demands a small paid plan.
 - This is a hobby project, so the scope should remain practical, lightweight, and easy to maintain.
@@ -158,7 +158,7 @@ The system is web-based, mobile-first, and deployed on Cloudflare Pages. vCard 3
 - Quinten can open the authorized owner page and generate/download a vCard 3.0 from the stored guest data.
 - Quinten can update his own profile through the secret-authorized page without a full account system.
 - Guest submissions are stored in a database, generate a vCard 3.0 for Quinten, trigger a webhook notification, and are deleted after 48 hours.
-- Shared links can be manually deleted and are consumed after the first successful card download. A successful submission can be followed by a retryable card download.
+- Shared links expire after 24 hours and are deleted after 48 hours. They can be manually deleted and are consumed after the first successful card download. A successful submission can be followed by a retryable card download.
 - Quinten's vCard is not publicly accessible; each guest link provides only its own revocable signed URL to the current card.
 - The web app deploys successfully to Cloudflare Pages.
 - The project remains simple, reliable, and easy to maintain as a personal-use tool.
